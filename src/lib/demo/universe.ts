@@ -287,7 +287,8 @@ function simulateFootballMatch(ev: EventSim, lambda: { home: number; away: numbe
       for (const side of ["home", "away"] as const) {
         const lam = (side === "home" ? lambda.home : lambda.away) * Math.pow(0.7, reds[side]);
         const name = side === "home" ? homeName : awayName;
-        if (rng.chance(lam / 90)) {
+        // Spread the expected goals over the full playing time so results follow the true probabilities.
+        if (rng.chance(lam / total)) {
           score[side]++;
           events.push({ eventId: ev.event.id, minute, kind: "goal", team: side, description: `Goal, ${name}` });
         } else if (rng.chance(2.6 / 90)) {
@@ -428,8 +429,9 @@ export function buildEvent(spec: EventSpec): EventSim {
   for (const m of markets) {
     const shared = m.selections.map((s) => {
       let bias = rng.normal(0, release.noise * 0.85);
-      // Deliberate weakness for the Model Lab to find: Bundesliga away sides priced 3.0-4.5.
-      if (spec.leagueId === "bundesliga" && m.market.type === "1X2" && s.selection.id.endsWith("-away") && s.truth > 0.22 && s.truth < 0.34) bias -= 0.24;
+      // Deliberate weakness for the Model Lab to find: football draws are
+      // overestimated. v1.4's recalibration shrinks the error but does not remove it.
+      if (spec.sportId === "football" && m.market.type === "1X2" && s.selection.id.endsWith("-draw")) bias += release.version === "1.4" ? 0.2 : 0.4;
       return bias;
     });
     const components = COMPONENT_MODELS.map((c) => {

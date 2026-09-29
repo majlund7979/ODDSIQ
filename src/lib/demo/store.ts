@@ -133,15 +133,30 @@ export interface LedgerRow {
   prediction: Prediction;
   event: ReturnType<typeof eventView>;
   marketName: string;
+  marketType: MarketSim["market"]["type"];
+  /** Selection key within its market: home, draw, away, over, under, yes, no. */
+  side: string;
   selectionName: string;
   bookmakerName: string;
   status: "pending" | "closed" | "settled";
   closingOdds?: number;
+  closingFairProbability?: number;
   result?: "won" | "lost" | "void";
   clv?: number;
 }
 
+let rowsCache: { at: number; rows: LedgerRow[] } | null = null;
+
+/** Ledger rows with outcomes, snapped to the feed tick so heavy pages share one computation. */
 export function ledgerRows(now: number): LedgerRow[] {
+  const at = feedTime(now);
+  if (rowsCache?.at === at) return rowsCache.rows;
+  const rows = buildLedgerRows(at);
+  rowsCache = { at, rows };
+  return rows;
+}
+
+function buildLedgerRows(now: number): LedgerRow[] {
   const u = getUniverse(now);
   return visibleLedger(now).map((p) => {
     const ev = u.byId.get(p.eventId)!;
@@ -152,10 +167,13 @@ export function ledgerRows(now: number): LedgerRow[] {
       prediction: p,
       event: eventView(ev, now),
       marketName: m.market.name,
+      marketType: m.market.type,
+      side: s.selection.id.slice(m.market.id.length + 1),
       selectionName: s.selection.name,
       bookmakerName: BOOKMAKERS.find((b) => b.id === p.bookmakerId)?.name ?? p.bookmakerId,
       status: o.status,
       closingOdds: o.closingOdds,
+      closingFairProbability: o.closingFairProbability,
       result: o.result,
       clv: o.closingFairProbability !== undefined ? clv(p.odds, o.closingFairProbability) : undefined,
     };

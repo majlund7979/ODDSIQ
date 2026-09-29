@@ -39,7 +39,8 @@ src/lib/metrics/   Pure, tested metric functions: de-vig, edge, EV, CLV, Brier, 
                    data quality, flat-stake simulation. Aggregates carry n / period / source.
 src/lib/ledger/    Hash-chained, append-only prediction ledger + verification.
 src/lib/demo/      DEMO_MODE universe: deterministic per-day schedule, price paths per
-                   bookmaker, model ensemble, match simulation, results, read model.
+                   bookmaker, model ensemble, match simulation, results, read model,
+                   and ledger analytics (segments, error scan, drift, backtests, CLV).
 src/lib/data.ts    Data entry point (DEMO_MODE switch).
 prisma/            Postgres schema, migrations (incl. ledger immutability triggers), seed.
 ```
@@ -50,7 +51,7 @@ Events are generated per UTC day from 5 Jan 2026, each seeded by its own id, so 
 
 As of late September 2026 it contains ~2,900 events across 12 leagues in 5 sports, 10 fictional bookmakers, ~13,000 ledger predictions from 6 model versions, closing prices, results, CLV, news-driven price moves, and minute-by-minute live matches. Team names are real clubs; every rating, price and result is synthetic.
 
-Built in on purpose, so later Model Lab work has something real to find: the model is systematically too pessimistic about Bundesliga away sides priced around 3.00–4.50, and v1.4 scores better (lower Brier score) than v1.2.
+Built in on purpose, so the Model Lab has something real to find: the model overestimates draws in football 1X2 markets (v1.4's recalibration shrinks the error in the generator but does not remove it), and v1.4 scores better (lower Brier score) than v1.2. The Error Analysis page finds the draw pattern, and its mirror image in home wins, without being told where to look.
 
 ### Prediction ledger integrity
 
@@ -65,6 +66,9 @@ Built in on purpose, so later Model Lab work has something real to find: the mod
 - **CLV** = odds at prediction × de-vigged closing probability − 1.
 - **Estimated market pressure**: size of move (30%), velocity (25%), bookmaker breadth (25%), relative volatility (10%), time to kickoff (10%). No volume data is used unless a feed supplies it.
 - **Confidence**: reduced by the ensemble's uncertainty width, disagreement between component models and data-quality gaps. It is not a win probability.
+- **Error patterns**: fixed segment combinations (selection type, league, odds range, market, confidence) are tested only with n ≥ 200 settled predictions, and reported only when the gap between observed and predicted win rate clears a Bonferroni-corrected z threshold (5% family-wise error).
+- **Drift**: the last 28 days of settled predictions against the 84 days before: Brier gap to the closing market, calibration bias on favourites, CLV (z-tests) and the prediction distribution (PSI).
+- **Backtests** replay the ledger with the model version that was live at the time; only the published rule (EV ≥ 3%, confidence ≥ 50) was fixed in advance. All staking figures are simulated.
 - Definitions are also shown in the UI next to each metric.
 
 ## Real data (phase 9)
