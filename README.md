@@ -69,6 +69,9 @@ Built in on purpose, so the Model Lab has something real to find: the model over
 - **Error patterns**: fixed segment combinations (selection type, league, odds range, market, confidence) are tested only with n ≥ 200 settled predictions, and reported only when the gap between observed and predicted win rate clears a Bonferroni-corrected z threshold (5% family-wise error).
 - **Drift**: the last 28 days of settled predictions against the 84 days before: Brier gap to the closing market, calibration bias on favourites, CLV (z-tests) and the prediction distribution (PSI).
 - **Backtests** replay the ledger with the model version that was live at the time; only the published rule (EV ≥ 3%, confidence ≥ 50) was fixed in advance. All staking figures are simulated.
+- **Sharp movement**: consensus price moved ≥ 8% since opening with ≥ 60% of quoting bookmakers moving the same way. **Reverse line movement**: the opening favourite drifted ≥ 5% with the same breadth; in DEMO_MODE favourite status is the only public indicator, since no betting-percentage data exists. Neither detector claims a cause; possible explanations are listed separately.
+- **Market efficiency score** (an ODDSIQ definition, not an objective truth): 60% closing accuracy (Brier skill of the closing price over each selection type's base rate, ÷ 0.15, capped) + 40% late stability (1 − average 6-hour pre-kickoff probability change ÷ 3 pp).
+- **Alerts** are derived from price paths, news items, ledgered predictions and live match events over the last 24 hours; each rule is listed on `/markets/alerts`.
 - Definitions are also shown in the UI next to each metric.
 
 ## Real data (phase 9)

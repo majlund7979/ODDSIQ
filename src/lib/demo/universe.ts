@@ -201,7 +201,13 @@ interface EventSpec {
 }
 
 const ROLES_FOOTBALL = ["first-choice striker", "starting goalkeeper", "captain", "first-choice centre-back", "creative midfielder"];
-const ROLES_OTHER = ["leading scorer", "starting point guard", "top-line forward", "starting quarterback", "key rotation player"];
+const ROLES: Record<SportId, string[]> = {
+  football: ROLES_FOOTBALL,
+  basketball: ["leading scorer", "starting point guard", "starting centre", "sixth man", "key rotation player"],
+  "american-football": ["starting quarterback", "lead running back", "top wide receiver", "starting left tackle", "defensive captain"],
+  "ice-hockey": ["starting goaltender", "top-line forward", "leading scorer", "top-pair defenceman", "captain"],
+  tennis: ["", "", "", "", ""],
+};
 
 function marketDefs(sportId: SportId, home: string, away: string): { type: MarketType; name: string; selections: { key: string; name: string }[] }[] {
   if (sportId === "football") {
@@ -377,7 +383,7 @@ export function buildEvent(spec: EventSpec): EventSim {
   const homeRises = sigmoid(lead[0].closeLogit) > sigmoid(lead[0].openLogit);
   const news: NewsItem[] = [];
   const count = rng.weighted([{ item: 0, weight: 0.35 }, { item: 1, weight: 0.45 }, { item: 2, weight: 0.2 }]);
-  const roles = spec.sportId === "football" ? ROLES_FOOTBALL : ROLES_OTHER;
+  const roles = ROLES[spec.sportId];
   for (let i = 0; i < count; i++) {
     const at = Math.round(rng.range(openAt + 6 * HOUR, spec.kickoff - 1.5 * HOUR) / MIN) * MIN;
     const good = rng.chance(0.3);
@@ -386,7 +392,12 @@ export function buildEvent(spec: EventSpec): EventSim {
     const role = rng.pick(roles);
     const kind = good ? "return" : rng.pick(["injury", "suspension", "rotation"] as const);
     const text =
-      kind === "return" ? `${team} ${role} returns to full training`
+      spec.sportId === "tennis"
+        ? kind === "return" ? `${team} reports no issues after practice`
+          : kind === "injury" ? `${team} receiving treatment for a minor injury`
+          : kind === "suspension" ? `${team} arrives late after a long previous match`
+          : `${team} reported to be managing workload`
+      : kind === "return" ? `${team} ${role} returns to full training`
       : kind === "injury" ? `${team} ${role} ruled out with injury`
       : kind === "suspension" ? `${team} ${role} confirmed suspended`
       : `${team} expected to rotate ahead of a midweek fixture`;

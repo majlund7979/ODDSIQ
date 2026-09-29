@@ -1,5 +1,6 @@
 import { Ago } from "@/components/Clock";
 import { MarketTable } from "@/components/MarketTable";
+import { MarketsNav } from "@/components/MarketsNav";
 import { Badge, PageHeader, Panel, Tip } from "@/components/ui";
 import { requestNow } from "@/lib/data";
 import { feedTime, marketRows } from "@/lib/demo/store";
@@ -38,6 +39,7 @@ export default async function MarketsPage({ searchParams }: { searchParams: Prom
           </div>
         }
       />
+      <MarketsNav active="terminal" />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
           ["Markets tracked", rows.length],
