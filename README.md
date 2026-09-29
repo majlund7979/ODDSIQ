@@ -32,6 +32,9 @@ Keyboard: `⌘K` / `Ctrl+K` command palette, `/` search, `M` markets, `V` value 
 - **Live Markets** (`/live`): three-pane in-play terminal. Live matches and matches starting soon on the left; score, minute, in-play probability and odds charts with goals and red cards pinned, probability movement since kickoff, live statistics and the event timeline in the centre; a templated Market Intelligence summary on the right.
 - **Market Replay** (`/market-replay`): pick sport, league, date and a finished match, then scrub or play its main market from opening to full time with news, lineups, the ledgered prediction, match events, closing odds, result and CLV.
 - **Matches** (`/matches`): fixtures, live matches and results with a "What changed?" summary per match.
+- **AI Analyst** (`/ai-analyst`): ask about a team, a head-to-head comparison, price moves, model-market differences, your watchlist or the weekly report, plus market commentary on the largest current differences. Answers are rule-based from ODDSIQ's own data; no language model is connected yet.
+- **Weekly Model Report** (`/model-lab/report`): performance, market accuracy, calibration, CLV, largest errors, strongest and weakest segments, drift, data quality and areas for investigation, phrased as "potential issue detected" with sample sizes.
+- **Watchlist** (`/watchlist`) with **My Market Assistant**, and **My Bets** (`/my-bets`) for tracked prices with CLV and results. Watch buttons sit on every market page; `/watch Arsenal` works in the command bar. Until accounts exist (phase 9) this state lives in cookies in the user's browser.
 - Roadmap pages for the remaining sections, labelled with their phase. See [docs/build-plan.md](docs/build-plan.md).
 
 ## Architecture
@@ -77,6 +80,8 @@ Built in on purpose, so the Model Lab has something real to find: the model over
 - **Alerts** are derived from price paths, news items, ledgered predictions and live match events over the last 24 hours; each rule is listed on `/markets/alerts`.
 - **Market regime** (experimental): the first matching rule of live event → post-news movement (news ≤ 60 min ago and price moved ≥ 2%) → late lineup period (lineups confirmed, kickoff ≤ 75 min) → high volatility (≥ 3× the median) → low liquidity (< 70% of bookmakers quoting) → normal. It describes conditions and predicts nothing.
 - **Market Intelligence** on `/live` is written by fixed templates from the figures on the page; no language model is used. It reports timing (for example, a price change in the same minute as a goal), never causes.
+- **Market commentary** and the **"What changed?" summary** are fixed templates filled only with the figures on the page (prices, bookmaker counts, model outputs, model attributions, news items). Timing is reported, causes are not.
+- **My Bets CLV** uses the same formula as the ledger; before kickoff it is provisional, against the current margin-free price.
 - Definitions are also shown in the UI next to each metric.
 
 ## Real data (phase 9)

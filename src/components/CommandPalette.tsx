@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { watchByName } from "@/app/actions";
 import { SHORTCUT_ROUTES } from "./nav";
 
 interface Command {
@@ -41,6 +42,15 @@ export function CommandPalette() {
   const commands: Command[] = useMemo(() => {
     const go = (href: string) => () => router.push(href);
     const search = (arg: string) => router.push(`/markets?q=${encodeURIComponent(arg)}`);
+    const ask = (q: string) => router.push(`/ai-analyst?q=${encodeURIComponent(q)}`);
+    const watch = (arg: string) => {
+      if (!arg.trim()) return setNotice("Type a team or league after /watch, e.g. /watch Arsenal.");
+      setNotice(`Adding ${arg.trim()}…`);
+      watchByName(arg).then((label) => {
+        setNotice(label ? `Added ${label} to your watchlist.` : `No team or league matches “${arg.trim()}”.`);
+        if (label) router.refresh();
+      });
+    };
     return [
       { id: "/markets", label: "Markets", hint: "Market Terminal", run: go("/markets") },
       { id: "/value", label: "Value Scanner", hint: "Scan markets by edge, EV and confidence", run: go("/value-scanner") },
@@ -60,9 +70,13 @@ export function CommandPalette() {
       { id: "/drift", label: "Drift Monitor", hint: "Recent vs baseline performance", run: go("/model-lab/drift") },
       { id: "/backtest", label: "Backtest", hint: "Selection rules replayed over the ledger", run: go("/model-lab/backtest") },
       { id: "/search", label: "Search markets", hint: "/search Liverpool", run: search, takesArg: true },
-      { id: "/analyze", label: "Analyze team", hint: "/analyze Arsenal", run: search, takesArg: true },
-      { id: "/compare", label: "Compare teams", hint: "/compare Liverpool Chelsea", run: (a) => search(a.split(/\s+/)[0] ?? ""), takesArg: true },
-      { id: "/watch", label: "Watch team", hint: "/watch Arsenal", run: () => setNotice("Watchlists arrive with the personal terminal (Phase 8)."), takesArg: true },
+      { id: "/analyze", label: "Analyze team", hint: "/analyze Arsenal", run: (a) => ask(`analyze ${a}`), takesArg: true },
+      { id: "/compare", label: "Compare teams", hint: "/compare Liverpool Chelsea", run: (a) => ask(`compare ${a}`), takesArg: true },
+      { id: "/ask", label: "Ask the AI Analyst", hint: "/ask which prices moved most?", run: (a) => ask(a), takesArg: true },
+      { id: "/watch", label: "Watch team or league", hint: "/watch Arsenal", run: watch, takesArg: true },
+      { id: "/watchlist", label: "My Watchlist", hint: "Watched items and My Market Assistant", run: go("/watchlist") },
+      { id: "/mybets", label: "My Bets", hint: "Tracked prices, CLV and results", run: go("/my-bets") },
+      { id: "/report", label: "Weekly Model Report", hint: "This week's model report", run: go("/model-lab/report") },
     ];
   }, [router]);
 
