@@ -311,7 +311,7 @@ function booksMoving(ev: EventSim, m: MarketSim, i: number, from: number, to: nu
   return { moving, quoting };
 }
 
-function inPlayOdds(p: number, margin: number): number {
+export function inPlayOdds(p: number, margin: number): number {
   return Math.max(1.01, Math.round((1 / (p * (1 + margin))) * 100) / 100);
 }
 
@@ -684,4 +684,137 @@ export function settledSelections(now: number): SettledSelection[] {
   }
   settledCache = { key: finished.length, rows };
   return rows;
+}
+
+// ---------------------------------------------------------------------------
+// Match view (live terminal) and market replay
+
+/** Wall-clock time of a match minute, allowing for the 15-minute half-time break. */
+export function minuteTime(ev: EventSim, minute: number): number {
+  return ev.event.kickoff + (minute <= 45 ? minute : minute + 15) * MIN;
+}
+
+export interface MatchView {
+  event: ReturnType<typeof eventView>;
+  showcase: boolean;
+  marketName: string;
+  selections: { id: string; name: string }[];
+  /** In-play minutes and events up to now (football only). */
+  minutes: MinuteState[];
+  timeline: import("@/lib/domain/types").LiveEvent[];
+  news: EventSim["news"];
+  openingOdds: number[];
+  closingOdds: number[];
+  /** Margin-free consensus at kickoff (or now, if not started). */
+  preMatchMarket: number[];
+  /** Ledgered pre-match model probability, if one exists. */
+  preMatchModel: (number | null)[];
+  modelVersion: string | null;
+  results: ("won" | "lost" | "void" | undefined)[];
+  lineupConfirmedAt?: number;
+}
+
+export function matchView(eventId: string, now: number): MatchView | undefined {
+  const t = feedTime(now);
+  const ev = findEvent(eventId, now);
+  if (!ev || ev.openAt > t) return undefined;
+  const view = eventView(ev, t);
+  const m = ev.markets[0];
+  const cut = Math.min(t, ev.event.kickoff);
+  const current = view.status === "scheduled" ? undefined : liveState(ev, t)?.minute;
+  const preds = m.selections.map((s) => ledgeredPrediction(s.selection.id, t));
+  return {
+    event: view,
+    showcase: ev.showcase,
+    marketName: m.market.name,
+    selections: m.selections.map((s) => ({ id: s.selection.id, name: s.selection.name })),
+    minutes: ev.match && current !== undefined ? ev.match.minutes.filter((x) => x.minute <= current) : [],
+    timeline: ev.match && current !== undefined ? ev.match.timeline.filter((x) => x.minute <= current) : [],
+    news: ev.news.filter((n) => n.at <= t),
+    openingOdds: m.selections.map((_, i) => consensusPrice(ev, m, i, ev.openAt)),
+    closingOdds: m.selections.map((_, i) => consensusPrice(ev, m, i, cut)),
+    preMatchMarket: fairProbabilities(ev, m, cut),
+    preMatchModel: preds.map((p) => p?.probability ?? null),
+    modelVersion: preds.find((p) => p)?.modelVersionId ?? null,
+    results: view.status === "finished" ? m.selections.map((s) => s.selection.result) : m.selections.map(() => undefined),
+    lineupConfirmedAt: ev.event.lineupConfirmedAt !== undefined && ev.event.lineupConfirmedAt <= t ? ev.event.lineupConfirmedAt : undefined,
+  };
+}
+
+export interface ReplayFrame {
+  at: number;
+  phase: "pre" | "live";
+  minute?: number;
+  score?: { home: number; away: number };
+  odds: number[];
+  market: number[];
+  /** Ledgered model probability once recorded; in-play model estimate during play. */
+  model: (number | null)[];
+}
+
+export interface ReplayData {
+  view: MatchView;
+  frames: ReplayFrame[];
+  kickoffIndex: number;
+  predictionAt: number | null;
+  events: { at: number; kind: string; text: string }[];
+  clv: (number | null)[];
+}
+
+/** Everything needed to replay a finished event's market from opening to full time. */
+export function replayData(eventId: string, now: number): ReplayData | undefined {
+  const view = matchView(eventId, now);
+  const ev = findEvent(eventId, now);
+  if (!view || !ev || view.event.status !== "finished") return undefined;
+  const m = ev.markets[0];
+  const preds = m.selections.map((s) => ledgeredPrediction(s.selection.id, now));
+  const frames: ReplayFrame[] = [];
+  for (let at = ev.openAt; at <= ev.event.kickoff; at += 30 * MIN) {
+    const market = fairProbabilities(ev, m, at);
+    frames.push({
+      at,
+      phase: "pre",
+      odds: m.selections.map((_, i) => consensusPrice(ev, m, i, at)),
+      market,
+      model: preds.map((p) => (p && p.createdAt <= at ? p.probability : null)),
+    });
+  }
+  const kickoffIndex = frames.length - 1;
+  if (ev.match) {
+    for (const s of ev.match.minutes) {
+      if (s.minute === 0) continue;
+      frames.push({
+        at: minuteTime(ev, s.minute),
+        phase: "live",
+        minute: s.minute,
+        score: s.score,
+        odds: s.market.map((p) => inPlayOdds(p, 0.05)),
+        market: [...s.market],
+        model: [...s.model],
+      });
+    }
+  }
+  const closingFair = fairProbabilities(ev, m, ev.event.kickoff);
+  return {
+    view,
+    frames,
+    kickoffIndex,
+    predictionAt: preds.find((p) => p)?.createdAt ?? null,
+    events: [
+      ...ev.news.map((n) => ({ at: n.at, kind: n.kind === "lineup" ? "lineup" : "news", text: n.text })),
+      ...(preds.find((p) => p) ? [{ at: preds.find((p) => p)!.createdAt, kind: "prediction", text: `Prediction ledgered (${preds.find((p) => p)!.modelVersionId})` }] : []),
+      { at: ev.event.kickoff, kind: "kickoff", text: "Kickoff: pre-match market closes" },
+      ...(ev.match?.timeline ?? []).filter((e) => e.kind !== "corner" && e.kind !== "shot").map((e) => ({ at: minuteTime(ev, e.minute), kind: e.kind, text: `${e.minute}′ ${e.description}` })),
+    ].sort((a, b) => a.at - b.at),
+    clv: preds.map((p, i) => (p ? clv(p.odds, closingFair[i]) : null)),
+  };
+}
+
+/** Finished, ledgered events for the replay picker, newest first. */
+export function replayableEvents(now: number): ReturnType<typeof eventView>[] {
+  const t = feedTime(now);
+  return getUniverse(now)
+    .events.filter((e) => statusAt(e, t) === "finished" && e.event.kickoff > t - 60 * DAY)
+    .map((e) => eventView(e, t))
+    .sort((a, b) => b.kickoff - a.kickoff);
 }

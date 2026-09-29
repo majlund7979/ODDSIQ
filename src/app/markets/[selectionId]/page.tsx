@@ -8,11 +8,12 @@ import { OddsChart } from "@/components/charts/OddsChart";
 import { Badge, levelTone, Panel, Signed, Tip } from "@/components/ui";
 import { requestNow } from "@/lib/data";
 import { MODEL_FAMILIES } from "@/lib/demo/models";
-import { dataSources, marketDetail } from "@/lib/demo/store";
+import { dataSources, marketDetail, marketRows } from "@/lib/demo/store";
 import { fmtCountdown, fmtDateTime, fmtOdds, fmtPct, fmtPp, fmtShortDateTime, fmtSignedPct, fmtTime } from "@/lib/format";
 import { CONFIDENCE_DEFINITION } from "@/lib/metrics/consensus";
 import { PRESSURE_DEFINITION } from "@/lib/metrics/movement";
 import { DATA_QUALITY_DEFINITION } from "@/lib/metrics/quality";
+import { marketRegime, REGIME_NOTE } from "@/lib/metrics/regime";
 import { MOVEMENT_EXPLANATIONS, movementSignals, RLM_DEFINITION, SHARP_DEFINITION } from "@/lib/metrics/signals";
 
 export const metadata = { title: "Market · ODDSIQ" };
@@ -39,6 +40,20 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
     ...d.news.map((n) => ({ at: n.at, text: n.text, move: [priceAround(n.at, -5), priceAround(n.at, 30)] as const })),
     { at: d.chart.at(-1)?.at, text: `${row.status === "scheduled" ? "Current" : "Closing"} consensus ${fmtOdds(d.chart.at(-1)?.consensus)}` },
   ].filter((x) => x.at !== undefined);
+
+  const lastNews = d.news.filter((n) => n.at <= now).at(-1);
+  const vols = marketRows(now).filter((r) => r.status === "scheduled").map((r) => r.volatility).sort((a, b) => a - b);
+  const medianVol = vols[Math.floor(vols.length / 2)] ?? 0;
+  const regime = marketRegime({
+    live: row.status === "live",
+    minutesToKickoff: (event.kickoff - now) / 60_000,
+    lineupsConfirmed: event.lineupConfirmedAt !== undefined && event.lineupConfirmedAt <= now,
+    minutesSinceNews: lastNews ? (now - lastNews.at) / 60_000 : null,
+    moveSinceNews: lastNews ? row.currentOdds / (priceAround(lastNews.at, -5) ?? row.currentOdds) - 1 : 0,
+    volatilityRatio: medianVol > 0 ? row.volatility / medianVol : 0,
+    booksQuoting: row.booksQuoting,
+    booksTracked: d.books.length,
+  });
 
   // For in-play rows the ensemble is the pre-match model, so compare it with the pre-match closing market.
   const consensusMarket = row.inPlayModel ? (d.siblings.find((x) => x.selectionId === selectionId)?.marketProbability ?? row.marketProbability) : row.marketProbability;
@@ -76,6 +91,11 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
               <span className="text-xs text-muted">
                 Kickoff {fmtDateTime(event.kickoff)} · {fmtCountdown(event.kickoff - now)}
               </span>
+            )}
+            {event.status !== "finished" && (
+              <Tip text={`${REGIME_NOTE} ${regime.reason}`}>
+                <Badge tone={regime.regime === "NORMAL" ? "neutral" : "accent"}>Regime: {regime.regime}</Badge>
+              </Tip>
             )}
             <Badge tone="warning">Demo data</Badge>
           </div>
@@ -180,7 +200,7 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
               </ol>
               <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Factor contributions are model attributions, not proof of cause.</p>
             </Panel>
-            <Panel title="What changed?">
+            <Panel title="What changed?" id="what-changed">
               <ol className="space-y-0 px-4 py-2">
                 {whatChanged.map((w, i) => (
                   <li key={i} className="grid grid-cols-[92px_1fr] gap-3 border-l border-line py-1.5 pl-3 text-sm">

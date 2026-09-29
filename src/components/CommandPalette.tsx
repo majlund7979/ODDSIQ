@@ -44,7 +44,7 @@ export function CommandPalette() {
     return [
       { id: "/markets", label: "Markets", hint: "Market Terminal", run: go("/markets") },
       { id: "/value", label: "Value Scanner", hint: "Scan markets by edge, EV and confidence", run: go("/value-scanner") },
-      { id: "/live", label: "Live Markets", hint: "In-play terminal", run: go("/live") },
+      { id: "/live", label: "Live Markets", hint: "Three-pane live terminal", run: go("/live") },
       { id: "/performance", label: "Performance", hint: "Historical model performance", run: go("/performance") },
       { id: "/ledger", label: "Prediction Ledger", hint: "Every recorded prediction", run: go("/model-lab/ledger") },
       { id: "/audit", label: "Model Audit", hint: "Ledger integrity checks", run: go("/model-lab/audit") },
@@ -53,6 +53,8 @@ export function CommandPalette() {
       { id: "/efficiency", label: "Market Efficiency", hint: "How well prices forecast results", run: go("/markets/efficiency") },
       { id: "/alerts", label: "Market Alerts", hint: "Movement, news, discrepancies, suspensions", run: go("/markets/alerts") },
       { id: "/clv", label: "Closing Line Value", hint: "Did recorded prices beat the close?", run: go("/performance/clv") },
+      { id: "/replay", label: "Market Replay", hint: "Replay a finished match's market", run: go("/market-replay") },
+      { id: "/matches", label: "Matches", hint: "Fixtures, live and results with what changed", run: go("/matches") },
       { id: "/lab", label: "Model Lab", hint: "Versions, backtests, errors and drift", run: go("/model-lab") },
       { id: "/errors", label: "Error Analysis", hint: "Systematic model errors", run: go("/model-lab/errors") },
       { id: "/drift", label: "Drift Monitor", hint: "Recent vs baseline performance", run: go("/model-lab/drift") },
