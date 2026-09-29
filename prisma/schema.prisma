@@ -1,0 +1,201 @@
+// ODDSIQ persistent data model.
+//
+// The prediction ledger (Prediction) is append-only: migration
+// 0002_ledger_immutability installs triggers that reject UPDATE and DELETE.
+// Anything learned after a prediction is made (closing price, result) is
+// stored in PredictionOutcome, never on the prediction itself.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Sport {
+  id      String   @id
+  name    String
+  leagues League[]
+}
+
+model League {
+  id      String  @id
+  sportId String
+  name    String
+  country String
+  sport   Sport   @relation(fields: [sportId], references: [id])
+  teams   Team[]
+  events  Event[]
+}
+
+model Team {
+  id         String  @id
+  leagueId   String
+  name       String
+  shortName  String
+  league     League  @relation(fields: [leagueId], references: [id])
+  homeEvents Event[] @relation("home")
+  awayEvents Event[] @relation("away")
+}
+
+model Bookmaker {
+  id          String         @id
+  name        String
+  margin      Float
+  reliability Float
+  snapshots   OddsSnapshot[]
+  predictions Prediction[]
+}
+
+model DataSource {
+  id         String   @id
+  name       String
+  kind       String // odds | stats | lineups | injuries
+  provider   String
+  status     String // ok | degraded | down
+  lastSyncAt DateTime
+}
+
+model Event {
+  id                String       @id
+  sportId           String
+  leagueId          String
+  homeTeamId        String
+  awayTeamId        String
+  kickoff           DateTime
+  status            String // scheduled | live | finished
+  homeScore         Int?
+  awayScore         Int?
+  lineupConfirmedAt DateTime?
+  league            League       @relation(fields: [leagueId], references: [id])
+  homeTeam          Team         @relation("home", fields: [homeTeamId], references: [id])
+  awayTeam          Team         @relation("away", fields: [awayTeamId], references: [id])
+  markets           Market[]
+  news              MarketNews[]
+  liveEvents        LiveEvent[]
+
+  @@index([kickoff])
+  @@index([leagueId, kickoff])
+}
+
+model Market {
+  id         String      @id
+  eventId    String
+  type       String // 1X2 | OU25 | BTTS | ML
+  name       String
+  suspended  Boolean     @default(false)
+  event      Event       @relation(fields: [eventId], references: [id])
+  selections Selection[]
+}
+
+model Selection {
+  id          String         @id
+  marketId    String
+  eventId     String
+  name        String
+  result      String? // won | lost | void
+  market      Market         @relation(fields: [marketId], references: [id])
+  snapshots   OddsSnapshot[]
+  predictions Prediction[]
+}
+
+/// One bookmaker price at one moment. The time series behind every chart.
+model OddsSnapshot {
+  id          BigInt    @id @default(autoincrement())
+  selectionId String
+  bookmakerId String
+  observedAt  DateTime
+  odds        Decimal   @db.Decimal(8, 3)
+  sourceId    String
+  selection   Selection @relation(fields: [selectionId], references: [id])
+  bookmaker   Bookmaker @relation(fields: [bookmakerId], references: [id])
+
+  @@index([selectionId, observedAt])
+  @@index([bookmakerId, observedAt])
+}
+
+/// News that may explain price moves. Shown as context, never as proven cause.
+model MarketNews {
+  id       BigInt   @id @default(autoincrement())
+  eventId  String
+  at       DateTime
+  kind     String
+  text     String
+  sourceId String
+  event    Event    @relation(fields: [eventId], references: [id])
+
+  @@index([eventId, at])
+}
+
+model LiveEvent {
+  id          BigInt @id @default(autoincrement())
+  eventId     String
+  minute      Int
+  kind        String // goal | yellow | red | substitution | shot | corner | var
+  team        String // home | away
+  description String
+  modelBefore Float?
+  modelAfter  Float?
+  event       Event  @relation(fields: [eventId], references: [id])
+
+  @@index([eventId, minute])
+}
+
+model ModelVersion {
+  id           String       @id // e.g. football-ensemble-v1.4
+  family       String
+  version      String
+  releasedAt   DateTime
+  trainingFrom DateTime
+  trainingTo   DateTime
+  features     String[]
+  notes        String
+  predictions  Prediction[]
+}
+
+/// Immutable ledger entry. UPDATE and DELETE are rejected by database triggers.
+model Prediction {
+  id             String             @id
+  seq            Int                @unique
+  createdAt      DateTime
+  eventId        String
+  marketId       String
+  selectionId    String
+  modelVersionId String
+  probability    Float
+  ciLow          Float
+  ciHigh         Float
+  confidence     Int
+  odds           Decimal            @db.Decimal(8, 3)
+  bookmakerId    String
+  prevHash       String             @db.Char(64)
+  hash           String             @unique @db.Char(64)
+  selection      Selection          @relation(fields: [selectionId], references: [id])
+  modelVersion   ModelVersion       @relation(fields: [modelVersionId], references: [id])
+  bookmaker      Bookmaker          @relation(fields: [bookmakerId], references: [id])
+  outcome        PredictionOutcome?
+
+  @@index([createdAt])
+  @@index([selectionId])
+  @@index([modelVersionId, createdAt])
+}
+
+/// What happened after a prediction: closing price and result. Written once per prediction.
+model PredictionOutcome {
+  predictionId           String     @id
+  closingOdds            Decimal    @db.Decimal(8, 3)
+  closingFairProbability Float
+  result                 String? // won | lost | void; null until settled
+  settledAt              DateTime?
+  prediction             Prediction @relation(fields: [predictionId], references: [id])
+}
+
+/// Markets where the scheduled model run produced no prediction. Recorded so gaps are visible.
+model MissingPrediction {
+  marketId String   @id
+  eventId  String
+  reason   String
+  kickoff  DateTime
+}

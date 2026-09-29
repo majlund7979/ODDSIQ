@@ -1,0 +1,76 @@
+# ODDSIQ
+
+**See the numbers behind the odds.** An AI-powered sports market intelligence terminal: track market movement, compare model and market probabilities, understand model disagreement, and measure performance against a complete, tamper-evident prediction record.
+
+ODDSIQ is an analytics product, not a sportsbook or tipster. It places no bets and never labels anything a "best bet".
+
+## Quick start
+
+```bash
+npm install        # also generates the Prisma client
+npm run dev        # http://localhost:3000
+```
+
+The app runs in **DEMO_MODE** by default: no database or API keys needed. Every page carries a **DEMO DATA** label while it is on.
+
+| Script | What it does |
+| --- | --- |
+| `npm run dev` / `build` / `start` | Next.js app |
+| `npm test` | Unit tests (metrics, ledger integrity, demo universe) |
+| `npm run lint` / `typecheck` | ESLint, TypeScript |
+| `npm run db:migrate` | Apply Postgres migrations (needs `DATABASE_URL`) |
+| `npm run db:seed` | Load the demo universe into Postgres (empty database only) |
+
+Keyboard: `⌘K` / `Ctrl+K` command palette, `/` search, `M` markets, `V` value scanner, `L` live, `A` AI analyst, `P` performance, `W` watchlist, `Esc` close.
+
+## What is built (phases 0–1, plus the first slices of 2–4)
+
+- **Market Terminal** (`/markets`): every open market with best and opening odds, margin-free market probability, model probability with uncertainty range, edge, EV, movement, estimated market pressure and confidence. Filters, sorting, search.
+- **Market detail** (`/markets/[selection]`): odds chart with 1H/6H/12H/24H/7D, news markers, velocity and odds pressure, estimated Market Pressure Score with its components, Model vs Market bars, model consensus dot plot with uncertainty, "Why does the model differ?", "What changed?", data quality and source timestamps, per-bookmaker prices, sharp-movement detection worded without claims about who moved the market, and in-play probability movement with the event timeline for live matches.
+- **Dashboard** (`/`): market movement, model-market disagreement, opportunities grouped by characteristic (never a single "best bet"), live markets, calibration, and performance by model version. Every figure shows n, period and whether it is historical or simulated.
+- **Prediction Ledger** (`/model-lab/ledger`) with CSV export (`/api/ledger.csv`), and **Model Audit** (`/model-lab/audit`).
+- Roadmap pages for the remaining sections, labelled with their phase. See [docs/build-plan.md](docs/build-plan.md).
+
+## Architecture
+
+```
+src/lib/metrics/   Pure, tested metric functions: de-vig, edge, EV, CLV, Brier, log loss,
+                   calibration, velocity, volatility, market pressure, consensus, confidence,
+                   data quality, flat-stake simulation. Aggregates carry n / period / source.
+src/lib/ledger/    Hash-chained, append-only prediction ledger + verification.
+src/lib/demo/      DEMO_MODE universe: deterministic per-day schedule, price paths per
+                   bookmaker, model ensemble, match simulation, results, read model.
+src/lib/data.ts    Data entry point (DEMO_MODE switch).
+prisma/            Postgres schema, migrations (incl. ledger immutability triggers), seed.
+```
+
+### DEMO_MODE universe
+
+Events are generated per UTC day from 5 Jan 2026, each seeded by its own id, so the data is identical on every request and restart, and new days never change old ones. The demo behaves like a live system: scheduled matches go live, finish and settle as real time passes, and predictions join the ledger when their timestamp is reached. A rolling in-play showcase guarantees live football matches at any hour.
+
+As of late September 2026 it contains ~2,900 events across 12 leagues in 5 sports, 10 fictional bookmakers, ~13,000 ledger predictions from 6 model versions, closing prices, results, CLV, news-driven price moves, and minute-by-minute live matches. Team names are real clubs; every rating, price and result is synthetic.
+
+Built in on purpose, so later Model Lab work has something real to find: the model is systematically too pessimistic about Bundesliga away sides priced around 3.00–4.50, and v1.4 scores better (lower Brier score) than v1.2.
+
+### Prediction ledger integrity
+
+- Every prediction stores `seq`, timestamp, odds, probability, uncertainty range, confidence and `modelVersion`, plus a SHA-256 hash over those fields and the previous entry's hash.
+- In Postgres, triggers reject `UPDATE`, `DELETE` and `TRUNCATE` on `Prediction`, and reject any insert that does not extend the chain. Closing odds and results live in `PredictionOutcome`, which can be filled in once but never rewritten.
+- Markets the model failed to predict are recorded in `MissingPrediction` and shown in the audit.
+- The ledger records pre-match predictions only. In-play estimates are shown in the terminal but never ledgered.
+
+### Methodology notes
+
+- **Market probability**: median bookmaker price per selection, margin removed proportionally.
+- **CLV** = odds at prediction × de-vigged closing probability − 1.
+- **Estimated market pressure**: size of move (30%), velocity (25%), bookmaker breadth (25%), relative volatility (10%), time to kickoff (10%). No volume data is used unless a feed supplies it.
+- **Confidence**: reduced by the ensemble's uncertainty width, disagreement between component models and data-quality gaps. It is not a win probability.
+- Definitions are also shown in the UI next to each metric.
+
+## Real data (phase 9)
+
+bet365 has no public API. The plan is a licensed odds aggregator that carries bet365 prices (for example OpticOdds or OddsJam; The Odds API as a cheaper starting point) plus a statistics provider for fixtures, lineups and live events, behind the same interfaces the demo universe implements. Until then `DEMO_MODE=true`.
+
+## Responsible use
+
+Analytics only. Historical figures are labelled historical or simulated and never imply future results. 18+. Gambling involves risk of loss.

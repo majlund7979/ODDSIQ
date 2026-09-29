@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/* ODDSIQ terminal theme. Dark by design; chart colours follow the validated
+   reference palette (dark steps), status colours are reserved for state. */
+:root {
+  color-scheme: dark;
+  --page: #0b0b0a;
+  --surface: #131312;
+  --surface-2: #1a1a19;
+  --surface-3: #222220;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #f4f4f1;
+  --text-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --accent: #3987e5;
+
+  --series-market: #3987e5; /* slot 1 blue */
+  --series-model: #d95926; /* slot 2 orange */
+  --series-3: #199e70; /* slot 3 aqua */
+
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-ink-2: var(--text-2);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-market: var(--series-market);
+  --color-model: var(--series-model);
+  --color-good: var(--good);
+  --color-warning: var(--warning);
+  --color-serious: var(--serious);
+  --color-critical: var(--critical);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html,
+body {
+  background: var(--page);
+  color: var(--text);
+}
+
+body {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.num {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: rgba(57, 135, 229, 0.35);
+}
+
+/* Hover tooltips for metric definitions (keyboard accessible via focus). */
+.tip {
+  position: relative;
+}
+.tip > .tip-body {
+  display: none;
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(320px, 80vw);
+  padding: 10px 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.tip:hover > .tip-body,
+.tip:focus-within > .tip-body {
+  display: block;
+}
