@@ -2,9 +2,10 @@ import Link from "next/link";
 import { CalibrationChart } from "@/components/charts/CalibrationChart";
 import { Badge, MetricContextLine, PageHeader, Panel, Signed, StatTile, Tip } from "@/components/ui";
 import { requestNow } from "@/lib/data";
+import { ALERT_TYPES, marketAlerts } from "@/lib/demo/alerts";
 import { performanceSummary, VALUE_RULE_TEXT } from "@/lib/demo/performance";
 import { marketRows, universeStats, type MarketRow } from "@/lib/demo/store";
-import { fmtCountdown, fmtInt, fmtOdds, fmtPct, fmtPp, fmtSignedPct } from "@/lib/format";
+import { fmtCountdown, fmtInt, fmtOdds, fmtPct, fmtPp, fmtSignedPct, fmtTime } from "@/lib/format";
 import { CLV_METHODOLOGY } from "@/lib/metrics/clv";
 
 function MarketLine({ r, now, right }: { r: MarketRow; now: number; right: React.ReactNode }) {
@@ -32,6 +33,7 @@ export default async function Dashboard() {
   const withModel = pre.filter((r) => r.edgePp !== null);
   const perf = performanceSummary(now);
   const stats = universeStats(now);
+  const alerts = marketAlerts(now);
 
   const movers = [...pre].sort((a, b) => Math.abs(b.movement) - Math.abs(a.movement)).slice(0, 6);
   const disagreements = [...withModel].sort((a, b) => Math.abs(b.edgePp!) - Math.abs(a.edgePp!)).slice(0, 6);
@@ -137,26 +139,43 @@ export default async function Dashboard() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <Panel title="Live markets" right={<Badge tone="critical">● {liveEvents.size} in play</Badge>}>
-          <ul className="divide-y divide-line">
-            {[...liveEvents.values()].map((r) => (
-              <li key={r.eventId}>
-                <Link href={`/markets/${r.selectionId}`} className="flex items-center justify-between gap-3 px-4 py-2 hover:bg-surface-2">
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm">{r.match}</span>
-                    <span className="block truncate text-[11px] text-muted">
-                      <span className="text-critical">{r.minute}′</span> · {r.league} · home win: market {fmtPct(r.marketProbability, 0)}, model {fmtPct(r.modelProbability, 0)}
+        <div className="space-y-4">
+          <Panel title="Live markets" right={<Badge tone="critical">● {liveEvents.size} in play</Badge>}>
+            <ul className="divide-y divide-line">
+              {[...liveEvents.values()].map((r) => (
+                <li key={r.eventId}>
+                  <Link href={`/markets/${r.selectionId}`} className="flex items-center justify-between gap-3 px-4 py-2 hover:bg-surface-2">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm">{r.match}</span>
+                      <span className="block truncate text-[11px] text-muted">
+                        <span className="text-critical">{r.minute}′</span> · {r.league} · home win: market {fmtPct(r.marketProbability, 0)}, model {fmtPct(r.modelProbability, 0)}
+                      </span>
                     </span>
-                  </span>
-                  <span className="num shrink-0 text-lg">
-                    {r.score?.home}–{r.score?.away}
-                  </span>
-                </Link>
-              </li>
-            ))}
-            {liveEvents.size === 0 && <li className="px-4 py-3 text-sm text-muted">No matches in play right now.</li>}
-          </ul>
-        </Panel>
+                    <span className="num shrink-0 text-lg">
+                      {r.score?.home}–{r.score?.away}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+              {liveEvents.size === 0 && <li className="px-4 py-3 text-sm text-muted">No matches in play right now.</li>}
+            </ul>
+          </Panel>
+          <Panel title="Latest alerts" right={<Link href="/markets/alerts" className="text-accent hover:underline">All alerts →</Link>}>
+            <ul className="divide-y divide-line">
+              {alerts.slice(0, 5).map((a) => (
+                <li key={a.id} className="px-4 py-2">
+                  <div className="flex items-center justify-between gap-3 text-[10.5px] uppercase tracking-wider">
+                    <span className="text-warning">{ALERT_TYPES.find((t) => t.id === a.type)!.label}</span>
+                    <span className="num text-muted">{fmtTime(a.at)}</span>
+                  </div>
+                  <div className="truncate text-sm">{a.match}</div>
+                  <div className="truncate text-[11px] text-muted">{a.headline}</div>
+                </li>
+              ))}
+              {alerts.length === 0 && <li className="px-4 py-3 text-sm text-muted">No alerts in the last 24 hours.</li>}
+            </ul>
+          </Panel>
+        </div>
 
         <Panel title="Calibration" right={<Link href="/model-lab/ledger" className="text-accent hover:underline">Ledger →</Link>}>
           <CalibrationChart bins={perf.calibration} />

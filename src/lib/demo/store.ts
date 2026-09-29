@@ -1,7 +1,7 @@
 // Read model over the DEMO_MODE universe. Everything here is a function of
 // `now`: what is visible, live, settled or pending follows real time.
 
-import type { EventStatus, Prediction, PredictionOutcome, SportEvent } from "@/lib/domain/types";
+import type { EventStatus, Prediction, PredictionOutcome, SportEvent, SportId } from "@/lib/domain/types";
 import { appendPrediction, verifyChain, type ChainVerification } from "@/lib/ledger/hash";
 import { clv } from "@/lib/metrics/clv";
 import { modelConsensus } from "@/lib/metrics/consensus";
@@ -58,6 +58,17 @@ function getUniverse(now: number): Universe {
     predictionBySelection: new Map(ledger.map((p) => [p.selectionId, p])),
   };
   return universe;
+}
+
+/** Every scheduled event in the universe (not the in-play showcase), for analytics modules. */
+export function universeEvents(now: number): EventSim[] {
+  return getUniverse(now).events;
+}
+
+/** The ledgered prediction for a selection, if one exists and is visible at `now`. */
+export function ledgeredPrediction(selectionId: string, now: number): Prediction | undefined {
+  const p = getUniverse(now).predictionBySelection.get(selectionId);
+  return p && p.createdAt <= now ? p : undefined;
 }
 
 export function feedTime(now: number): number {
@@ -141,6 +152,8 @@ export interface LedgerRow {
   status: "pending" | "closed" | "settled";
   closingOdds?: number;
   closingFairProbability?: number;
+  /** Margin-free consensus probability when the prediction was recorded. */
+  marketProbabilityAtPrediction: number;
   result?: "won" | "lost" | "void";
   clv?: number;
 }
@@ -174,6 +187,7 @@ function buildLedgerRows(now: number): LedgerRow[] {
       status: o.status,
       closingOdds: o.closingOdds,
       closingFairProbability: o.closingFairProbability,
+      marketProbabilityAtPrediction: fairProbabilities(ev, m, p.createdAt)[m.selections.indexOf(s)],
       result: o.result,
       clv: o.closingFairProbability !== undefined ? clv(p.odds, o.closingFairProbability) : undefined,
     };
@@ -225,6 +239,11 @@ export interface MarketRow {
   selectionId: string;
   eventId: string;
   marketId: string;
+  sportId: SportId;
+  leagueId: string;
+  marketType: MarketSim["market"]["type"];
+  /** Selection key within its market: home, draw, away, over, under, yes, no. */
+  side: string;
   sport: string;
   league: string;
   match: string;
@@ -236,8 +255,13 @@ export interface MarketRow {
   selection: string;
   bestOdds: number;
   bestBook: string;
+  bestBookId: string | null;
   openingOdds: number;
   currentOdds: number;
+  /** True if this selection had the shortest consensus price in its market at opening. */
+  openingFavourite: boolean;
+  /** Standard deviation of hourly log price changes over the last 24h. */
+  volatility: number;
   marketProbability: number;
   modelProbability: number | null;
   ciLow: number | null;
@@ -253,6 +277,8 @@ export interface MarketRow {
   pressure: PressureResult;
   confidence: number | null;
   modelDisagreement: ReturnType<typeof modelConsensus>["level"] | null;
+  /** Standard deviation of the component models' probabilities, pp. */
+  modelStdevPp: number | null;
   dataQuality: DataQualityResult;
   booksQuoting: number;
   /** Books whose price moved >1% in the consensus direction over the last 6h. */
@@ -331,10 +357,15 @@ function preMatchRow(ev: EventSim, m: MarketSim, i: number, t: number, predictio
   });
   const cons = modelConsensus(model.components.map((c) => c.probability));
   const p = prediction?.probability ?? null;
+  const openings = m.selections.map((_, j) => (j === i ? openingOdds : consensusPrice(ev, m, j, ev.openAt)));
   return {
     selectionId: s.selection.id,
     eventId: ev.event.id,
     marketId: m.market.id,
+    sportId: ev.event.sportId,
+    leagueId: ev.event.leagueId,
+    marketType: m.market.type,
+    side: s.selection.id.slice(m.market.id.length + 1),
     sport: view.sportName,
     league: view.leagueName,
     match: `${view.homeName} vs ${view.awayName}`,
@@ -344,8 +375,11 @@ function preMatchRow(ev: EventSim, m: MarketSim, i: number, t: number, predictio
     selection: s.selection.name,
     bestOdds: best.odds,
     bestBook: BOOKMAKERS.find((b) => b.id === best.bookmakerId)?.name ?? "",
+    bestBookId: best.bookmakerId || null,
     openingOdds,
     currentOdds,
+    openingFavourite: openingOdds <= Math.min(...openings),
+    volatility: dayVol,
     marketProbability,
     modelProbability: p,
     ciLow: prediction?.ciLow ?? null,
@@ -361,6 +395,7 @@ function preMatchRow(ev: EventSim, m: MarketSim, i: number, t: number, predictio
     pressure,
     confidence: prediction?.confidence ?? null,
     modelDisagreement: prediction ? cons.level : null,
+    modelStdevPp: prediction ? cons.stdevPp : null,
     dataQuality: dq,
     booksQuoting: breadth.quoting,
     booksMoving: breadth.moving,
@@ -404,6 +439,10 @@ function inPlayRows(ev: EventSim, t: number): MarketRow[] {
       selectionId: s.selection.id,
       eventId: ev.event.id,
       marketId: m.market.id,
+      sportId: ev.event.sportId,
+      leagueId: ev.event.leagueId,
+      marketType: m.market.type,
+      side: s.selection.id.slice(m.market.id.length + 1),
       sport: view.sportName,
       league: view.leagueName,
       match: `${view.homeName} vs ${view.awayName}`,
@@ -415,8 +454,11 @@ function inPlayRows(ev: EventSim, t: number): MarketRow[] {
       selection: s.selection.name,
       bestOdds: best,
       bestBook: "In-play consensus",
+      bestBookId: null,
       openingOdds,
       currentOdds,
+      openingFavourite: m.selections.every((_, j) => openingOdds <= consensusPrice(ev, m, j, ev.event.kickoff)),
+      volatility: 0.02,
       marketProbability,
       modelProbability: model,
       ciLow: Math.max(0.005, model - 0.04),
@@ -432,6 +474,7 @@ function inPlayRows(ev: EventSim, t: number): MarketRow[] {
       pressure,
       confidence: 55,
       modelDisagreement: null,
+      modelStdevPp: null,
       dataQuality: dataQuality({
         now: t,
         oddsUpdatedAt: t - 3000,
@@ -579,4 +622,66 @@ export function universeStats(now: number) {
     leagues: new Set(visible.map((e) => e.event.leagueId)).size,
     bookmakers: BOOKMAKERS.length,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Settled market history (all finished markets, ledgered or not)
+
+/** Hours before kickoff at which market accuracy is sampled. */
+export const HORIZON_HOURS = [168, 72, 24, 6, 1, 0];
+
+export interface SettledSelection {
+  selectionId: string;
+  sportId: SportId;
+  leagueId: string;
+  marketType: MarketSim["market"]["type"];
+  marketName: string;
+  kickoff: number;
+  won: 0 | 1;
+  openingOdds: number;
+  closingOdds: number;
+  /** Margin-free consensus probability at each of HORIZON_HOURS before kickoff. */
+  horizons: number[];
+  /** Each quoting bookmaker's own de-vigged closing probability and margin. */
+  books: { bookmakerId: string; probability: number; margin: number }[];
+}
+
+let settledCache: { key: number; rows: SettledSelection[] } | null = null;
+
+export function settledSelections(now: number): SettledSelection[] {
+  const u = getUniverse(now);
+  const finished = u.events.filter((e) => statusAt(e, now) === "finished");
+  if (settledCache?.key === finished.length) return settledCache.rows;
+  const rows: SettledSelection[] = [];
+  for (const ev of finished) {
+    const k = ev.event.kickoff;
+    for (const m of ev.markets) {
+      const horizons = HORIZON_HOURS.map((h) => fairProbabilities(ev, m, k - h * HOUR));
+      const bookProbs = BOOKMAKERS.map((b, j) => {
+        const prices = m.selections.map((_, i) => bookPrice(ev, m, i, j, k));
+        if (prices.some((o) => Number.isNaN(o))) return null;
+        const implied = prices.map((o) => 1 / o);
+        const total = implied.reduce((a, c) => a + c, 0);
+        return { bookmakerId: b.id, probs: implied.map((x) => x / total), margin: total - 1 };
+      });
+      m.selections.forEach((s, i) => {
+        if (s.selection.result !== "won" && s.selection.result !== "lost") return;
+        rows.push({
+          selectionId: s.selection.id,
+          sportId: ev.event.sportId,
+          leagueId: ev.event.leagueId,
+          marketType: m.market.type,
+          marketName: m.market.name,
+          kickoff: k,
+          won: s.selection.result === "won" ? 1 : 0,
+          openingOdds: consensusPrice(ev, m, i, ev.openAt),
+          closingOdds: consensusPrice(ev, m, i, k),
+          horizons: horizons.map((p) => p[i]),
+          books: bookProbs.filter((b) => b !== null).map((b) => ({ bookmakerId: b.bookmakerId, probability: b.probs[i], margin: b.margin })),
+        });
+      });
+    }
+  }
+  settledCache = { key: finished.length, rows };
+  return rows;
 }

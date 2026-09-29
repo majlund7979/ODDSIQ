@@ -490,3 +490,21 @@ export function avgPriceRatioClv(rows: LedgerRow[]): { value: number; n: number 
   const xs = rows.filter((r) => r.closingOdds !== undefined).map((r) => clvPriceRatio(r.prediction.odds, r.closingOdds!));
   return { value: mean(xs), n: xs.length };
 }
+
+// ---------------------------------------------------------------------------
+// CLV history by segment, for the scanner
+
+export const clvSegmentKey = (leagueId: string, marketType: string) => `${leagueId}|${marketType}`;
+
+/** Historical average CLV of ledgered predictions per league and market type. */
+export function clvHistoryBySegment(rows: LedgerRow[]): Map<string, { avg: number; n: number }> {
+  const acc = new Map<string, { sum: number; n: number }>();
+  for (const r of rows) {
+    if (r.clv === undefined) continue;
+    const k = clvSegmentKey(r.event.leagueId, r.marketType);
+    const a = acc.get(k) ?? acc.set(k, { sum: 0, n: 0 }).get(k)!;
+    a.sum += r.clv;
+    a.n++;
+  }
+  return new Map([...acc.entries()].map(([k, a]) => [k, { avg: a.sum / a.n, n: a.n }]));
+}

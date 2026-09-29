@@ -13,6 +13,7 @@ import { fmtCountdown, fmtDateTime, fmtOdds, fmtPct, fmtPp, fmtShortDateTime, fm
 import { CONFIDENCE_DEFINITION } from "@/lib/metrics/consensus";
 import { PRESSURE_DEFINITION } from "@/lib/metrics/movement";
 import { DATA_QUALITY_DEFINITION } from "@/lib/metrics/quality";
+import { MOVEMENT_EXPLANATIONS, movementSignals, RLM_DEFINITION, SHARP_DEFINITION } from "@/lib/metrics/signals";
 
 export const metadata = { title: "Market · ODDSIQ" };
 
@@ -25,13 +26,7 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
   if (!d) notFound();
   const { row, event, analysis, prediction } = d;
   const selectionIsHome = selectionId.endsWith("-home");
-  const sharp =
-    row.status === "scheduled" &&
-    row.movement <= -0.08 &&
-    row.booksQuoting > 0 &&
-    row.booksMoving / row.booksQuoting >= 0.6 &&
-    row.modelProbability !== null &&
-    row.modelProbability > row.marketProbability;
+  const signals = movementSignals(row);
 
   const priceAround = (at: number, deltaMin: number) => {
     const target = at + deltaMin * 60_000;
@@ -108,15 +103,22 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
         </div>
       </div>
 
-      {sharp && (
-        <div className="rounded-md border border-warning/40 bg-warning/5 px-4 py-3 text-sm">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-warning">⚡ Sharp movement</div>
-          <p className="mt-1 text-ink-2">
-            {row.booksMoving} of {row.booksQuoting} tracked bookmakers have shortened {row.selection}&apos;s price ({fmtOdds(row.openingOdds)} → {fmtOdds(row.currentOdds)}, {fmtSignedPct(row.movement)}) while the model probability ({fmtPct(row.modelProbability)}) remains above the current implied market probability ({fmtPct(row.marketProbability)}). Potential statistical discrepancy detected.
+      {signals.map((sig) => (
+        <div key={sig.kind} className="rounded-md border border-warning/40 bg-warning/5 px-4 py-3 text-sm">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-warning">
+            <Tip text={sig.kind === "SHARP" ? SHARP_DEFINITION : RLM_DEFINITION}>{sig.kind === "SHARP" ? "⚡ Sharp movement" : "⇄ Reverse line movement"}</Tip>
+          </div>
+          <p className="mt-1 text-ink">{sig.summary}</p>
+          <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-ink-2">
+            {sig.facts.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-muted">
+            Possible explanations, not verified: {MOVEMENT_EXPLANATIONS.join(", ").toLowerCase()}. This describes price behaviour only; the data does not show who placed bets or why the price moved.
           </p>
-          <p className="mt-1 text-[11px] text-muted">This describes price behaviour only. The data does not show who placed bets or why the price moved.</p>
         </div>
-      )}
+      ))}
 
       <div className="grid gap-4 xl:grid-cols-3">
         <div className="space-y-4 xl:col-span-2">

@@ -9,9 +9,19 @@ export interface NavItem {
 
 export const NAV: NavItem[] = [
   { href: "/", label: "Dashboard" },
-  { href: "/markets", label: "Markets", shortcut: "M" },
+  {
+    href: "/markets",
+    label: "Markets",
+    shortcut: "M",
+    children: [
+      { href: "/markets/overview", label: "Overview" },
+      { href: "/markets/heatmap", label: "Heatmap" },
+      { href: "/markets/efficiency", label: "Efficiency" },
+      { href: "/markets/alerts", label: "Alerts" },
+    ],
+  },
   { href: "/matches", label: "Matches", phase: 7 },
-  { href: "/value-scanner", label: "Value Scanner", shortcut: "V", phase: 6 },
+  { href: "/value-scanner", label: "Value Scanner", shortcut: "V" },
   { href: "/live", label: "Live Markets", shortcut: "L", phase: 7 },
   { href: "/ai-analyst", label: "AI Analyst", shortcut: "A", phase: 8 },
   {

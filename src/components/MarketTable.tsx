@@ -75,7 +75,7 @@ export function MarketTable({ rows, now, initialQuery = "" }: { rows: TableRow[]
         (market === "all" || r.market === market) &&
         (status === "all" || r.status === status) &&
         (minEdge === 0 || (r.edgePp ?? -Infinity) >= minEdge) &&
-        (!needle || `${r.match} ${r.league} ${r.selection}`.toLowerCase().includes(needle)),
+        (!needle || `${r.sport} ${r.match} ${r.league} ${r.selection}`.toLowerCase().includes(needle)),
     );
     const val = (r: TableRow) => {
       const v = r[sort.key];
