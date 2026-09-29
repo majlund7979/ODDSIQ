@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Metric } from "@/lib/metrics/metric";
 import { fmtInt, fmtPeriod } from "@/lib/format";
@@ -92,5 +93,24 @@ export function PageHeader({ title, subtitle, right }: { title: string; subtitle
       </div>
       {right}
     </div>
+  );
+}
+
+/** Link-based segmented control; state lives in the URL so views are shareable. */
+export function LinkTabs({ items, active, label }: { items: { id: string; label: string; href: string }[]; active: string; label: string }) {
+  return (
+    <nav aria-label={label} className="flex flex-wrap gap-1">
+      {items.map((t) => (
+        <Link
+          key={t.id}
+          href={t.href}
+          scroll={false}
+          aria-current={t.id === active ? "page" : undefined}
+          className={`rounded px-2 py-1 text-xs ${t.id === active ? "bg-surface-3 text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`}
+        >
+          {t.label}
+        </Link>
+      ))}
+    </nav>
   );
 }

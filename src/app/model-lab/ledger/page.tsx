@@ -15,7 +15,7 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
   const q = (sp.q ?? "").trim().toLowerCase();
   const status = sp.status ?? "all";
   const audit = ledgerAudit(now);
-  const all = ledgerRows(now).reverse();
+  const all = [...ledgerRows(now)].reverse();
   const rows = all.filter(
     (r) =>
       (status === "all" || r.status === status) &&

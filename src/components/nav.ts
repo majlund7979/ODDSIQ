@@ -17,13 +17,15 @@ export const NAV: NavItem[] = [
   {
     href: "/model-lab",
     label: "Model Lab",
-    phase: 5,
     children: [
       { href: "/model-lab/ledger", label: "Prediction Ledger" },
       { href: "/model-lab/audit", label: "Model Audit" },
+      { href: "/model-lab/backtest", label: "Backtest" },
+      { href: "/model-lab/errors", label: "Error Analysis" },
+      { href: "/model-lab/drift", label: "Drift Monitor" },
     ],
   },
-  { href: "/performance", label: "Performance", shortcut: "P", phase: 5 },
+  { href: "/performance", label: "Performance", shortcut: "P", children: [{ href: "/performance/clv", label: "Closing Line Value" }] },
   { href: "/my-bets", label: "My Bets", phase: 8 },
 ];
 
