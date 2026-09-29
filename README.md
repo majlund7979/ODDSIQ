@@ -29,6 +29,9 @@ Keyboard: `⌘K` / `Ctrl+K` command palette, `/` search, `M` markets, `V` value 
 - **Market detail** (`/markets/[selection]`): odds chart with 1H/6H/12H/24H/7D, news markers, velocity and odds pressure, estimated Market Pressure Score with its components, Model vs Market bars, model consensus dot plot with uncertainty, "Why does the model differ?", "What changed?", data quality and source timestamps, per-bookmaker prices, sharp-movement detection worded without claims about who moved the market, and in-play probability movement with the event timeline for live matches.
 - **Dashboard** (`/`): market movement, model-market disagreement, opportunities grouped by characteristic (never a single "best bet"), live markets, calibration, and performance by model version. Every figure shows n, period and whether it is historical or simulated.
 - **Prediction Ledger** (`/model-lab/ledger`) with CSV export (`/api/ledger.csv`), and **Model Audit** (`/model-lab/audit`).
+- **Live Markets** (`/live`): three-pane in-play terminal. Live matches and matches starting soon on the left; score, minute, in-play probability and odds charts with goals and red cards pinned, probability movement since kickoff, live statistics and the event timeline in the centre; a templated Market Intelligence summary on the right.
+- **Market Replay** (`/market-replay`): pick sport, league, date and a finished match, then scrub or play its main market from opening to full time with news, lineups, the ledgered prediction, match events, closing odds, result and CLV.
+- **Matches** (`/matches`): fixtures, live matches and results with a "What changed?" summary per match.
 - Roadmap pages for the remaining sections, labelled with their phase. See [docs/build-plan.md](docs/build-plan.md).
 
 ## Architecture
@@ -72,6 +75,8 @@ Built in on purpose, so the Model Lab has something real to find: the model over
 - **Sharp movement**: consensus price moved ≥ 8% since opening with ≥ 60% of quoting bookmakers moving the same way. **Reverse line movement**: the opening favourite drifted ≥ 5% with the same breadth; in DEMO_MODE favourite status is the only public indicator, since no betting-percentage data exists. Neither detector claims a cause; possible explanations are listed separately.
 - **Market efficiency score** (an ODDSIQ definition, not an objective truth): 60% closing accuracy (Brier skill of the closing price over each selection type's base rate, ÷ 0.15, capped) + 40% late stability (1 − average 6-hour pre-kickoff probability change ÷ 3 pp).
 - **Alerts** are derived from price paths, news items, ledgered predictions and live match events over the last 24 hours; each rule is listed on `/markets/alerts`.
+- **Market regime** (experimental): the first matching rule of live event → post-news movement (news ≤ 60 min ago and price moved ≥ 2%) → late lineup period (lineups confirmed, kickoff ≤ 75 min) → high volatility (≥ 3× the median) → low liquidity (< 70% of bookmakers quoting) → normal. It describes conditions and predicts nothing.
+- **Market Intelligence** on `/live` is written by fixed templates from the figures on the page; no language model is used. It reports timing (for example, a price change in the same minute as a goal), never causes.
 - Definitions are also shown in the UI next to each metric.
 
 ## Real data (phase 9)

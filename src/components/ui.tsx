@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 import type { Metric } from "@/lib/metrics/metric";
 import { fmtInt, fmtPeriod } from "@/lib/format";
 
-export function Panel({ title, right, children, className = "" }: { title?: ReactNode; right?: ReactNode; children: ReactNode; className?: string }) {
+export function Panel({ title, right, children, className = "", id }: { title?: ReactNode; right?: ReactNode; children: ReactNode; className?: string; id?: string }) {
   return (
-    <section className={`rounded-md border border-line bg-surface ${className}`}>
+    <section id={id} className={`scroll-mt-4 rounded-md border border-line bg-surface ${className}`}>
       {(title || right) && (
         <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-2">{title}</h2>
