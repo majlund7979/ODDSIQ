@@ -1,0 +1,6 @@
+[
+  { "id": "fx0001arsche", "sport_key": "soccer_epl", "commence_time": "2026-10-03T14:00:00Z", "completed": true, "home_team": "Arsenal", "away_team": "Chelsea",
+    "scores": [ { "name": "Arsenal", "score": "2" }, { "name": "Chelsea", "score": "1" } ], "last_update": "2026-10-03T15:58:00Z" },
+  { "id": "fx0002liveve", "sport_key": "soccer_epl", "commence_time": "2026-10-03T16:30:00Z", "completed": false, "home_team": "Liverpool", "away_team": "Everton",
+    "scores": [ { "name": "Liverpool", "score": "0" }, { "name": "Everton", "score": "0" } ], "last_update": "2026-10-03T16:40:00Z" }
+]

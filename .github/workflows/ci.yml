@@ -43,6 +43,8 @@ jobs:
       - run: npm ci
       - run: npm run db:migrate
       - run: npm run db:seed
+      - name: Odds ingestion from recorded feed responses
+        run: npm run ingest:fixture
       - name: Ledger rejects edits and deletes
         run: |
           if psql "$DATABASE_URL" -c 'UPDATE "Prediction" SET probability = 0.99 WHERE seq = 1'; then echo "UPDATE was allowed"; exit 1; fi

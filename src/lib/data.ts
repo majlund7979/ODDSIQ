@@ -17,3 +17,9 @@ export async function requestNow(): Promise<number> {
   if (!DEMO_MODE) throw new DataSourceNotConfiguredError();
   return Date.now();
 }
+
+/** Request time for pages that work in any mode (e.g. the live Data Feed page). */
+export async function wallClock(): Promise<number> {
+  await connection();
+  return Date.now();
+}

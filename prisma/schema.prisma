@@ -60,6 +60,8 @@ model DataSource {
 
 model Event {
   id                String       @id
+  /// "<feed prefix>:<provider event id>" when the event came from a live feed (null for demo data).
+  externalId        String?      @unique
   sportId           String
   leagueId          String
   homeTeamId        String
@@ -198,4 +200,50 @@ model MissingPrediction {
   eventId  String
   reason   String
   kickoff  DateTime
+}
+
+/// A terminal account. Personal lists use the same compact encodings as the
+/// signed-out cookies (src/lib/demo/personal.ts), so they move over on sign-in.
+model User {
+  id               String    @id
+  email            String    @unique
+  passwordHash     String
+  createdAt        DateTime  @default(now())
+  plan             String    @default("free") // free | pro
+  planStatus       String? // Stripe subscription status
+  planRenewsAt     DateTime?
+  stripeCustomerId String?   @unique
+  watchlist        String    @default("")
+  positions        String    @default("")
+  thresholdPp      Int       @default(5)
+  sessions         Session[]
+}
+
+/// Signed-in sessions. The id is the SHA-256 of the cookie token, so a leaked
+/// database row cannot be replayed as a cookie.
+model Session {
+  id        String   @id @db.Char(64)
+  userId    String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// One run of the odds ingestion job, for the data-source status panel and quota tracking.
+model IngestRun {
+  id               BigInt    @id @default(autoincrement())
+  provider         String
+  startedAt        DateTime
+  finishedAt       DateTime?
+  sportKeys        String[]
+  events           Int       @default(0)
+  snapshots        Int       @default(0)
+  results          Int       @default(0)
+  creditsUsed      Int?
+  creditsRemaining Int?
+  error            String?
+
+  @@index([startedAt])
 }
