@@ -55,7 +55,10 @@ Plug in the licensed odds feed and stats API behind the same provider interface 
 Football model trained on public-domain results (openfootball): Dixon-Coles + Elo ensemble, walk-forward backtest with calibration, predictions written to the ledger before kickoff for feed markets, closing lines and settlement, `/model-lab/real-model`.
 
 **Phase 11 — Terminal on real data**
-Point the Market Terminal, Value Scanner, Dashboard and Performance pages at feed data and the real model, so `DEMO_MODE=false` becomes usable.
+Point the Market Terminal, Value Scanner, Dashboard and Performance pages at feed data and the real model, so `DEMO_MODE=false` becomes usable. Done: `src/lib/terminal.ts` serves either the demo universe or the live read model (`src/lib/real/store.ts`); pages that need in-play, news or lineup data show a "not available on live data yet" notice in live mode.
+
+**Phase 12 — Lineups, injuries and xG**
+Add a football statistics provider (API-Football to start; Sportmonks for deeper xG) for confirmed lineups, injuries and match xG, and feed them into data quality, the match pages and the model.
 
 ## Guardrails built in from day one
 - "DEMO DATA" label whenever `DEMO_MODE=true`.

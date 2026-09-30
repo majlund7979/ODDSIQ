@@ -1,22 +1,22 @@
 import { Histogram } from "@/components/charts/Histogram";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { Badge, MetricContextLine, PageHeader, Panel, Signed, StatTile } from "@/components/ui";
-import { requestNow } from "@/lib/data";
 import { avgPriceRatioClv, breakdown, clvBuckets, dimension, histogram, VERSION_MARKERS, weeklySeries } from "@/lib/demo/analytics";
-import { performanceSummary, VALUE_RULE_TEXT } from "@/lib/demo/performance";
-import { ledgerRows } from "@/lib/demo/store";
+import { performanceSummaryOf, VALUE_RULE_TEXT } from "@/lib/demo/performance";
+
 import { fmtInt, fmtPct, fmtPeriod, fmtSignedPct } from "@/lib/format";
 import { CLV_METHODOLOGY } from "@/lib/metrics/clv";
 import { metric, MIN_SAMPLE_FOR_WARNING, periodOf } from "@/lib/metrics/metric";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Closing Line Value · ODDSIQ" };
 
 const pct0 = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v * 100).toFixed(0)}%`;
 
 export default async function ClvPage() {
-  const now = await requestNow();
-  const rows = ledgerRows(now);
-  const perf = performanceSummary(now);
+  const t = await terminal();
+  const rows = t.ledgerRows();
+  const perf = performanceSummaryOf(t.ledgerRows(), t.ledgerSource);
   const closed = rows.filter((r) => r.clv !== undefined);
   const ratio = avgPriceRatioClv(closed);
   const weeks = weeklySeries(rows);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge, LinkTabs, PageHeader, Panel, Signed } from "@/components/ui";
-import { requestNow } from "@/lib/data";
+import { DEMO_MODE, requestNow } from "@/lib/data";
+import { DemoOnly } from "@/components/DemoOnly";
 import type { SegmentStats } from "@/lib/demo/analytics";
 import { REPORT_BASELINE_WEEKS, REPORT_MARKET_WEEKS, REPORT_MIN_MARKET_N, reportHeadline, reportWeeks, weeklyReport, type Severity } from "@/lib/demo/report";
 import { ledgerRows, marketRows } from "@/lib/demo/store";
@@ -13,6 +14,7 @@ const LABEL: Record<Severity, string> = { info: "Note", watch: "Watch", issue: "
 const th = "px-2.5 py-2 font-medium";
 
 export default async function ReportPage({ searchParams }: { searchParams: Promise<{ week?: string }> }) {
+  if (!DEMO_MODE) return <DemoOnly title="Weekly Model Report" needs="several weeks of settled real-model predictions" />;
   const now = await requestNow();
   const { week: weekParam } = await searchParams;
   const rows = ledgerRows(now);

@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { CalibrationChart } from "@/components/charts/CalibrationChart";
 import { Badge, MetricContextLine, PageHeader, Panel, Signed, StatTile, Tip } from "@/components/ui";
-import { requestNow } from "@/lib/data";
 import { ALERT_TYPES, marketAlerts } from "@/lib/demo/alerts";
-import { performanceSummary, VALUE_RULE_TEXT } from "@/lib/demo/performance";
-import { marketRows, universeStats, type MarketRow } from "@/lib/demo/store";
+import { performanceSummaryOf, VALUE_RULE_TEXT } from "@/lib/demo/performance";
+import { universeStats, type MarketRow } from "@/lib/demo/store";
 import { fmtCountdown, fmtInt, fmtOdds, fmtPct, fmtPp, fmtSignedPct, fmtTime } from "@/lib/format";
 import { CLV_METHODOLOGY } from "@/lib/metrics/clv";
+import { terminal } from "@/lib/terminal";
 
 function MarketLine({ r, now, right }: { r: MarketRow; now: number; right: React.ReactNode }) {
   return (
@@ -27,13 +27,16 @@ function MarketLine({ r, now, right }: { r: MarketRow; now: number; right: React
 }
 
 export default async function Dashboard() {
-  const now = await requestNow();
-  const rows = marketRows(now);
+  const t = await terminal();
+  const now = t.now;
+  const rows = t.marketRows();
   const pre = rows.filter((r) => r.status === "scheduled");
   const withModel = pre.filter((r) => r.edgePp !== null);
-  const perf = performanceSummary(now);
-  const stats = universeStats(now);
-  const alerts = marketAlerts(now);
+  const perf = performanceSummaryOf(t.ledgerRows(), t.ledgerSource);
+  const stats = t.live
+    ? { events: new Set(rows.map((r) => r.eventId)).size, leagues: new Set(rows.map((r) => r.league)).size, bookmakers: Math.max(0, ...rows.map((r) => r.booksQuoting)) }
+    : universeStats(now);
+  const alerts = t.live ? null : marketAlerts(now);
 
   const movers = [...pre].sort((a, b) => Math.abs(b.movement) - Math.abs(a.movement)).slice(0, 6);
   const disagreements = [...withModel].sort((a, b) => Math.abs(b.edgePp!) - Math.abs(a.edgePp!)).slice(0, 6);
@@ -58,7 +61,7 @@ export default async function Dashboard() {
         subtitle="Track market movement. Compare probabilities. Understand model disagreement. Measure performance."
         right={
           <span className="text-xs text-muted">
-            {fmtInt(rows.length)} markets open · {fmtInt(stats.events)} events tracked · {stats.leagues} leagues · {stats.bookmakers} bookmakers
+            {fmtInt(rows.length)} markets open · {fmtInt(stats.events)} events tracked · {stats.leagues} {stats.leagues === 1 ? "league" : "leagues"} · {stats.bookmakers} bookmakers
           </span>
         }
       />
@@ -157,10 +160,10 @@ export default async function Dashboard() {
                   </Link>
                 </li>
               ))}
-              {liveEvents.size === 0 && <li className="px-4 py-3 text-sm text-muted">No matches in play right now.</li>}
+              {liveEvents.size === 0 && <li className="px-4 py-3 text-sm text-muted">No matches in play right now.{t.live && " Live prices are not stored after kickoff."}</li>}
             </ul>
           </Panel>
-          <Panel title="Latest alerts" right={<Link href="/markets/alerts" className="text-accent hover:underline">All alerts →</Link>}>
+          {alerts && <Panel title="Latest alerts" right={<Link href="/markets/alerts" className="text-accent hover:underline">All alerts →</Link>}>
             <ul className="divide-y divide-line">
               {alerts.slice(0, 5).map((a) => (
                 <li key={a.id} className="px-4 py-2">
@@ -174,7 +177,7 @@ export default async function Dashboard() {
               ))}
               {alerts.length === 0 && <li className="px-4 py-3 text-sm text-muted">No alerts in the last 24 hours.</li>}
             </ul>
-          </Panel>
+          </Panel>}
         </div>
 
         <Panel title="Calibration" right={<Link href="/model-lab/ledger" className="text-accent hover:underline">Ledger →</Link>}>
@@ -208,7 +211,7 @@ export default async function Dashboard() {
             </tbody>
           </table>
           <p className="border-t border-line px-4 py-2 text-[11px] text-muted">
-            Historical, settled ledger predictions (all selections). Lower Brier is better. <Badge tone="warning">Demo data</Badge>
+            Historical, settled ledger predictions (all selections). Lower Brier is better. {!t.live && <Badge tone="warning">Demo data</Badge>}
           </p>
         </Panel>
       </div>

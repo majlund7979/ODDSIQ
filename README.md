@@ -13,6 +13,8 @@ npm run dev        # http://localhost:3000
 
 The app runs in **DEMO_MODE** by default: no database or API keys needed. Every page carries a **DEMO DATA** label while it is on.
 
+With `DEMO_MODE=false` (and `DATABASE_URL` set) the terminal reads the odds feed and the real model from Postgres through `src/lib/terminal.ts`: Dashboard, Markets, market pages, Value Scanner, Matches, Overview, Heatmap, Ledger, Audit, Performance, CLV, Backtest, Error Analysis and Drift. Pages that need in-play, news or lineup data (Live, Market Replay, Efficiency, Alerts, AI Analyst, Weekly Report, Watchlist, My Bets, the demo Model Lab) say they are not available on live data yet.
+
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `start` | Next.js app |

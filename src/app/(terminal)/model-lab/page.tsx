@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { Badge, PageHeader, Panel, Signed, Tip } from "@/components/ui";
-import { requestNow } from "@/lib/data";
+import { DEMO_MODE, requestNow } from "@/lib/data";
+import { DemoOnly } from "@/components/DemoOnly";
 import { driftReport, scanErrorPatterns, segmentStats, VERSION_MARKERS, weeklySeries } from "@/lib/demo/analytics";
 import { COMPONENT_MODELS, MODEL_FAMILIES, MODEL_VERSIONS, releaseAt } from "@/lib/demo/models";
 import { ledgerRows } from "@/lib/demo/store";
@@ -13,6 +14,7 @@ export const metadata = { title: "Model Lab · ODDSIQ" };
 const statusTone = { STABLE: "good", WATCH: "warning", DRIFT: "critical" } as const;
 
 export default async function ModelLabPage() {
+  if (!DEMO_MODE) return <DemoOnly title="Model Lab" needs="the six demo model families (the real model has its own page)" />;
   const now = await requestNow();
   const rows = ledgerRows(now);
   const current = releaseAt(now);

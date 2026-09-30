@@ -1,8 +1,8 @@
 import { Badge, PageHeader, Panel, Signed } from "@/components/ui";
-import { requestNow } from "@/lib/data";
 import { scanErrorPatterns, type ErrorPattern } from "@/lib/demo/analytics";
-import { ledgerRows } from "@/lib/demo/store";
+
 import { fmtInt, fmtPct, fmtPeriod, fmtPp, fmtSignedPct } from "@/lib/format";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Error Analysis · ODDSIQ" };
 
@@ -74,8 +74,8 @@ function PatternCard({ p }: { p: ErrorPattern }) {
 }
 
 export default async function ErrorsPage() {
-  const now = await requestNow();
-  const scan = scanErrorPatterns(ledgerRows(now));
+  const t = await terminal();
+  const scan = scanErrorPatterns(t.ledgerRows());
   return (
     <div className="space-y-5">
       <PageHeader
@@ -112,7 +112,7 @@ export default async function ErrorsPage() {
           <li>Because many segments are tested at once, the bar is raised with a Bonferroni correction so that the chance of any false report stays near 5%.</li>
           <li>Related segments overlap: a pattern in one selection type also appears in its narrower sub-segments. In a market whose probabilities sum to 100%, overestimating one outcome means underestimating another.</li>
         </ul>
-        <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Historical · Source: ODDSIQ prediction ledger (DEMO DATA)</p>
+        <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Historical · Source: {t.ledgerSource}</p>
       </Panel>
     </div>
   );

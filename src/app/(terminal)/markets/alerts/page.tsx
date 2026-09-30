@@ -3,7 +3,8 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { Ago } from "@/components/Clock";
 import { MarketsNav } from "@/components/MarketsNav";
 import { LinkTabs, PageHeader, Panel, Tip } from "@/components/ui";
-import { requestNow } from "@/lib/data";
+import { DEMO_MODE, requestNow } from "@/lib/data";
+import { DemoOnly } from "@/components/DemoOnly";
 import { ALERT_TYPES, ALERT_WINDOW_HOURS, marketAlerts, type AlertType } from "@/lib/demo/alerts";
 import { fmtInt, fmtTime } from "@/lib/format";
 
@@ -21,6 +22,7 @@ const ICON: Record<AlertType, string> = {
 };
 
 export default async function AlertsPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
+  if (!DEMO_MODE) return <DemoOnly title="Alerts" needs="news items and minute-by-minute price tracking" />;
   const now = await requestNow();
   const { type } = await searchParams;
   const all = marketAlerts(now);

@@ -32,7 +32,12 @@ export interface PerformanceSummary {
 const SOURCE = "ODDSIQ prediction ledger (DEMO DATA)";
 
 export function performanceSummary(now: number, filter?: (r: LedgerRow) => boolean): PerformanceSummary {
-  const all = ledgerRows(now).filter((r) => (filter ? filter(r) : true));
+  return performanceSummaryOf(ledgerRows(now), SOURCE, filter);
+}
+
+/** The same summary over any ledger rows (demo or live). */
+export function performanceSummaryOf(rows: LedgerRow[], source: string, filter?: (r: LedgerRow) => boolean): PerformanceSummary {
+  const all = rows.filter((r) => (filter ? filter(r) : true));
   const settled = all.filter((r) => r.status === "settled");
   const withClv = all.filter((r) => r.clv !== undefined);
   const scored: Scored[] = settled.map((r) => ({ p: r.prediction.probability, y: r.result === "won" ? 1 : 0 }));
@@ -43,7 +48,7 @@ export function performanceSummary(now: number, filter?: (r: LedgerRow) => boole
     n,
     ...period,
     modelVersion: versionLabel,
-    source: SOURCE,
+    source,
     definition,
     basis,
   });

@@ -1,21 +1,21 @@
 import Link from "next/link";
 import { Badge, PageHeader, Panel, Signed, Tip } from "@/components/ui";
-import { requestNow } from "@/lib/data";
-import { ledgerAudit, ledgerRows } from "@/lib/demo/store";
+
 import { fmtDateTime, fmtInt, fmtOdds, fmtPct, fmtSignedPct } from "@/lib/format";
 import { CLV_METHODOLOGY } from "@/lib/metrics/clv";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Prediction Ledger · ODDSIQ" };
 
 const PAGE_SIZE = 50;
 
 export default async function LedgerPage({ searchParams }: { searchParams: Promise<{ page?: string; q?: string; status?: string }> }) {
-  const now = await requestNow();
+  const t = await terminal();
   const sp = await searchParams;
   const q = (sp.q ?? "").trim().toLowerCase();
   const status = sp.status ?? "all";
-  const audit = ledgerAudit(now);
-  const all = [...ledgerRows(now)].reverse();
+  const audit = t.ledgerAudit();
+  const all = [...t.ledgerRows()].reverse();
   const rows = all.filter(
     (r) =>
       (status === "all" || r.status === status) &&
@@ -53,9 +53,11 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
         <Link href="/model-lab/audit" className="text-accent hover:underline">
           Full audit →
         </Link>
-        <Badge tone="warning" className="ml-auto">
-          Demo data
-        </Badge>
+        {!t.live && (
+          <Badge tone="warning" className="ml-auto">
+            Demo data
+          </Badge>
+        )}
       </div>
 
       <Panel

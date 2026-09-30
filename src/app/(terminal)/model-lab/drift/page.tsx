@@ -1,9 +1,9 @@
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { Badge, PageHeader, Panel, Tip } from "@/components/ui";
-import { requestNow } from "@/lib/data";
 import { driftReport, DRIFT_WINDOWS, VERSION_MARKERS, weeklySeries, type DriftCheck } from "@/lib/demo/analytics";
-import { ledgerRows } from "@/lib/demo/store";
+
 import { fmtDate, fmtInt, fmtPct, fmtSignedPct } from "@/lib/format";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Drift Monitor · ODDSIQ" };
 
@@ -18,8 +18,9 @@ function fmtValue(c: DriftCheck, v: number) {
 }
 
 export default async function DriftPage() {
-  const now = await requestNow();
-  const rows = ledgerRows(now);
+  const t = await terminal();
+  const now = t.now;
+  const rows = t.ledgerRows();
   const report = driftReport(rows, now);
   const weeks = weeklySeries(rows);
 
@@ -67,7 +68,7 @@ export default async function DriftPage() {
           </table>
         </div>
         <p className="border-t border-line px-4 py-2 text-[11px] text-muted">
-          Historical · z-scores compare the two windows&apos; means in the worsening direction: WATCH at 2 or more, DRIFT at 3 or more. PSI: WATCH from 0.10, DRIFT from 0.25. A flag says performance changed; it does not say why. Source: ODDSIQ prediction ledger (DEMO DATA).
+          Historical · z-scores compare the two windows&apos; means in the worsening direction: WATCH at 2 or more, DRIFT at 3 or more. PSI: WATCH from 0.10, DRIFT from 0.25. A flag says performance changed; it does not say why. Source: {t.ledgerSource}.
         </p>
       </Panel>
 

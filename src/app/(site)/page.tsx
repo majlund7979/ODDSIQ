@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { requestNow } from "@/lib/data";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { PLANS } from "@/lib/billing/plans";
-import { ledgerAudit, ledgerRows } from "@/lib/demo/store";
 import { fmtInt, fmtMonth, fmtPct, fmtSignedPct } from "@/lib/format";
 import { DEMO_MODE } from "@/lib/data";
+import { terminal } from "@/lib/terminal";
 import { mean } from "@/lib/metrics/stats";
 
 export const metadata = { title: "ODDSIQ · See the numbers behind the odds" };
@@ -19,11 +18,11 @@ const PILLARS = [
 const RECORD = ["Timestamp", "Odds", "Probability", "Model version", "Confidence", "Closing price", "Result"];
 
 export default async function LandingPage() {
-  const now = await requestNow();
-  const audit = ledgerAudit(now);
-  const rows = ledgerRows(now).filter((r) => r.clv !== undefined);
-  const avgClv = mean(rows.map((r) => r.clv!));
-  const positive = rows.filter((r) => r.clv! > 0).length / rows.length;
+  const t = await terminal();
+  const audit = t.ledgerAudit();
+  const rows = t.ledgerRows().filter((r) => r.clv !== undefined);
+  const avgClv = rows.length ? mean(rows.map((r) => r.clv!)) : NaN;
+  const positive = rows.length ? rows.filter((r) => r.clv! > 0).length / rows.length : NaN;
 
   return (
     <div>
@@ -82,7 +81,7 @@ export default async function LandingPage() {
                 ["Predictions in the ledger", fmtInt(audit.count)],
                 ["Hash chain", audit.verification.ok ? "Verified" : "Broken"],
                 ["Changed or deleted", `${audit.changed + audit.deleted}`],
-                ["Average CLV", fmtSignedPct(avgClv)],
+                ["Average CLV", rows.length ? fmtSignedPct(avgClv) : "No closed predictions yet"],
               ].map(([k, v]) => (
                 <div key={k} className="bg-surface px-5 py-5">
                   <dt className="text-[10.5px] uppercase tracking-[0.12em] text-muted">{k}</dt>

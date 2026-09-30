@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { MarketReplay } from "@/components/MarketReplay";
 import { LinkTabs, PageHeader, Panel } from "@/components/ui";
-import { requestNow } from "@/lib/data";
+import { DEMO_MODE, requestNow } from "@/lib/data";
+import { DemoOnly } from "@/components/DemoOnly";
 import { SPORTS } from "@/lib/demo/catalog";
 import { replayableEvents, replayData } from "@/lib/demo/store";
 import { fmtDate, fmtTime } from "@/lib/format";
@@ -11,6 +12,7 @@ export const metadata = { title: "Market Replay · ODDSIQ" };
 const dayOf = (t: number) => new Date(t).toISOString().slice(0, 10);
 
 export default async function MarketReplayPage({ searchParams }: { searchParams: Promise<{ sport?: string; league?: string; date?: string; event?: string }> }) {
+  if (!DEMO_MODE) return <DemoOnly title="Market Replay" needs="in-play price history and match events" />;
   const now = await requestNow();
   const q = await searchParams;
   const events = replayableEvents(now);
