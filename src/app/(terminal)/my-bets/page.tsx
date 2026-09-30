@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { removePosition } from "@/app/actions";
 import { PageHeader, Panel, Signed, Tip } from "@/components/ui";
-import { requestNow } from "@/lib/data";
+import { DEMO_MODE, requestNow } from "@/lib/data";
+import { DemoOnly } from "@/components/DemoOnly";
 import { positionSummary, positionView } from "@/lib/demo/personal";
 import { fmtDateTime, fmtInt, fmtOdds, fmtPct, fmtSignedPct } from "@/lib/format";
 import { CLV_METHODOLOGY } from "@/lib/metrics/clv";
@@ -12,6 +13,7 @@ export const metadata = { title: "My Bets · ODDSIQ" };
 const th = "px-2.5 py-2 font-medium";
 
 export default async function MyBetsPage() {
+  if (!DEMO_MODE) return <DemoOnly title="My Bets" needs="demo market ids for tracked prices" />;
   const now = await requestNow();
   const positions = await readPositions();
   const views = positions.map((p, index) => ({ index, v: positionView(p, now) })).filter((x) => x.v !== null);

@@ -20,6 +20,7 @@ import { closingLine } from "../src/lib/providers/closing";
 import { configuredFeed, feedConfig } from "../src/lib/providers/config";
 import { FIXTURE_KICKOFF, FixtureFeed } from "../src/lib/providers/fixture-feed";
 import { ingest } from "../src/lib/providers/ingest";
+import { realMarketDetail, realMatchView, realSnapshot } from "../src/lib/real/store";
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 const HOUR = 3_600_000;
@@ -78,6 +79,20 @@ async function fixture() {
   assert(v.ok, `ledger chain broken: ${v.reason}`);
   const bt = await prisma.modelBacktest.findFirst({ where: { league: "en.1" }, orderBy: { createdAt: "desc" } });
   assert(bt && bt.n > 300, "a backtest should be stored");
+
+  // The terminal's live read model over the same data.
+  const snap = await realSnapshot(prisma, FIXTURE_KICKOFF + HOUR);
+  const mine = snap.ledger.filter((r) => r.event.id.startsWith(`${prefix}-`));
+  assert(mine.length === 8, `read model should show the 8 ledger predictions, got ${mine.length}`);
+  assert(snap.audit.verification.ok, "read model audit should verify the chain");
+  const ledgerHome = mine.find((r) => r.prediction.selectionId === ids[0])!;
+  assert(ledgerHome.status === "settled" && ledgerHome.result === "won" && ledgerHome.clv !== undefined, "settled row should carry result and CLV");
+  const mv = realMatchView(snap, eventId);
+  assert(mv && mv.results[0] === "won" && mv.preMatchModel[0] === home.probability, "match view should show result and ledgered model");
+  assert(Math.abs(mv.closingOdds[0] - 2.025) < 1e-9, `match view closing price should be 2.025, got ${mv?.closingOdds[0]}`);
+  const d = realMarketDetail(snap, ids[0]);
+  assert(d && d.chart.length === 2 && d.prediction?.id === home.id && d.analysis.ensemble.probability === home.probability, "market detail should chart both runs and show the ledgered prediction");
+
   console.log(`Fixture ingestion OK. ${preds.length} predictions, chain of ${v.checked} verified, backtest n = ${bt.n}.`);
 }
 

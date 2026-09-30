@@ -1,5 +1,4 @@
-import { requestNow } from "@/lib/data";
-import { ledgerRows } from "@/lib/demo/store";
+import { terminal } from "@/lib/terminal";
 
 const HEADER = [
   "seq",
@@ -32,11 +31,11 @@ function cell(v: unknown): string {
 }
 
 export async function GET(request: Request) {
-  const now = await requestNow();
+  const t = await terminal();
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
   const status = url.searchParams.get("status") ?? "all";
-  const rows = ledgerRows(now).filter(
+  const rows = t.ledgerRows().filter(
     (r) =>
       (status === "all" || r.status === status) &&
       (!q || `${r.prediction.id} ${r.event.homeName} ${r.event.awayName} ${r.event.leagueName} ${r.selectionName} ${r.prediction.modelVersionId}`.toLowerCase().includes(q)),
@@ -76,7 +75,7 @@ export async function GET(request: Request) {
   return new Response(lines.join("\n") + "\n", {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="oddsiq-ledger-${new Date(now).toISOString().slice(0, 10)}.csv"`,
+      "Content-Disposition": `attachment; filename="oddsiq-ledger-${new Date(t.now).toISOString().slice(0, 10)}.csv"`,
     },
   });
 }

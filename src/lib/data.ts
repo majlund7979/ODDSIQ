@@ -7,7 +7,7 @@ export const DEMO_MODE = process.env.DEMO_MODE !== "false";
 
 export class DataSourceNotConfiguredError extends Error {
   constructor() {
-    super("DEMO_MODE is off but no live data provider is configured yet. Set DEMO_MODE=true or connect an odds provider.");
+    super("DEMO_MODE is off but DATABASE_URL is not set. Set DEMO_MODE=true, or connect the database and odds feed.");
   }
 }
 

@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { LinkTabs, PageHeader, Panel, Signed } from "@/components/ui";
-import { requestNow } from "@/lib/data";
 import { SPORTS } from "@/lib/demo/catalog";
-import { marketRows, matchView, replayableEvents } from "@/lib/demo/store";
 import { fmtDateTime, fmtOdds, fmtSignedPct } from "@/lib/format";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Matches · ODDSIQ" };
 
@@ -14,19 +13,20 @@ const TABS = [
 ] as const;
 
 export default async function MatchesPage({ searchParams }: { searchParams: Promise<{ tab?: string; sport?: string }> }) {
-  const now = await requestNow();
+  const t = await terminal();
+  const now = t.now;
   const q = await searchParams;
-  const tab = TABS.find((t) => t.id === q.tab)?.id ?? "upcoming";
+  const tab = TABS.find((x) => x.id === q.tab)?.id ?? "upcoming";
   const sport = SPORTS.find((s) => s.id === q.sport)?.id ?? "all";
 
   const ids =
     tab === "results"
-      ? replayableEvents(now)
+      ? t.finishedEvents()
           .filter((e) => e.kickoff > now - 7 * 86_400_000)
           .map((e) => e.id)
-      : [...new Set(marketRows(now).filter((r) => r.status === (tab === "live" ? "live" : "scheduled")).sort((a, b) => a.kickoff - b.kickoff).map((r) => r.eventId))];
+      : [...new Set(t.marketRows().filter((r) => r.status === (tab === "live" ? "live" : "scheduled")).sort((a, b) => a.kickoff - b.kickoff).map((r) => r.eventId))];
   const views = ids
-    .map((id) => matchView(id, now))
+    .map((id) => t.matchView(id))
     .filter((v) => v !== undefined)
     .filter((v) => sport === "all" || v.event.sportId === sport);
   const shown = views.slice(0, 120);
@@ -36,10 +36,10 @@ export default async function MatchesPage({ searchParams }: { searchParams: Prom
     <div className="space-y-4">
       <PageHeader title="Matches" subtitle="Fixtures, live matches and results across every tracked league. Each row sums up what changed in the main market since it opened; open it for the full timeline." />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <LinkTabs label="Status" active={tab} items={TABS.map((t) => ({ id: t.id, label: t.label, href: href({ tab: t.id }) }))} />
+        <LinkTabs label="Status" active={tab} items={TABS.map((x) => ({ id: x.id, label: x.label, href: href({ tab: x.id }) }))} />
         <LinkTabs label="Sport" active={sport} items={[{ id: "all", label: "All sports", href: href({ sport: "all" }) }, ...SPORTS.map((s) => ({ id: s.id, label: s.name, href: href({ sport: s.id }) }))]} />
       </div>
-      <Panel right={`${views.length} matches${views.length > shown.length ? `, first ${shown.length} shown` : ""}`} title={TABS.find((t) => t.id === tab)!.label}>
+      <Panel right={`${views.length} matches${views.length > shown.length ? `, first ${shown.length} shown` : ""}`} title={TABS.find((x) => x.id === tab)!.label}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-[12.5px]">
             <thead>
@@ -87,7 +87,7 @@ export default async function MatchesPage({ searchParams }: { searchParams: Prom
                       </div>
                     </td>
                     <td className="px-2.5 py-2 pr-4 text-right text-xs whitespace-nowrap">
-                      <Link href={v.event.status === "finished" ? `/market-replay?event=${v.event.id}` : `/markets/${v.selections[0].id}#what-changed`} className="text-accent hover:underline">
+                      <Link href={v.event.status === "finished" && !t.live ? `/market-replay?event=${v.event.id}` : `/markets/${v.selections[0].id}#what-changed`} className="text-accent hover:underline">
                         What changed?
                       </Link>
                       {v.event.status === "live" && (
@@ -102,7 +102,7 @@ export default async function MatchesPage({ searchParams }: { searchParams: Prom
             </tbody>
           </table>
         </div>
-        <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Consensus odds across tracked bookmakers. Changes are listed as facts; causes are not inferred. Times are UTC. DEMO DATA.</p>
+        <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Consensus odds across tracked bookmakers. Changes are listed as facts; causes are not inferred. Times are UTC. {t.dataLabel}.</p>
       </Panel>
     </div>
   );

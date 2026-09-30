@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { MarketsNav } from "@/components/MarketsNav";
 import { LinkTabs, PageHeader, Panel } from "@/components/ui";
-import { requestNow } from "@/lib/data";
 import { clvHistoryBySegment, clvSegmentKey } from "@/lib/demo/analytics";
 import { LEAGUES } from "@/lib/demo/catalog";
-import { ledgerRows, marketRows } from "@/lib/demo/store";
+
 import { fmtInt, fmtPct, fmtSignedPct } from "@/lib/format";
 import { MIN_SAMPLE_FOR_WARNING } from "@/lib/metrics/metric";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Market Heatmap · ODDSIQ" };
 
@@ -24,11 +24,11 @@ const METRICS = [
 ] as const;
 
 export default async function HeatmapPage({ searchParams }: { searchParams: Promise<{ metric?: string }> }) {
-  const now = await requestNow();
+  const t = await terminal();
   const { metric: metricId } = await searchParams;
   const metric = METRICS.find((m) => m.id === metricId) ?? METRICS[0];
-  const rows = marketRows(now).filter((r) => r.status === "scheduled" && r.edgePp !== null);
-  const clv = clvHistoryBySegment(ledgerRows(now));
+  const rows = t.marketRows().filter((r) => r.status === "scheduled" && r.edgePp !== null);
+  const clv = clvHistoryBySegment(t.ledgerRows());
 
   const cell = (leagueId: string, type: string): { value: number; n: number } | null => {
     if (metric.id === "clv") {
@@ -102,7 +102,7 @@ export default async function HeatmapPage({ searchParams }: { searchParams: Prom
           </table>
         </div>
         <p className="border-t border-line px-4 py-2 text-[11px] text-muted">
-          {metric.note} Colour intensity is relative to the largest cell on this view. Disagreement is not the same as value: the closing market has usually been at least as accurate as the model. DEMO DATA.
+          {metric.note} Colour intensity is relative to the largest cell on this view. Disagreement is not the same as value: the closing market has usually been at least as accurate as the model. {t.dataLabel}.
         </p>
       </Panel>
     </div>

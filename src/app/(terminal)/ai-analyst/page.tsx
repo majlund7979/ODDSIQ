@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { WatchToggle } from "@/components/WatchButtons";
 import { Badge, PageHeader, Panel, Signed } from "@/components/ui";
-import { requestNow } from "@/lib/data";
+import { DEMO_MODE, requestNow } from "@/lib/data";
+import { DemoOnly } from "@/components/DemoOnly";
 import { ANALYST_EXAMPLES, parseQuestion } from "@/lib/demo/analyst";
 import { COMMENTARY_NOTE, marketCommentary } from "@/lib/demo/commentary";
 import { assistantAnswer, teamRecord, watchedRows, type TeamRecord } from "@/lib/demo/personal";
@@ -81,6 +82,7 @@ function Form({ record }: { record: TeamRecord }) {
 }
 
 export default async function AiAnalystPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  if (!DEMO_MODE) return <DemoOnly title="AI Analyst" needs="news, lineups and in-play data" />;
   const now = await requestNow();
   const { q = "" } = await searchParams;
   const intent = parseQuestion(q);

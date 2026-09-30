@@ -3,23 +3,24 @@ import { CalibrationChart } from "@/components/charts/CalibrationChart";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { SegmentTable } from "@/components/SegmentTable";
 import { LinkTabs, MetricContextLine, PageHeader, Panel, Signed, StatTile } from "@/components/ui";
-import { requestNow } from "@/lib/data";
 import { breakdown, dimension, DIMENSIONS, segmentStats, VERSION_MARKERS } from "@/lib/demo/analytics";
-import { performanceSummary, VALUE_RULE_TEXT } from "@/lib/demo/performance";
+import { performanceSummaryOf, VALUE_RULE_TEXT } from "@/lib/demo/performance";
 import { SPORTS } from "@/lib/demo/catalog";
-import { ledgerRows } from "@/lib/demo/store";
+
 import { fmtInt, fmtPct, fmtSignedPct } from "@/lib/format";
+import type { LedgerRow } from "@/lib/demo/store";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Performance · ODDSIQ" };
 
 export default async function PerformancePage({ searchParams }: { searchParams: Promise<{ by?: string; sport?: string }> }) {
-  const now = await requestNow();
+  const t = await terminal();
   const sp = await searchParams;
   const dim = dimension(sp.by);
   const sport = SPORTS.find((s) => s.id === sp.sport)?.id ?? "all";
-  const filter = sport === "all" ? undefined : (r: ReturnType<typeof ledgerRows>[number]) => r.event.sportId === sport;
-  const rows = filter ? ledgerRows(now).filter(filter) : ledgerRows(now);
-  const perf = performanceSummary(now, filter);
+  const filter = sport === "all" ? undefined : (r: LedgerRow) => r.event.sportId === sport;
+  const rows = filter ? t.ledgerRows().filter(filter) : t.ledgerRows();
+  const perf = performanceSummaryOf(t.ledgerRows(), t.ledgerSource, filter);
   const total = segmentStats(rows, "total", "All");
   const segments = breakdown(rows, dim);
   const st = perf.staking.value;
@@ -91,7 +92,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
       <Panel title="Breakdown" right={<LinkTabs label="Break down by" active={dim.id} items={DIMENSIONS.map((d) => ({ id: d.id, label: d.label, href: href(d.id, sport) }))} />}>
         <SegmentTable rows={segments} heading={dim.label} total={total} />
         <p className="border-t border-line px-4 py-2 text-[11px] text-muted">
-          Historical results from the prediction ledger, {sport === "all" ? "all sports" : SPORTS.find((s) => s.id === sport)?.name}. Segments with fewer than 200 settled predictions are flagged; their figures are shown but should not be read as patterns. Across a whole market the predicted probabilities sum to 100% and exactly one selection wins, so the total bias is zero by construction. Source: ODDSIQ prediction ledger (DEMO DATA).
+          Historical results from the prediction ledger, {sport === "all" ? "all sports" : SPORTS.find((s) => s.id === sport)?.name}. Segments with fewer than 200 settled predictions are flagged; their figures are shown but should not be read as patterns. Across a whole market the predicted probabilities sum to 100% and exactly one selection wins, so the total bias is zero by construction. Source: {t.ledgerSource}.
         </p>
       </Panel>
     </div>

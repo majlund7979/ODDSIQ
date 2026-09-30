@@ -7,26 +7,27 @@ import { ModelVsMarket } from "@/components/charts/ModelVsMarket";
 import { OddsChart } from "@/components/charts/OddsChart";
 import { TrackPriceButton, WatchToggle } from "@/components/WatchButtons";
 import { Badge, levelTone, Panel, Signed, Tip } from "@/components/ui";
-import { requestNow } from "@/lib/data";
 import { COMMENTARY_NOTE, marketCommentary, whatChangedSummary } from "@/lib/demo/commentary";
 import { MODEL_FAMILIES } from "@/lib/demo/models";
 import { readWatchlist } from "@/lib/personal-store";
-import { dataSources, marketDetail, marketRows } from "@/lib/demo/store";
+
 import { fmtCountdown, fmtDateTime, fmtOdds, fmtPct, fmtPp, fmtShortDateTime, fmtSignedPct, fmtTime } from "@/lib/format";
 import { CONFIDENCE_DEFINITION } from "@/lib/metrics/consensus";
 import { PRESSURE_DEFINITION } from "@/lib/metrics/movement";
 import { DATA_QUALITY_DEFINITION } from "@/lib/metrics/quality";
 import { marketRegime, REGIME_NOTE } from "@/lib/metrics/regime";
 import { MOVEMENT_EXPLANATIONS, movementSignals, RLM_DEFINITION, SHARP_DEFINITION } from "@/lib/metrics/signals";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Market · ODDSIQ" };
 
 const familyName = (versionId: string) => MODEL_FAMILIES.find((f) => versionId.startsWith(f.id))?.name ?? versionId;
 
 export default async function MarketDetailPage({ params }: { params: Promise<{ selectionId: string }> }) {
-  const now = await requestNow();
+  const t = await terminal();
+  const now = t.now;
   const { selectionId } = await params;
-  const d = marketDetail(selectionId, now);
+  const d = t.marketDetail(selectionId);
   if (!d) notFound();
   const { row, event, analysis, prediction } = d;
   const selectionIsHome = selectionId.endsWith("-home");
@@ -47,7 +48,7 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
   ].filter((x) => x.at !== undefined);
 
   const lastNews = d.news.filter((n) => n.at <= now).at(-1);
-  const vols = marketRows(now).filter((r) => r.status === "scheduled").map((r) => r.volatility).sort((a, b) => a - b);
+  const vols = t.marketRows().filter((r) => r.status === "scheduled").map((r) => r.volatility).sort((a, b) => a - b);
   const medianVol = vols[Math.floor(vols.length / 2)] ?? 0;
   const regime = marketRegime({
     live: row.status === "live",
@@ -102,7 +103,7 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
                 <Badge tone={regime.regime === "NORMAL" ? "neutral" : "accent"}>Regime: {regime.regime}</Badge>
               </Tip>
             )}
-            <Badge tone="warning">Demo data</Badge>
+            {!t.live && <Badge tone="warning">Demo data</Badge>}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <WatchToggle kind="market" id={selectionId} label="Market" watchlist={watchlist} />
@@ -262,7 +263,7 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
                 <p key={c}>{c}</p>
               ))}
             </div>
-            <p className="border-t border-line px-4 py-2 text-[11px] text-muted">{COMMENTARY_NOTE} {row.status === "scheduled" ? "Live" : "Pre-match close"} · DEMO DATA.</p>
+            <p className="border-t border-line px-4 py-2 text-[11px] text-muted">{COMMENTARY_NOTE} {row.status === "scheduled" ? "Live" : "Pre-match close"} · {t.dataLabel}.</p>
           </Panel>
           <Panel title="Movement">
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 px-4 py-3 text-sm">
@@ -363,7 +364,7 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
             <div className="border-t border-line px-4 py-2.5">
               <div className="mb-1.5 text-[10.5px] uppercase tracking-wider text-muted">Sources</div>
               <ul className="space-y-1 text-xs">
-                {dataSources(now).map((s) => (
+                {t.dataSources().map((s) => (
                   <li key={s.id} className="flex justify-between gap-2 text-ink-2">
                     <span>
                       <span className="text-good">●</span> {s.name}
@@ -381,7 +382,7 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
                 <tr className="text-[10px] uppercase tracking-wider text-muted">
                   <th className="px-4 py-1.5 text-left font-medium">Book</th>
                   <th className="px-2 py-1.5 text-right font-medium">Open</th>
-                  <th className="px-2 py-1.5 text-right font-medium">1h ago</th>
+                  <th className="px-2 py-1.5 text-right font-medium">{t.live ? "Previous run" : "1h ago"}</th>
                   <th className="px-4 py-1.5 text-right font-medium">Now</th>
                 </tr>
               </thead>
@@ -396,7 +397,7 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
                 ))}
               </tbody>
             </table>
-            <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Bookmaker names are fictional (demo feed).</p>
+            <p className="border-t border-line px-4 py-2 text-[11px] text-muted">{t.live ? "Prices from The Odds API. Columns show each bookmaker at opening, at the previous feed run and now." : "Bookmaker names are fictional (demo feed)."}</p>
           </Panel>
 
           <Panel title="Other selections">

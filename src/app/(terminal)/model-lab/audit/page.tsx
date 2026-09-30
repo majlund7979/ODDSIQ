@@ -1,14 +1,14 @@
 import { Badge, PageHeader, Panel } from "@/components/ui";
-import { requestNow } from "@/lib/data";
 import { MODEL_VERSIONS } from "@/lib/demo/models";
-import { dataSources, ledgerAudit } from "@/lib/demo/store";
+
 import { fmtDate, fmtDateTime, fmtInt } from "@/lib/format";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Model Audit · ODDSIQ" };
 
 export default async function AuditPage() {
-  const now = await requestNow();
-  const a = ledgerAudit(now);
+  const t = await terminal();
+  const a = t.ledgerAudit();
   const checks = [
     { label: "Prediction count", value: fmtInt(a.count), ok: true, note: "Entries in the ledger" },
     { label: "Missing predictions", value: fmtInt(a.missing.length), ok: a.missing.length === 0, note: "Scheduled markets with no prediction before kickoff" },
@@ -87,7 +87,7 @@ export default async function AuditPage() {
         </Panel>
         <Panel title="Data sources">
           <ul className="divide-y divide-line">
-            {dataSources(now).map((s) => (
+            {t.dataSources().map((s) => (
               <li key={s.id} className="flex justify-between px-4 py-2 text-sm">
                 <span>
                   <span className="text-good">●</span> {s.name} <span className="text-xs text-muted">({s.provider})</span>

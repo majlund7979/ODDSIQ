@@ -1,20 +1,20 @@
 import Link from "next/link";
 import { MarketsNav } from "@/components/MarketsNav";
 import { PageHeader, Panel, Signed, Tip } from "@/components/ui";
-import { requestNow } from "@/lib/data";
 import { SPORTS } from "@/lib/demo/catalog";
-import { ledgerRows, marketRows } from "@/lib/demo/store";
+
 import { fmtInt, fmtPct, fmtPeriod, fmtSignedPct } from "@/lib/format";
 import { periodOf } from "@/lib/metrics/metric";
 import { movementSignals, RLM_DEFINITION, SHARP_DEFINITION } from "@/lib/metrics/signals";
 import { mean } from "@/lib/metrics/stats";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Sports Market Overview · ODDSIQ" };
 
 export default async function OverviewPage() {
-  const now = await requestNow();
-  const rows = marketRows(now);
-  const ledger = ledgerRows(now).filter((r) => r.clv !== undefined);
+  const t = await terminal();
+  const rows = t.marketRows();
+  const ledger = t.ledgerRows().filter((r) => r.clv !== undefined);
   const clvPeriod = periodOf(ledger.map((r) => r.prediction.createdAt));
 
   const sports = SPORTS.map((s) => {
@@ -77,7 +77,7 @@ export default async function OverviewPage() {
           </Panel>
         ))}
       </div>
-      <p className="text-[11px] text-muted">Live figures cover markets open now; CLV is historical, from the prediction ledger. DEMO DATA.</p>
+      <p className="text-[11px] text-muted">Live figures cover markets open now; CLV is historical, from the prediction ledger. {t.dataLabel}.</p>
     </div>
   );
 }

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { MinuteChart } from "@/components/charts/MinuteChart";
 import { Badge, LinkTabs, PageHeader, Panel, Signed, Tip } from "@/components/ui";
-import { requestNow } from "@/lib/data";
+import { DEMO_MODE, requestNow } from "@/lib/data";
+import { DemoOnly } from "@/components/DemoOnly";
 import { INTELLIGENCE_NOTE, marketIntelligence } from "@/lib/demo/intelligence";
 import { inPlayOdds, marketRows, matchView, replayableEvents } from "@/lib/demo/store";
 import { fmtCountdown, fmtOdds, fmtPct, fmtPp, fmtTime } from "@/lib/format";
@@ -24,6 +25,7 @@ const ODDS_CAP = 15;
 const KIND_MARK: Record<string, string> = { goal: "⚽", red: "■", yellow: "▪", substitution: "⇄", shot: "◦", corner: "⌐", var: "▣" };
 
 export default async function LivePage({ searchParams }: { searchParams: Promise<{ event?: string; sel?: string }> }) {
+  if (!DEMO_MODE) return <DemoOnly title="Live Terminal" needs="in-play scores, match events and in-play prices" />;
   const now = await requestNow();
   const q = await searchParams;
   const rows = marketRows(now);

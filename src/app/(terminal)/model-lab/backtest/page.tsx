@@ -1,19 +1,19 @@
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart";
 import { Badge, PageHeader, Panel, Signed } from "@/components/ui";
-import { requestNow } from "@/lib/data";
 import { backtestRules, isSettled, VERSION_MARKERS } from "@/lib/demo/analytics";
 import { VALUE_RULE, VALUE_RULE_TEXT } from "@/lib/demo/performance";
-import { ledgerRows } from "@/lib/demo/store";
+
 import { fmtInt, fmtPct, fmtPeriod, fmtSignedPct } from "@/lib/format";
 import { periodOf } from "@/lib/metrics/metric";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Backtest · ODDSIQ" };
 
 const COLORS = ["var(--series-market)", "var(--series-model)", "var(--series-3)"];
 
 export default async function BacktestPage() {
-  const now = await requestNow();
-  const rows = ledgerRows(now);
+  const t = await terminal();
+  const rows = t.ledgerRows();
   const results = backtestRules(rows, VALUE_RULE);
   const period = periodOf(rows.filter(isSettled).map((r) => r.prediction.createdAt));
   const curves = [results.find((r) => r.minEv === 0 && r.minConfidence === 0)!, results.find((r) => r.published)!, results.find((r) => r.minEv === 0.08 && r.minConfidence === 0)!];
@@ -97,7 +97,7 @@ export default async function BacktestPage() {
           <li>Backtests use the model version that was live at the time. Older events are never re-scored with newer versions, because those versions were trained on them.</li>
           <li>Past simulated results do not predict future results.</li>
         </ul>
-        <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Simulated · Source: ODDSIQ prediction ledger (DEMO DATA)</p>
+        <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Simulated · Source: {t.ledgerSource}</p>
       </Panel>
     </div>
   );

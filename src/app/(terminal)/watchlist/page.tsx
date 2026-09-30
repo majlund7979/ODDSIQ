@@ -2,7 +2,8 @@ import Link from "next/link";
 import { setThreshold } from "@/app/actions";
 import { WatchToggle } from "@/components/WatchButtons";
 import { PageHeader, Panel, Signed } from "@/components/ui";
-import { requestNow } from "@/lib/data";
+import { DEMO_MODE, requestNow } from "@/lib/data";
+import { DemoOnly } from "@/components/DemoOnly";
 import { LEAGUES } from "@/lib/demo/catalog";
 import { MODEL_VERSIONS } from "@/lib/demo/models";
 import { ASSISTANT_QUESTIONS, assistantAnswer, matchAssistantQuestion, modelRecord, resolveWatchItem, WATCH_KINDS, watchedRows, type AssistantQuestion } from "@/lib/demo/personal";
@@ -14,6 +15,7 @@ export const metadata = { title: "Watchlist · ODDSIQ" };
 const th = "px-2.5 py-2 font-medium";
 
 export default async function WatchlistPage({ searchParams }: { searchParams: Promise<{ ask?: string; text?: string }> }) {
+  if (!DEMO_MODE) return <DemoOnly title="Watchlist" needs="demo teams, players and news" />;
   const now = await requestNow();
   const q = await searchParams;
   const items = await readWatchlist();

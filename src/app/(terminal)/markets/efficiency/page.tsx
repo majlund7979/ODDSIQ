@@ -1,6 +1,7 @@
 import { MarketsNav } from "@/components/MarketsNav";
 import { Badge, LinkTabs, PageHeader, Panel, Signed, Tip } from "@/components/ui";
-import { requestNow } from "@/lib/data";
+import { DEMO_MODE, requestNow } from "@/lib/data";
+import { DemoOnly } from "@/components/DemoOnly";
 import { accuracyByHorizon, bookmakerEfficiency, EFFICIENCY_DEFINITION, EFFICIENCY_DIMS, efficiencyBy, type EfficiencyRow } from "@/lib/demo/efficiency";
 import { settledSelections } from "@/lib/demo/store";
 import { fmtInt, fmtPct, fmtPeriod, fmtSignedPct } from "@/lib/format";
@@ -11,6 +12,7 @@ export const metadata = { title: "Market Efficiency · ODDSIQ" };
 const th = "px-2.5 py-2 font-medium";
 
 export default async function EfficiencyPage({ searchParams }: { searchParams: Promise<{ by?: string }> }) {
+  if (!DEMO_MODE) return <DemoOnly title="Market Efficiency" needs="several months of closing lines per bookmaker" />;
   const now = await requestNow();
   const { by } = await searchParams;
   const { dim, rows, total } = efficiencyBy(now, by);

@@ -1,19 +1,20 @@
 import { PageHeader, Tip } from "@/components/ui";
 import { ValueScanner } from "@/components/ValueScanner";
-import { requestNow } from "@/lib/data";
 import { clvHistoryBySegment } from "@/lib/demo/analytics";
 import { BOOKMAKERS } from "@/lib/demo/catalog";
 import { VALUE_RULE_TEXT } from "@/lib/demo/performance";
-import { ledgerRows, marketRows } from "@/lib/demo/store";
+
 import { toScannerRow, type ScannerRow } from "@/lib/demo/views";
 import { movementSignals, RLM_DEFINITION, SHARP_DEFINITION } from "@/lib/metrics/signals";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Value Scanner · ODDSIQ" };
 
 export default async function ValueScannerPage() {
-  const now = await requestNow();
-  const clv = clvHistoryBySegment(ledgerRows(now));
-  const rows = marketRows(now)
+  const t = await terminal();
+  const now = t.now;
+  const clv = clvHistoryBySegment(t.ledgerRows());
+  const rows = t.marketRows()
     .map((r) => toScannerRow(r, clv, movementSignals(r).map((s) => s.kind)))
     .filter((r): r is ScannerRow => r !== null);
 
@@ -31,7 +32,7 @@ export default async function ValueScannerPage() {
         <p>
           <Tip text={SHARP_DEFINITION}>Sharp movement</Tip> and <Tip text={RLM_DEFINITION}>reverse line movement</Tip> flags describe price behaviour only, not who moved the price or why. Segment CLV is the historical average for the same league and market; it is greyed out below n = 200. {VALUE_RULE_TEXT}
         </p>
-        <p>DEMO DATA. Nothing here is a recommendation to bet.</p>
+        <p>{t.dataLabel}. Nothing here is a recommendation to bet.</p>
       </div>
     </div>
   );

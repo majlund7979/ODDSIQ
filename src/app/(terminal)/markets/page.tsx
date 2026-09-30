@@ -2,18 +2,19 @@ import { Ago } from "@/components/Clock";
 import { MarketTable } from "@/components/MarketTable";
 import { MarketsNav } from "@/components/MarketsNav";
 import { Badge, PageHeader, Panel, Tip } from "@/components/ui";
-import { requestNow } from "@/lib/data";
-import { feedTime, marketRows } from "@/lib/demo/store";
+
 import { toTableRow } from "@/lib/demo/views";
 import { DATA_QUALITY_DEFINITION } from "@/lib/metrics/quality";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Market Terminal · ODDSIQ" };
 
 export default async function MarketsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const now = await requestNow();
+  const t = await terminal();
+  const now = t.now;
   const { q } = await searchParams;
-  const rows = marketRows(now);
-  const lastUpdate = Math.max(...rows.map((r) => r.lastUpdate), feedTime(now));
+  const rows = t.marketRows();
+  const lastUpdate = Math.max(...rows.map((r) => r.lastUpdate), t.feedTime);
   const dq = Math.round(rows.reduce((s, r) => s + r.dataQuality.score, 0) / Math.max(rows.length, 1));
   const live = rows.filter((r) => r.status === "live").length;
   const withModel = rows.filter((r) => r.edgePp !== null && !r.inPlayModel);
@@ -28,7 +29,7 @@ export default async function MarketsPage({ searchParams }: { searchParams: Prom
         right={
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted">
             <span className="flex items-center gap-1.5">
-              <span className="text-good">●</span> <span className="text-ink">LIVE DATA</span> <Badge tone="warning">Demo feed</Badge>
+              <span className="text-good">●</span> <span className="text-ink">LIVE DATA</span> {!t.live && <Badge tone="warning">Demo feed</Badge>}
             </span>
             <span>
               Last update <span className="text-ink"><Ago at={lastUpdate} /></span>

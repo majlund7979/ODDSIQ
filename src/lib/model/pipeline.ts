@@ -9,11 +9,9 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { appendPredictions } from "@/lib/ledger/append";
 import { closingLine } from "@/lib/providers/closing";
 import { backtest } from "./backtest";
-import { fitOrderedLogit, newElo, updateElo, eloDiff } from "./elo";
-import { forecastMatch, REAL_MODEL } from "./ensemble";
+import { REAL_MODEL } from "./ensemble";
+import { buildLeagueModel, forecastFor } from "./league-model";
 import { fetchSeason, leagueForOddsKey, OPENFOOTBALL_SOURCE, recentSeasons, seasonOf, type HistMatch } from "./openfootball";
-import { fitPoisson } from "./poisson";
-import { matchTeam } from "./teams";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -51,7 +49,7 @@ export async function storeResults(prisma: PrismaClient, rows: HistMatch[], sour
   return r.count;
 }
 
-async function loadResults(prisma: PrismaClient, league: string, before: number): Promise<HistMatch[]> {
+export async function loadResults(prisma: PrismaClient, league: string, before: number): Promise<HistMatch[]> {
   const rows = await prisma.historicalMatch.findMany({ where: { league, date: { lt: new Date(before), gte: new Date(before - SEASONS_KEPT * 366 * DAY) } }, orderBy: { date: "asc" } });
   return rows.map((r) => ({ league: r.league, season: r.season, date: r.date.getTime(), home: r.home, away: r.away, hg: r.hg, ag: r.ag }));
 }
@@ -79,18 +77,7 @@ export async function predictUpcoming(prisma: PrismaClient, oddsKey: string, now
   });
   if (!events.length) return { predictions: 0, missing };
 
-  const history = await loadResults(prisma, league.code, now);
-  const fit = fitPoisson(history, now);
-  const elo = newElo();
-  const olRows: { diff: number; outcome: "home" | "draw" | "away" }[] = [];
-  const warmUp = (history[0]?.date ?? now) + 180 * DAY;
-  for (const m of history) {
-    const diff = eloDiff(elo, m.home, m.away);
-    if (m.date >= warmUp) olRows.push({ diff, outcome: m.hg > m.ag ? "home" : m.hg === m.ag ? "draw" : "away" });
-    updateElo(elo, m);
-  }
-  const ol = fitOrderedLogit(olRows);
-  const names = [...new Set(history.filter((m) => m.date >= now - 400 * DAY).flatMap((m) => [m.home, m.away]))];
+  const model = buildLeagueModel(await loadResults(prisma, league.code, now), now);
 
   const entries = [];
   for (const e of events) {
@@ -99,17 +86,12 @@ export async function predictUpcoming(prisma: PrismaClient, oddsKey: string, now
       missing.push({ event: label, reason });
       for (const m of e.markets) await prisma.missingPrediction.upsert({ where: { marketId: m.id }, create: { marketId: m.id, eventId: e.id, reason, kickoff: e.kickoff }, update: { reason } });
     };
-    if (!fit || olRows.length < 200) {
-      await note(`Not enough ${league.name} results to fit the model`);
+    const r = forecastFor(model, e.homeTeam.name, e.awayTeam.name, league.name);
+    if (!r.ok) {
+      await note(r.reason);
       continue;
     }
-    const home = matchTeam(e.homeTeam.name, names);
-    const away = matchTeam(e.awayTeam.name, names);
-    if (!home || !away) {
-      await note(`Team name not matched to results data: ${[!home && e.homeTeam.name, !away && e.awayTeam.name].filter(Boolean).join(", ")}`);
-      continue;
-    }
-    const f = forecastMatch(fit, elo, ol, home, away);
+    const f = r.forecast;
     let recorded = 0;
     for (const m of e.markets) {
       const keys = MARKET_KEYS[m.type];
