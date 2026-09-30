@@ -83,6 +83,7 @@ export default async function MatchesPage({ searchParams }: { searchParams: Prom
                       <div className="text-[11px] text-muted">
                         {v.news.length} news item{v.news.length === 1 ? "" : "s"}
                         {v.lineupConfirmedAt ? " · lineups confirmed" : ""}
+                        {v.xg ? ` · xG ${v.xg.home.toFixed(2)}–${v.xg.away.toFixed(2)}` : ""}
                         {v.preMatchModel.some((p) => p !== null) ? " · prediction ledgered" : ""}
                       </div>
                     </td>

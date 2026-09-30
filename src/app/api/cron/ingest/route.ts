@@ -1,4 +1,4 @@
-// Scheduled odds ingestion, then the real model's work (results refresh,
+// Scheduled odds ingestion, statistics (when STATS_API_KEY is set), then the real model's work (results refresh,
 // ledger predictions, closing lines, settlement, daily backtest).
 // Call with `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends this
 // header automatically when CRON_SECRET is set).
@@ -8,6 +8,8 @@ import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { configuredFeed, feedConfig } from "@/lib/providers/config";
 import { runModel } from "@/lib/model/pipeline";
 import { ingest } from "@/lib/providers/ingest";
+import { configuredStatsFeed, statsConfig } from "@/lib/stats/config";
+import { ingestStats } from "@/lib/stats/ingest";
 
 export const maxDuration = 300;
 
@@ -23,12 +25,14 @@ export async function GET(req: Request): Promise<Response> {
   const feed = configuredFeed();
   if (!feed || !DATABASE_CONFIGURED) return Response.json({ ok: false, error: "Set ODDS_API_KEY and DATABASE_URL to ingest odds." }, { status: 503 });
   const summary = await ingest(db(), feed, { competitionKeys: feedConfig().sports });
+  const statsFeed = configuredStatsFeed();
+  const stats = statsFeed ? await ingestStats(db(), statsFeed, { oddsKeys: feedConfig().sports, budget: statsConfig().budget }) : null;
   let model: Awaited<ReturnType<typeof runModel>> | { error: string };
   try {
     model = await runModel(db(), { oddsKeys: feedConfig().sports });
   } catch (e) {
     model = { error: e instanceof Error ? e.message.trim().split("\n").at(-1)! : String(e) };
   }
-  const ok = !summary.error && !("error" in model);
-  return Response.json({ ok, ...summary, model }, { status: ok ? 200 : 502 });
+  const ok = !summary.error && !stats?.error && !("error" in model);
+  return Response.json({ ok, ...summary, stats, model }, { status: ok ? 200 : 502 });
 }

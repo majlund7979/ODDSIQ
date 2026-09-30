@@ -59,9 +59,9 @@ model DataSource {
 }
 
 model Event {
-  id                String       @id
+  id                String         @id
   /// "<feed prefix>:<provider event id>" when the event came from a live feed (null for demo data).
-  externalId        String?      @unique
+  externalId        String?        @unique
   sportId           String
   leagueId          String
   homeTeamId        String
@@ -71,9 +71,10 @@ model Event {
   homeScore         Int?
   awayScore         Int?
   lineupConfirmedAt DateTime?
-  league            League       @relation(fields: [leagueId], references: [id])
-  homeTeam          Team         @relation("home", fields: [homeTeamId], references: [id])
-  awayTeam          Team         @relation("away", fields: [awayTeamId], references: [id])
+  statsFixtures     StatsFixture[]
+  league            League         @relation(fields: [leagueId], references: [id])
+  homeTeam          Team           @relation("home", fields: [homeTeamId], references: [id])
+  awayTeam          Team           @relation("away", fields: [awayTeamId], references: [id])
   markets           Market[]
   news              MarketNews[]
   liveEvents        LiveEvent[]
@@ -277,4 +278,63 @@ model ModelBacktest {
   summary        Json
 
   @@index([league, createdAt])
+}
+
+/// A fixture from the football statistics feed, matched to a feed event when possible.
+model StatsFixture {
+  /// "<provider>:<provider fixture id>"
+  id         String         @id
+  provider   String
+  leagueId   Int
+  eventId    String?
+  event      Event?         @relation(fields: [eventId], references: [id])
+  kickoff    DateTime
+  home       String
+  away       String
+  status     String // scheduled | live | finished | other
+  homeGoals  Int?
+  awayGoals  Int?
+  homeXg     Float?
+  awayXg     Float?
+  /// Per-side shots, shots on target and possession.
+  stats      Json?
+  syncedAt   DateTime
+  lineupsAt  DateTime?
+  injuriesAt DateTime?
+  statsAt    DateTime?
+  lineups    TeamLineup[]
+  injuries   InjuryReport[]
+
+  @@index([eventId])
+  @@index([leagueId, kickoff])
+}
+
+/// A confirmed starting lineup, as published by the statistics feed.
+model TeamLineup {
+  fixtureId   String
+  fixture     StatsFixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  side        String // home | away
+  team        String
+  formation   String?
+  coach       String?
+  startXI     Json
+  substitutes Json
+  fetchedAt   DateTime
+
+  @@id([fixtureId, side])
+}
+
+/// A player listed as out or doubtful for a fixture. Replaced on each refresh.
+model InjuryReport {
+  id        BigInt       @id @default(autoincrement())
+  fixtureId String
+  fixture   StatsFixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  side      String
+  team      String
+  player    String
+  status    String // out | doubtful
+  reason    String
+  fetchedAt DateTime
+
+  @@index([fixtureId])
 }

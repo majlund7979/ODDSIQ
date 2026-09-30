@@ -5,12 +5,12 @@ import { ConsensusStrip } from "@/components/charts/ConsensusStrip";
 import { InPlayChart } from "@/components/charts/InPlayChart";
 import { ModelVsMarket } from "@/components/charts/ModelVsMarket";
 import { OddsChart } from "@/components/charts/OddsChart";
+import { TeamNewsPanel } from "@/components/TeamNewsPanel";
 import { TrackPriceButton, WatchToggle } from "@/components/WatchButtons";
 import { Badge, levelTone, Panel, Signed, Tip } from "@/components/ui";
 import { COMMENTARY_NOTE, marketCommentary, whatChangedSummary } from "@/lib/demo/commentary";
 import { MODEL_FAMILIES } from "@/lib/demo/models";
 import { readWatchlist } from "@/lib/personal-store";
-
 import { fmtCountdown, fmtDateTime, fmtOdds, fmtPct, fmtPp, fmtShortDateTime, fmtSignedPct, fmtTime } from "@/lib/format";
 import { CONFIDENCE_DEFINITION } from "@/lib/metrics/consensus";
 import { PRESSURE_DEFINITION } from "@/lib/metrics/movement";
@@ -254,6 +254,8 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
               </ol>
             </Panel>
           )}
+
+          {t.live && <TeamNewsPanel news={d.teamNews ?? null} home={event.homeName} away={event.awayName} />}
         </div>
 
         <div className="space-y-4">

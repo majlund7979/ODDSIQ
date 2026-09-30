@@ -5,15 +5,18 @@ import { fmtAgo, fmtOdds, fmtPct, fmtShortDateTime } from "@/lib/format";
 import { CLOSE_MAX_AGE_MS } from "@/lib/providers/closing";
 import { feedConfig } from "@/lib/providers/config";
 import { feedOverview } from "@/lib/providers/overview";
+import { API_FOOTBALL } from "@/lib/stats/api-football";
+import { statsConfig } from "@/lib/stats/config";
 
 export const metadata = { title: "Data Feed · ODDSIQ" };
 
-function Setup({ keySet }: { keySet: boolean }) {
+function Setup({ keySet, statsKeySet }: { keySet: boolean; statsKeySet: boolean }) {
   return (
     <Panel title="Connect the odds feed">
       <ol className="list-decimal space-y-1.5 px-8 py-3 text-sm text-ink-2">
         <li className={DATABASE_CONFIGURED ? "text-muted line-through" : ""}>Add a Postgres database and set DATABASE_URL, then run the migrations (npm run db:migrate).</li>
         <li className={keySet ? "text-muted line-through" : ""}>Create a free account at the-odds-api.com and set ODDS_API_KEY to the key it emails you.</li>
+        <li className={statsKeySet ? "text-muted line-through" : ""}>Optional, for lineups, injuries and xG: create an account at api-football.com and set STATS_API_KEY to the key on its dashboard.</li>
         <li>Set CRON_SECRET and schedule GET /api/cron/ingest (the included vercel.json runs it every six hours).</li>
       </ol>
     </Panel>
@@ -23,19 +26,20 @@ function Setup({ keySet }: { keySet: boolean }) {
 export default async function DataFeedPage() {
   const now = await wallClock();
   const cfg = feedConfig();
+  const stats = statsConfig();
   const ready = DATABASE_CONFIGURED && cfg.apiKey !== null;
   const data = DATABASE_CONFIGURED ? await feedOverview(db(), now) : null;
-  const last = data?.runs[0];
+  const last = data?.runs.find((r) => r.provider !== API_FOOTBALL);
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Data Feed"
-        subtitle="Real bookmaker prices from The Odds API, stored as snapshots. The terminal's other pages still show DEMO DATA."
+        subtitle="Real bookmaker prices from The Odds API, stored as snapshots, and team news (lineups, injuries, xG) from API-Football."
         right={<Badge tone={!ready ? "neutral" : last?.error ? "critical" : last ? "good" : "warning"}>{!ready ? "Not connected" : last?.error ? "Last run failed" : last ? "Connected" : "Waiting for first run"}</Badge>}
       />
 
-      {!ready && <Setup keySet={cfg.apiKey !== null} />}
+      {(!ready || stats.apiKey === null) && <Setup keySet={cfg.apiKey !== null} statsKeySet={stats.apiKey !== null} />}
 
       <Panel title="Settings">
         <dl className="grid grid-cols-2 gap-x-6 gap-y-1 px-4 py-3 text-sm sm:grid-cols-4">
@@ -47,6 +51,10 @@ export default async function DataFeedPage() {
           <dd className="num">{cfg.markets}</dd>
           <dt className="text-muted">Credits per run</dt>
           <dd className="num">{cfg.creditsPerRun} + results</dd>
+          <dt className="text-muted">Team news</dt>
+          <dd>{stats.apiKey ? "API-Football" : "Not connected"}</dd>
+          <dt className="text-muted">Stats requests per run</dt>
+          <dd className="num">up to {stats.budget}</dd>
         </dl>
       </Panel>
 
@@ -78,6 +86,13 @@ export default async function DataFeedPage() {
                           </div>
                           <div className="text-xs text-muted">
                             {e.league} · {e.status}
+                            {e.teamNews && (
+                              <>
+                                {e.teamNews.absences !== null && ` · ${e.teamNews.absences} out or doubtful`}
+                                {e.teamNews.lineups && " · lineups confirmed"}
+                                {e.teamNews.xg && ` · xG ${e.teamNews.xg}`}
+                              </>
+                            )}
                           </div>
                         </td>
                         <td className="px-2 py-2 text-xs text-ink-2">{e.line ? (e.line.basis === "closing" ? "Closing line" : "Latest") : "—"}</td>
@@ -120,7 +135,9 @@ export default async function DataFeedPage() {
                       {fmtShortDateTime(r.startedAt.getTime())} · {fmtAgo(now - r.startedAt.getTime())}
                     </span>
                     <span className="num text-xs">
-                      {r.events} events · {r.snapshots} prices · {r.results} results{r.creditsRemaining !== null ? ` · ${r.creditsRemaining} credits left` : ""}
+                      {r.provider === API_FOOTBALL
+                        ? `Team news · ${r.events} matches · ${r.snapshots} updates · ${r.creditsUsed ?? 0} requests${r.creditsRemaining !== null ? ` · ${r.creditsRemaining} left today` : ""}`
+                        : `Odds · ${r.events} events · ${r.snapshots} prices · ${r.results} results${r.creditsRemaining !== null ? ` · ${r.creditsRemaining} credits left` : ""}`}
                     </span>
                     {r.error && <span className="w-full text-xs text-critical">{r.error.slice(0, 300)}</span>}
                   </li>

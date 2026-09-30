@@ -21,6 +21,9 @@ import { configuredFeed, feedConfig } from "../src/lib/providers/config";
 import { FIXTURE_KICKOFF, FixtureFeed } from "../src/lib/providers/fixture-feed";
 import { ingest } from "../src/lib/providers/ingest";
 import { realMarketDetail, realMatchView, realSnapshot } from "../src/lib/real/store";
+import { configuredStatsFeed, statsConfig } from "../src/lib/stats/config";
+import { StatsFixtureFeed } from "../src/lib/stats/fixture-feed";
+import { ingestStats } from "../src/lib/stats/ingest";
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 const HOUR = 3_600_000;
@@ -34,6 +37,7 @@ async function fixture() {
   await storeResults(prisma, parseResultsCsv("en.1", EPL_RESULTS_CSV), "fixture: openfootball snapshot");
   const runs = [];
   const models = [];
+  const statsRuns = [];
   for (const [factor, at] of [
     [1.03, FIXTURE_KICKOFF - 5 * HOUR],
     [1, FIXTURE_KICKOFF - 1 * HOUR],
@@ -41,10 +45,12 @@ async function fixture() {
     [0.98, FIXTURE_KICKOFF + 3 * HOUR],
   ]) {
     runs.push(await ingest(prisma, new FixtureFeed(factor), { competitionKeys: ["soccer_epl"], now: at, prefix }));
+    statsRuns.push(await ingestStats(prisma, new StatsFixtureFeed(at), { oddsKeys: ["soccer_epl"], now: at, budget: 20, prefix }));
     models.push(await runModel(prisma, { oddsKeys: ["soccer_epl"], now: at, skipResultsRefresh: true }));
   }
   for (const r of runs) console.log(r);
   for (const m of models) console.log(m);
+  for (const r of statsRuns) console.log(r);
   assert(runs.every((r) => !r.error), "a run reported an error");
   assert(runs[2].results === 1, "expected one settled event");
 
@@ -80,6 +86,14 @@ async function fixture() {
   const bt = await prisma.modelBacktest.findFirst({ where: { league: "en.1" }, orderBy: { createdAt: "desc" } });
   assert(bt && bt.n > 300, "a backtest should be stored");
 
+  // Statistics feed: injuries two days out, lineups near kickoff, xG after the match.
+  assert(statsRuns.every((r) => !r.error), "a statistics run reported an error");
+  assert(statsRuns.map((r) => [r.injuries, r.lineups, r.stats].join("/")).join(" ") === "2/0/0 0/1/0 0/1/1", `unexpected statistics work ${statsRuns.map((r) => [r.injuries, r.lineups, r.stats].join("/")).join(" ")}`);
+  const sf = await prisma.statsFixture.findFirst({ where: { eventId }, include: { lineups: true, injuries: true } });
+  assert(sf && sf.lineups.length === 2 && sf.injuries.length === 3 && sf.homeXg === 1.84 && sf.awayXg === 0.97, "Arsenal-Chelsea should have both lineups, three absences and xG 1.84-0.97");
+  const ev = await prisma.event.findUnique({ where: { id: eventId } });
+  assert(ev?.lineupConfirmedAt?.getTime() === FIXTURE_KICKOFF - HOUR, "lineup confirmation should be stamped at the run that found them");
+
   // The terminal's live read model over the same data.
   const snap = await realSnapshot(prisma, FIXTURE_KICKOFF + HOUR);
   const mine = snap.ledger.filter((r) => r.event.id.startsWith(`${prefix}-`));
@@ -91,6 +105,7 @@ async function fixture() {
   assert(mv && mv.results[0] === "won" && mv.preMatchModel[0] === home.probability, "match view should show result and ledgered model");
   assert(Math.abs(mv.closingOdds[0] - 2.025) < 1e-9, `match view closing price should be 2.025, got ${mv?.closingOdds[0]}`);
   const d = realMarketDetail(snap, ids[0]);
+  assert(d?.teamNews?.lineups.length === 2 && d.teamNews.injuries.length === 3 && d.teamNews.xg?.home === 1.84, "market detail should carry lineups, absences and xG");
   assert(d && d.chart.length === 2 && d.prediction?.id === home.id && d.analysis.ensemble.probability === home.probability, "market detail should chart both runs and show the ledgered prediction");
 
   console.log(`Fixture ingestion OK. ${preds.length} predictions, chain of ${v.checked} verified, backtest n = ${bt.n}.`);
@@ -101,6 +116,12 @@ async function live() {
   if (!feed) throw new Error("Set ODDS_API_KEY (and optionally ODDS_SPORTS, ODDS_REGIONS, ODDS_MARKETS).");
   const summary = await ingest(prisma, feed, { competitionKeys: feedConfig().sports });
   console.log(summary);
+  const stats = configuredStatsFeed();
+  if (stats) {
+    const r = await ingestStats(prisma, stats, { oddsKeys: feedConfig().sports, budget: statsConfig().budget });
+    console.log(r);
+    if (r.error) process.exitCode = 1;
+  }
   console.log(await runModel(prisma, { oddsKeys: feedConfig().sports }));
   if (summary.error) process.exitCode = 1;
 }

@@ -18,6 +18,8 @@ export interface FeedEventRow {
   /** Consensus at the latest observation, or the closing line once kicked off. */
   line: (ClosingLine & { basis: "latest" | "closing"; names: string[]; results: (string | null)[] }) | null;
   snapshots: number;
+  /** Statistics feed status for the match, if it has been matched. */
+  teamNews: { lineups: boolean; absences: number | null; xg: string | null } | null;
 }
 
 export async function feedOverview(prisma: PrismaClient, now: number) {
@@ -31,6 +33,7 @@ export async function feedOverview(prisma: PrismaClient, now: number) {
       homeTeam: true,
       awayTeam: true,
       markets: { where: { type: { in: ["1X2", "ML"] } }, include: { selections: { orderBy: { id: "asc" }, include: { snapshots: { orderBy: { observedAt: "asc" } } } } } },
+      statsFixtures: { orderBy: { syncedAt: "desc" }, take: 1, include: { _count: { select: { injuries: true } } } },
     },
   });
 
@@ -53,6 +56,13 @@ export async function feedOverview(prisma: PrismaClient, now: number) {
       market: m?.type ?? null,
       line: line ? { ...line, basis, names: sels.map((s) => s.name), results: sels.map((s) => s.result) } : null,
       snapshots: points.length,
+      teamNews: e.statsFixtures[0]
+        ? {
+            lineups: e.statsFixtures[0].lineupsAt !== null,
+            absences: e.statsFixtures[0].injuriesAt !== null ? e.statsFixtures[0]._count.injuries : null,
+            xg: e.statsFixtures[0].homeXg !== null && e.statsFixtures[0].awayXg !== null ? `${e.statsFixtures[0].homeXg.toFixed(2)}–${e.statsFixtures[0].awayXg.toFixed(2)}` : null,
+          }
+        : null,
     };
   });
   return { runs, events: rows };
