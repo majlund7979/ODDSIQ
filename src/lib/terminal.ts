@@ -7,6 +7,7 @@ import { DataSourceNotConfiguredError, DEMO_MODE } from "@/lib/data";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import * as demo from "@/lib/demo/store";
 import type { LedgerAudit, LedgerRow, MarketDetail, MarketRow, MatchView } from "@/lib/demo/store";
+import type { TeamNews } from "@/lib/stats/news";
 import { realFinishedEvents, realMarketDetail, realMatchView, realSnapshot, type EventView, type SourceView } from "@/lib/real/store";
 
 export interface Terminal {
@@ -22,7 +23,7 @@ export interface Terminal {
   ledgerRows(): LedgerRow[];
   ledgerAudit(): LedgerAudit;
   dataSources(): SourceView[];
-  marketDetail(selectionId: string): (MarketDetail & { unavailableReason?: string | null }) | undefined;
+  marketDetail(selectionId: string): (MarketDetail & { unavailableReason?: string | null; teamNews?: TeamNews | null }) | undefined;
   matchView(eventId: string): MatchView | undefined;
   /** Finished matches, newest first. */
   finishedEvents(): EventView[];

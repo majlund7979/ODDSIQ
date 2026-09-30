@@ -712,6 +712,8 @@ export interface MatchView {
   modelVersion: string | null;
   results: ("won" | "lost" | "void" | undefined)[];
   lineupConfirmedAt?: number;
+  /** Match xG, when a statistics feed has it (live data only). */
+  xg?: { home: number; away: number } | null;
 }
 
 export function matchView(eventId: string, now: number): MatchView | undefined {

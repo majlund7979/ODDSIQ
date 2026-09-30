@@ -1,0 +1,945 @@
+{
+ "_note": "Test fixture in API-Football v3's documented response format (not a recorded response). Player names are placeholders.",
+ "fixtures": [
+  {
+   "fixture": {
+    "id": 1208001,
+    "referee": null,
+    "timezone": "UTC",
+    "date": "2026-10-03T14:00:00+00:00",
+    "timestamp": 1791036000,
+    "venue": {
+     "id": null,
+     "name": null,
+     "city": null
+    },
+    "status": {
+     "long": "Match Finished",
+     "short": "FT",
+     "elapsed": 90
+    }
+   },
+   "league": {
+    "id": 39,
+    "name": "Premier League",
+    "country": "England",
+    "season": 2026,
+    "round": "Regular Season - 7"
+   },
+   "teams": {
+    "home": {
+     "id": 42,
+     "name": "Arsenal",
+     "winner": null
+    },
+    "away": {
+     "id": 49,
+     "name": "Chelsea",
+     "winner": null
+    }
+   },
+   "goals": {
+    "home": 2,
+    "away": 1
+   }
+  },
+  {
+   "fixture": {
+    "id": 1208002,
+    "referee": null,
+    "timezone": "UTC",
+    "date": "2026-10-03T16:30:00+00:00",
+    "timestamp": 1791045000,
+    "venue": {
+     "id": null,
+     "name": null,
+     "city": null
+    },
+    "status": {
+     "long": "Not Started",
+     "short": "NS",
+     "elapsed": null
+    }
+   },
+   "league": {
+    "id": 39,
+    "name": "Premier League",
+    "country": "England",
+    "season": 2026,
+    "round": "Regular Season - 7"
+   },
+   "teams": {
+    "home": {
+     "id": 40,
+     "name": "Liverpool",
+     "winner": null
+    },
+    "away": {
+     "id": 45,
+     "name": "Everton",
+     "winner": null
+    }
+   },
+   "goals": {
+    "home": null,
+    "away": null
+   }
+  }
+ ],
+ "lineups": {
+  "1208001": [
+   {
+    "team": {
+     "id": 42,
+     "name": "Arsenal"
+    },
+    "formation": "4-3-3",
+    "coach": {
+     "id": null,
+     "name": "Arsenal coach"
+    },
+    "startXI": [
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal starter 1",
+       "number": 1,
+       "pos": "G",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal starter 2",
+       "number": 2,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal starter 3",
+       "number": 3,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal starter 4",
+       "number": 4,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal starter 5",
+       "number": 5,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal starter 6",
+       "number": 6,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal starter 7",
+       "number": 7,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal starter 8",
+       "number": 8,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal starter 9",
+       "number": 9,
+       "pos": "F",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal starter 10",
+       "number": 10,
+       "pos": "F",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal starter 11",
+       "number": 11,
+       "pos": "F",
+       "grid": null
+      }
+     }
+    ],
+    "substitutes": [
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal substitute 1",
+       "number": 12,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal substitute 2",
+       "number": 13,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal substitute 3",
+       "number": 14,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal substitute 4",
+       "number": 15,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal substitute 5",
+       "number": 16,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal substitute 6",
+       "number": 17,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Arsenal substitute 7",
+       "number": 18,
+       "pos": "M",
+       "grid": null
+      }
+     }
+    ]
+   },
+   {
+    "team": {
+     "id": 49,
+     "name": "Chelsea"
+    },
+    "formation": "4-2-3-1",
+    "coach": {
+     "id": null,
+     "name": "Chelsea coach"
+    },
+    "startXI": [
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea starter 1",
+       "number": 1,
+       "pos": "G",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea starter 2",
+       "number": 2,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea starter 3",
+       "number": 3,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea starter 4",
+       "number": 4,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea starter 5",
+       "number": 5,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea starter 6",
+       "number": 6,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea starter 7",
+       "number": 7,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea starter 8",
+       "number": 8,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea starter 9",
+       "number": 9,
+       "pos": "F",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea starter 10",
+       "number": 10,
+       "pos": "F",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea starter 11",
+       "number": 11,
+       "pos": "F",
+       "grid": null
+      }
+     }
+    ],
+    "substitutes": [
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea substitute 1",
+       "number": 12,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea substitute 2",
+       "number": 13,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea substitute 3",
+       "number": 14,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea substitute 4",
+       "number": 15,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea substitute 5",
+       "number": 16,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea substitute 6",
+       "number": 17,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Chelsea substitute 7",
+       "number": 18,
+       "pos": "M",
+       "grid": null
+      }
+     }
+    ]
+   }
+  ],
+  "1208002": [
+   {
+    "team": {
+     "id": 40,
+     "name": "Liverpool"
+    },
+    "formation": "4-3-3",
+    "coach": {
+     "id": null,
+     "name": "Liverpool coach"
+    },
+    "startXI": [
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool starter 1",
+       "number": 1,
+       "pos": "G",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool starter 2",
+       "number": 2,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool starter 3",
+       "number": 3,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool starter 4",
+       "number": 4,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool starter 5",
+       "number": 5,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool starter 6",
+       "number": 6,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool starter 7",
+       "number": 7,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool starter 8",
+       "number": 8,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool starter 9",
+       "number": 9,
+       "pos": "F",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool starter 10",
+       "number": 10,
+       "pos": "F",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool starter 11",
+       "number": 11,
+       "pos": "F",
+       "grid": null
+      }
+     }
+    ],
+    "substitutes": [
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool substitute 1",
+       "number": 12,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool substitute 2",
+       "number": 13,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool substitute 3",
+       "number": 14,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool substitute 4",
+       "number": 15,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool substitute 5",
+       "number": 16,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool substitute 6",
+       "number": 17,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Liverpool substitute 7",
+       "number": 18,
+       "pos": "M",
+       "grid": null
+      }
+     }
+    ]
+   },
+   {
+    "team": {
+     "id": 45,
+     "name": "Everton"
+    },
+    "formation": "4-4-2",
+    "coach": {
+     "id": null,
+     "name": "Everton coach"
+    },
+    "startXI": [
+     {
+      "player": {
+       "id": null,
+       "name": "Everton starter 1",
+       "number": 1,
+       "pos": "G",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton starter 2",
+       "number": 2,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton starter 3",
+       "number": 3,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton starter 4",
+       "number": 4,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton starter 5",
+       "number": 5,
+       "pos": "D",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton starter 6",
+       "number": 6,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton starter 7",
+       "number": 7,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton starter 8",
+       "number": 8,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton starter 9",
+       "number": 9,
+       "pos": "F",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton starter 10",
+       "number": 10,
+       "pos": "F",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton starter 11",
+       "number": 11,
+       "pos": "F",
+       "grid": null
+      }
+     }
+    ],
+    "substitutes": [
+     {
+      "player": {
+       "id": null,
+       "name": "Everton substitute 1",
+       "number": 12,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton substitute 2",
+       "number": 13,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton substitute 3",
+       "number": 14,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton substitute 4",
+       "number": 15,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton substitute 5",
+       "number": 16,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton substitute 6",
+       "number": 17,
+       "pos": "M",
+       "grid": null
+      }
+     },
+     {
+      "player": {
+       "id": null,
+       "name": "Everton substitute 7",
+       "number": 18,
+       "pos": "M",
+       "grid": null
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "injuries": {
+  "1208001": [
+   {
+    "player": {
+     "id": null,
+     "name": "Arsenal defender A",
+     "photo": null,
+     "type": "Missing Fixture",
+     "reason": "Hamstring Injury"
+    },
+    "team": {
+     "id": 42,
+     "name": "Arsenal"
+    },
+    "fixture": {
+     "id": 1208001,
+     "timezone": "UTC"
+    },
+    "league": {
+     "id": 39,
+     "season": 2026
+    }
+   },
+   {
+    "player": {
+     "id": null,
+     "name": "Chelsea midfielder B",
+     "photo": null,
+     "type": "Questionable",
+     "reason": "Knock"
+    },
+    "team": {
+     "id": 49,
+     "name": "Chelsea"
+    },
+    "fixture": {
+     "id": 1208001,
+     "timezone": "UTC"
+    },
+    "league": {
+     "id": 39,
+     "season": 2026
+    }
+   },
+   {
+    "player": {
+     "id": null,
+     "name": "Chelsea forward C",
+     "photo": null,
+     "type": "Missing Fixture",
+     "reason": "Suspended"
+    },
+    "team": {
+     "id": 49,
+     "name": "Chelsea"
+    },
+    "fixture": {
+     "id": 1208001,
+     "timezone": "UTC"
+    },
+    "league": {
+     "id": 39,
+     "season": 2026
+    }
+   }
+  ],
+  "1208002": [
+   {
+    "player": {
+     "id": null,
+     "name": "Everton defender D",
+     "photo": null,
+     "type": "Missing Fixture",
+     "reason": "Knee Injury"
+    },
+    "team": {
+     "id": 45,
+     "name": "Everton"
+    },
+    "fixture": {
+     "id": 1208002,
+     "timezone": "UTC"
+    },
+    "league": {
+     "id": 39,
+     "season": 2026
+    }
+   }
+  ]
+ },
+ "statistics": {
+  "1208001": [
+   {
+    "team": {
+     "id": 42,
+     "name": "Arsenal"
+    },
+    "statistics": [
+     {
+      "type": "Shots on Goal",
+      "value": 6
+     },
+     {
+      "type": "Total Shots",
+      "value": 15
+     },
+     {
+      "type": "Ball Possession",
+      "value": "58%"
+     },
+     {
+      "type": "expected_goals",
+      "value": "1.84"
+     }
+    ]
+   },
+   {
+    "team": {
+     "id": 49,
+     "name": "Chelsea"
+    },
+    "statistics": [
+     {
+      "type": "Shots on Goal",
+      "value": 3
+     },
+     {
+      "type": "Total Shots",
+      "value": 9
+     },
+     {
+      "type": "Ball Possession",
+      "value": "42%"
+     },
+     {
+      "type": "expected_goals",
+      "value": "0.97"
+     }
+    ]
+   }
+  ]
+ }
+}

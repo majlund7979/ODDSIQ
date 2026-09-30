@@ -19,6 +19,7 @@ import { leagueForOddsKey, OPENFOOTBALL_SOURCE } from "@/lib/model/openfootball"
 import { loadResults } from "@/lib/model/pipeline";
 import { closingLine, type PricePoint as BookPoint } from "@/lib/providers/closing";
 import type { LedgerAudit, LedgerRow, MarketDetail, MarketRow, MatchView } from "@/lib/demo/store";
+import { teamNews, type StoredFixture, type TeamNews } from "@/lib/stats/news";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -55,6 +56,7 @@ interface EventData {
   markets: MarketData[];
   forecast: { f: MatchForecast; home: string; away: string } | { reason: string } | null;
   model: LeagueModel | null;
+  news: TeamNews | null;
 }
 
 export interface RealSnapshot {
@@ -199,6 +201,8 @@ function buildRow(e: EventData, m: MarketData, i: number, now: number, books: Ma
       now: ref,
       oddsUpdatedAt: last,
       statsUpdatedAt: e.model?.dataThrough ?? undefined,
+      injuriesUpdatedAt: e.news?.injuriesAt ?? undefined,
+      lineupConfirmedAt: e.view.lineupConfirmedAt,
       hoursToKickoff,
       sourceReliability: 0.9,
       booksQuoting: quotes.size,
@@ -220,7 +224,18 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
   const events = await prisma.event.findMany({
     where: { externalId: { not: null }, kickoff: { gte: new Date(now - LOOKBACK_MS), lte: new Date(now + LOOKAHEAD_MS) } },
     orderBy: { kickoff: "asc" },
-    include: { league: true, homeTeam: true, awayTeam: true, markets: { include: { selections: { orderBy: { id: "asc" } } } } },
+    include: {
+      league: true,
+      homeTeam: true,
+      awayTeam: true,
+      markets: { include: { selections: { orderBy: { id: "asc" } } } },
+      statsFixtures: { include: { lineups: true, injuries: true }, orderBy: { syncedAt: "desc" }, take: 1 },
+    },
+  });
+  // Recent xG for form lines; small, since only fixtures near feed events are stored.
+  const xgHistory: StoredFixture[] = await prisma.statsFixture.findMany({
+    where: { homeXg: { not: null }, kickoff: { gte: new Date(now - 120 * DAY), lt: new Date(now + LOOKAHEAD_MS) } },
+    include: { lineups: true, injuries: true },
   });
   const selectionIds = events.flatMap((e) => e.markets.flatMap((m) => m.selections.map((s) => s.id)));
   const snaps = selectionIds.length
@@ -260,9 +275,11 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
         awayName: e.awayTeam.name,
         leagueName: e.league.name,
         sportName: SPORT_NAMES[e.sportId] ?? e.sportId,
+        lineupConfirmedAt: e.lineupConfirmedAt?.getTime(),
       },
       oddsKey: oddsKeyOf(e.leagueId),
       model,
+      news: e.statsFixtures[0] ? teamNews(e.statsFixtures[0], xgHistory) : null,
       forecast: r ? (r.ok ? { f: r.forecast, home: r.home, away: r.away } : { reason: r.reason }) : null,
       markets: e.markets.map((m) => {
         const sels = [...m.selections].sort((a, b) => order(side(a.id)) - order(side(b.id)));
@@ -389,7 +406,7 @@ async function ledgerRows(prisma: PrismaClient, preds: Prediction[], books: Map<
 }
 
 /** Market detail for one selection, in the demo detail shape. */
-export function realMarketDetail(snap: RealSnapshot, selectionId: string): (MarketDetail & { unavailableReason: string | null }) | undefined {
+export function realMarketDetail(snap: RealSnapshot, selectionId: string): (MarketDetail & { unavailableReason: string | null; teamNews: TeamNews | null }) | undefined {
   const now = snap.now;
   for (const e of snap.events) {
     const m = e.markets.find((x) => x.selections.some((s) => s.id === selectionId));
@@ -435,6 +452,7 @@ export function realMarketDetail(snap: RealSnapshot, selectionId: string): (Mark
         const p = snap.predictionsBySelection.get(s.id)?.probability ?? fc?.f.selections.find((x) => x.market === m.type && x.selection === s.side)?.probability ?? null;
         return { selectionId: s.id, name: s.name, marketProbability: line?.selections[k].fairProbability ?? NaN, modelProbability: p };
       }),
+      teamNews: e.news,
       unavailableReason: e.forecast && "reason" in e.forecast ? e.forecast.reason : !e.model ? "The real model does not cover this competition yet." : null,
     };
   }
@@ -464,6 +482,8 @@ export function realMatchView(snap: RealSnapshot, eventId: string): MatchView | 
     preMatchMarket: close.selections.map((x) => x.fairProbability),
     preMatchModel: preds.map((p) => p?.probability ?? null),
     modelVersion: preds.find((p) => p)?.modelVersionId ?? null,
+    lineupConfirmedAt: e.view.lineupConfirmedAt,
+    xg: e.news?.xg ?? null,
     results: m.selections.map((s) => (s.result === "won" || s.result === "lost" || s.result === "void" ? s.result : undefined)),
   };
 }

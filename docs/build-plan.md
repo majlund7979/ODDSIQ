@@ -58,7 +58,7 @@ Football model trained on public-domain results (openfootball): Dixon-Coles + El
 Point the Market Terminal, Value Scanner, Dashboard and Performance pages at feed data and the real model, so `DEMO_MODE=false` becomes usable. Done: `src/lib/terminal.ts` serves either the demo universe or the live read model (`src/lib/real/store.ts`); pages that need in-play, news or lineup data show a "not available on live data yet" notice in live mode.
 
 **Phase 12 — Lineups, injuries and xG**
-Add a football statistics provider (API-Football to start; Sportmonks for deeper xG) for confirmed lineups, injuries and match xG, and feed them into data quality, the match pages and the model.
+Add a football statistics provider (API-Football to start; Sportmonks for deeper xG) for confirmed lineups, injuries and match xG, and feed them into data quality and the match pages. Done: `src/lib/stats/`, a Team news panel, Data Feed status. Using them in the model waits until enough xG and absence history has been collected to backtest the change.
 
 ## Guardrails built in from day one
 - "DEMO DATA" label whenever `DEMO_MODE=true`.
