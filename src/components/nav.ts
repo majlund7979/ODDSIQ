@@ -8,7 +8,7 @@ export interface NavItem {
 }
 
 export const NAV: NavItem[] = [
-  { href: "/", label: "Dashboard" },
+  { href: "/dashboard", label: "Dashboard" },
   {
     href: "/markets",
     label: "Markets",
@@ -40,6 +40,7 @@ export const NAV: NavItem[] = [
   { href: "/performance", label: "Performance", shortcut: "P", children: [{ href: "/performance/clv", label: "Closing Line Value" }] },
   { href: "/watchlist", label: "Watchlist", shortcut: "W" },
   { href: "/my-bets", label: "My Bets" },
+  { href: "/data-feed", label: "Data Feed" },
 ];
 
 export const SHORTCUT_ROUTES: Record<string, string> = {

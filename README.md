@@ -20,6 +20,8 @@ The app runs in **DEMO_MODE** by default: no database or API keys needed. Every 
 | `npm run lint` / `typecheck` | ESLint, TypeScript |
 | `npm run db:migrate` | Apply Postgres migrations (needs `DATABASE_URL`) |
 | `npm run db:seed` | Load the demo universe into Postgres (empty database only) |
+| `npm run ingest` | One odds ingestion run from The Odds API (needs `ODDS_API_KEY`, `DATABASE_URL`) |
+| `npm run ingest:fixture` | Ingest recorded feed responses and check snapshots, closing line and settlement (no key needed) |
 
 Keyboard: `⌘K` / `Ctrl+K` command palette, `/` search, `M` markets, `V` value scanner, `L` live, `A` AI analyst, `P` performance, `W` watchlist, `Esc` close.
 
@@ -27,14 +29,16 @@ Keyboard: `⌘K` / `Ctrl+K` command palette, `/` search, `M` markets, `V` value 
 
 - **Market Terminal** (`/markets`): every open market with best and opening odds, margin-free market probability, model probability with uncertainty range, edge, EV, movement, estimated market pressure and confidence. Filters, sorting, search.
 - **Market detail** (`/markets/[selection]`): odds chart with 1H/6H/12H/24H/7D, news markers, velocity and odds pressure, estimated Market Pressure Score with its components, Model vs Market bars, model consensus dot plot with uncertainty, "Why does the model differ?", "What changed?", data quality and source timestamps, per-bookmaker prices, sharp-movement detection worded without claims about who moved the market, and in-play probability movement with the event timeline for live matches.
-- **Dashboard** (`/`): market movement, model-market disagreement, opportunities grouped by characteristic (never a single "best bet"), live markets, calibration, and performance by model version. Every figure shows n, period and whether it is historical or simulated.
+- **Landing page** (`/`) with the accountability section (ledger size, chain check, CLV with sample size) and pricing. **Sign up / sign in** (`/signup`, `/login`) and **Account** (`/account`) when accounts are switched on.
+- **Data Feed** (`/data-feed`): real bookmaker prices from The Odds API, the latest or closing consensus per event, and each ingestion run with credits left.
+- **Dashboard** (`/dashboard`): market movement, model-market disagreement, opportunities grouped by characteristic (never a single "best bet"), live markets, calibration, and performance by model version. Every figure shows n, period and whether it is historical or simulated.
 - **Prediction Ledger** (`/model-lab/ledger`) with CSV export (`/api/ledger.csv`), and **Model Audit** (`/model-lab/audit`).
 - **Live Markets** (`/live`): three-pane in-play terminal. Live matches and matches starting soon on the left; score, minute, in-play probability and odds charts with goals and red cards pinned, probability movement since kickoff, live statistics and the event timeline in the centre; a templated Market Intelligence summary on the right.
 - **Market Replay** (`/market-replay`): pick sport, league, date and a finished match, then scrub or play its main market from opening to full time with news, lineups, the ledgered prediction, match events, closing odds, result and CLV.
 - **Matches** (`/matches`): fixtures, live matches and results with a "What changed?" summary per match.
 - **AI Analyst** (`/ai-analyst`): ask about a team, a head-to-head comparison, price moves, model-market differences, your watchlist or the weekly report, plus market commentary on the largest current differences. Answers are rule-based from ODDSIQ's own data; no language model is connected yet.
 - **Weekly Model Report** (`/model-lab/report`): performance, market accuracy, calibration, CLV, largest errors, strongest and weakest segments, drift, data quality and areas for investigation, phrased as "potential issue detected" with sample sizes.
-- **Watchlist** (`/watchlist`) with **My Market Assistant**, and **My Bets** (`/my-bets`) for tracked prices with CLV and results. Watch buttons sit on every market page; `/watch Arsenal` works in the command bar. Until accounts exist (phase 9) this state lives in cookies in the user's browser.
+- **Watchlist** (`/watchlist`) with **My Market Assistant**, and **My Bets** (`/my-bets`) for tracked prices with CLV and results. Watch buttons sit on every market page; `/watch Arsenal` works in the command bar. Signed out, this state lives in browser cookies; signed in, it is saved to the account (cookie state is merged in at sign-in).
 - Roadmap pages for the remaining sections, labelled with their phase. See [docs/build-plan.md](docs/build-plan.md).
 
 ## Architecture
@@ -84,9 +88,25 @@ Built in on purpose, so the Model Lab has something real to find: the model over
 - **My Bets CLV** uses the same formula as the ledger; before kickoff it is provisional, against the current margin-free price.
 - Definitions are also shown in the UI next to each metric.
 
-## Real data (phase 9)
+## Real data, accounts and billing (phase 9)
 
-bet365 has no public API. The plan is a licensed odds aggregator that carries bet365 prices (for example OpticOdds or OddsJam; The Odds API as a cheaper starting point) plus a statistics provider for fixtures, lineups and live events, behind the same interfaces the demo universe implements. Until then `DEMO_MODE=true`.
+Everything here is off until its settings are present; without them the app behaves exactly as the demo.
+
+**Odds feed: The Odds API.** bet365 has no public API, and The Odds API does not carry bet365 in the UK or EU regions; it covers around 45 other UK/EU bookmakers. OpticOdds is the upgrade path if bet365 prices are required.
+
+| Setting | Meaning |
+| --- | --- |
+| `ODDS_API_KEY` | Key from the-odds-api.com (the free plan gives 500 credits a month) |
+| `ODDS_SPORTS` | Comma-separated competition keys, default `soccer_epl` (list: `GET /v4/sports`) |
+| `ODDS_REGIONS` | Default `eu`; `uk,eu` doubles the cost |
+| `ODDS_MARKETS` | `h2h` (default) and/or `totals` |
+| `CRON_SECRET` | Protects `GET /api/cron/ingest`; `vercel.json` schedules it every six hours |
+
+One run costs competitions × regions × markets credits, plus 2 per competition when finished games need results. The defaults (one league, every six hours) use about 120–240 credits a month. Each run stores one snapshot per bookmaker price for games not yet started; the **closing line** is each bookmaker's last price at or before kickoff (no older than six hours), de-vigged and averaged. Feed data uses its own ids (`toa-…`) and never mixes with DEMO DATA. The analysis pages still read the demo universe; pointing them at feed data comes with a real model.
+
+**Accounts** (`ACCOUNTS_ENABLED=true`, needs `DATABASE_URL`): email and password, scrypt hashes, 30-day http-only session cookies with only a SHA-256 of the token stored, 10 attempts per 15 minutes per IP and per email.
+
+**Billing** (Stripe, via its REST API): set `STRIPE_SECRET_KEY`, `STRIPE_PRICE_PRO` (a recurring price id), `STRIPE_WEBHOOK_SECRET` and optionally `PRO_PRICE_LABEL` and `APP_URL`. Point a Stripe webhook at `/api/stripe/webhook` with `checkout.session.completed` and `customer.subscription.created/updated/deleted`. Plans change only from signed webhooks.
 
 ## Responsible use
 
