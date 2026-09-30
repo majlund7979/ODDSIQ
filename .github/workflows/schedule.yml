@@ -26,7 +26,8 @@ jobs:
         env:
           SITE_URL: ${{ vars.SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: curl -fsS --max-time 320 -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/ingest"
+        run: |
+          curl -fsS --max-time 320 -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/ingest"
 
   live:
     if: vars.SITE_URL != '' && vars.ODDS_LIVE == 'on' && github.event.schedule == '*/10 * * * *'
@@ -37,4 +38,5 @@ jobs:
         env:
           SITE_URL: ${{ vars.SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: curl -fsS --max-time 130 -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/live"
+        run: |
+          curl -fsS --max-time 130 -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/live"
