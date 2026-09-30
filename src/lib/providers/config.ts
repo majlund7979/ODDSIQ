@@ -27,3 +27,32 @@ export function configuredFeed(env: Record<string, string | undefined> = process
   const c = feedConfig(env);
   return c.apiKey ? new TheOddsApiFeed({ apiKey: c.apiKey, regions: c.regions, markets: c.markets }) : null;
 }
+
+/** In-play polling (GET /api/cron/live). Off unless ODDS_LIVE=on, because it spends credits every few minutes while matches are on. */
+export function liveConfig(env: Record<string, string | undefined> = process.env) {
+  const num = (v: string | undefined, d: number, min: number) => {
+    const n = Number(v);
+    return v && Number.isFinite(n) ? Math.max(min, Math.floor(n)) : d;
+  };
+  const c = feedConfig(env);
+  return {
+    enabled: ["on", "true", "1"].includes((env.ODDS_LIVE ?? "").toLowerCase()),
+    /** Minimum minutes between live runs. */
+    intervalMinutes: num(env.ODDS_LIVE_INTERVAL_MINUTES, 10, 2),
+    /** Live runs stop when the feed reports fewer credits left than this, so the six-hourly runs keep working. */
+    reserve: num(env.ODDS_LIVE_RESERVE, 100, 0),
+    /** Credits per competition in play: odds, plus 2 for scores. */
+    creditsPerCompetition: (c.regions.split(",").length * c.markets.split(",").length) + 2,
+  };
+}
+
+export type LiveDecision = { run: true } | { run: false; reason: string };
+
+/** Whether a live run should call the feed now. Makes no feed calls itself. */
+export function liveRunDecision(cfg: ReturnType<typeof liveConfig>, s: { inPlay: number; lastLiveRunAt: number | null; creditsRemaining: number | null; now: number }): LiveDecision {
+  if (!cfg.enabled) return { run: false, reason: "ODDS_LIVE is off." };
+  if (s.inPlay === 0) return { run: false, reason: "No matches in play." };
+  if (s.lastLiveRunAt !== null && s.now - s.lastLiveRunAt < (cfg.intervalMinutes * 60 - 30) * 1000) return { run: false, reason: `Last live run was under ${cfg.intervalMinutes} minutes ago.` };
+  if (s.creditsRemaining !== null && s.creditsRemaining < cfg.reserve) return { run: false, reason: `Only ${s.creditsRemaining} credits left, below the reserve of ${cfg.reserve}.` };
+  return { run: true };
+}

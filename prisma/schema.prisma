@@ -46,6 +46,7 @@ model Bookmaker {
   margin      Float
   reliability Float
   snapshots   OddsSnapshot[]
+  liveOdds    InPlayOdds[]
   predictions Prediction[]
 }
 
@@ -78,6 +79,7 @@ model Event {
   markets           Market[]
   news              MarketNews[]
   liveEvents        LiveEvent[]
+  scoreUpdates      ScoreUpdate[]
 
   @@index([kickoff])
   @@index([leagueId, kickoff])
@@ -101,6 +103,7 @@ model Selection {
   result      String? // won | lost | void
   market      Market         @relation(fields: [marketId], references: [id])
   snapshots   OddsSnapshot[]
+  liveOdds    InPlayOdds[]
   predictions Prediction[]
 }
 
@@ -117,6 +120,35 @@ model OddsSnapshot {
 
   @@index([selectionId, observedAt])
   @@index([bookmakerId, observedAt])
+}
+
+/// A bookmaker price observed after kickoff. Kept apart from OddsSnapshot so
+/// closing lines and pre-match analytics never see in-play prices.
+model InPlayOdds {
+  id          BigInt    @id @default(autoincrement())
+  selectionId String
+  bookmakerId String
+  observedAt  DateTime
+  odds        Decimal   @db.Decimal(8, 3)
+  sourceId    String
+  selection   Selection @relation(fields: [selectionId], references: [id])
+  bookmaker   Bookmaker @relation(fields: [bookmakerId], references: [id])
+
+  @@index([selectionId, observedAt])
+}
+
+/// The score as the odds feed reported it at one ingestion run. The feed gives
+/// no match clock or goal times, only the score when asked.
+model ScoreUpdate {
+  id         BigInt   @id @default(autoincrement())
+  eventId    String
+  observedAt DateTime
+  homeScore  Int
+  awayScore  Int
+  completed  Boolean
+  event      Event    @relation(fields: [eventId], references: [id])
+
+  @@index([eventId, observedAt])
 }
 
 /// News that may explain price moves. Shown as context, never as proven cause.
@@ -236,6 +268,8 @@ model Session {
 model IngestRun {
   id               BigInt    @id @default(autoincrement())
   provider         String
+  /// "scheduled" (every six hours) or "live" (only while matches are in play).
+  kind             String    @default("scheduled")
   startedAt        DateTime
   finishedAt       DateTime?
   sportKeys        String[]

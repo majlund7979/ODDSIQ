@@ -15,11 +15,12 @@ import { verifyChain } from "../src/lib/ledger/hash";
 import { REAL_MODEL } from "../src/lib/model/ensemble";
 import { EPL_RESULTS_CSV } from "../src/lib/model/data/epl-2021-2026";
 import { parseResultsCsv } from "../src/lib/model/openfootball";
-import { runModel, storeResults } from "../src/lib/model/pipeline";
+import { closeAndSettle, runModel, storeResults } from "../src/lib/model/pipeline";
 import { closingLine } from "../src/lib/providers/closing";
 import { configuredFeed, feedConfig } from "../src/lib/providers/config";
 import { FIXTURE_KICKOFF, FixtureFeed } from "../src/lib/providers/fixture-feed";
-import { ingest } from "../src/lib/providers/ingest";
+import { inPlayCompetitions, ingest } from "../src/lib/providers/ingest";
+import { realLiveBoard, realLiveView, realReplayData } from "../src/lib/real/live";
 import { findByNameOf, positionViewOf, teamRecordOf } from "../src/lib/demo/personal";
 import { realAlerts } from "../src/lib/real/alerts";
 import { realPersonal } from "../src/lib/real/personal";
@@ -42,17 +43,43 @@ async function fixture() {
   const runs = [];
   const models = [];
   const statsRuns = [];
-  for (const [factor, at] of [
+  const liveRuns = [];
+  for (const [factor, at, score] of [
     [1.03, FIXTURE_KICKOFF - 5 * HOUR],
     [1, FIXTURE_KICKOFF - 1 * HOUR],
-    // After kickoff: no new pre-match snapshots, the finished game is settled.
+    // In play (live runs): prices go to InPlayOdds and the score to ScoreUpdate.
+    [0.9, FIXTURE_KICKOFF + 30 * 60_000, { home: 1, away: 0 }],
+    [0.8, FIXTURE_KICKOFF + 85 * 60_000, { home: 2, away: 1 }],
+    // After full time: no new pre-match snapshots, the finished game is settled.
     [0.98, FIXTURE_KICKOFF + 3 * HOUR],
-  ]) {
+  ] as [number, number, { home: number; away: number }?][]) {
+    if (score) {
+      // What GET /api/cron/live does: only leagues in play, then closing lines and settlement.
+      const keys = await inPlayCompetitions(prisma, ["soccer_epl"], at, prefix);
+      assert(keys.length === 1, "the league should count as in play during the match");
+      liveRuns.push(await ingest(prisma, new FixtureFeed(factor, 0, score), { competitionKeys: keys, now: at, prefix, kind: "live" }));
+      await closeAndSettle(prisma, at);
+      if (score.away === 1) {
+        // The read model while the match is still in play.
+        const arsenal = `${prefix}-fx0001arsche`;
+        const liveSnap = await realSnapshot(prisma, at + 5 * 60_000);
+        const board = realLiveBoard(liveSnap).find((r) => r.eventId === arsenal);
+        assert(board && board.minute === 75 && board.score?.home === 2 && board.score.away === 1, `live board should show Arsenal 2–1 at about 75′, got ${JSON.stringify(board)}`);
+        const lv = realLiveView(liveSnap, arsenal);
+        const frames = (lv?.minutes ?? []).map((f) => `${f.minute}:${f.score.home}-${f.score.away}`).join(" ");
+        assert(frames === "0:0-0 30:1-0 70:2-1", `unexpected in-play frames ${frames}`);
+        const home = lv!.minutes.map((f) => f.model[0]);
+        assert(home[1] > home[0] && home[2] > home[1], "the in-play model should favour the leading home side more as the match goes on");
+        assert(lv!.timeline.filter((t) => t.kind === "goal").length === 3 && lv!.timeline[0].team === "home", "three goals should be inferred from the score changes");
+      }
+      continue;
+    }
     runs.push(await ingest(prisma, new FixtureFeed(factor), { competitionKeys: ["soccer_epl"], now: at, prefix }));
     statsRuns.push(await ingestStats(prisma, new StatsFixtureFeed(at), { oddsKeys: ["soccer_epl"], now: at, budget: 20, prefix }));
     models.push(await runModel(prisma, { oddsKeys: ["soccer_epl"], now: at, skipResultsRefresh: true }));
   }
-  for (const r of runs) console.log(r);
+  for (const r of [...runs, ...liveRuns]) console.log(r);
+  assert(liveRuns.every((r) => !r.error && r.inPlay > 0 && r.scores === 1), "each live run should store in-play prices and the score of the match in play");
   for (const m of models) console.log(m);
   for (const r of statsRuns) console.log(r);
   assert(runs.every((r) => !r.error), "a run reported an error");
@@ -124,6 +151,11 @@ async function fixture() {
   assert(arsenal?.kind === "team" && teamRecordOf(arsenal.id, ctx)?.n === 1, "Arsenal should resolve by name with one settled prediction on them winning");
   const pos = positionViewOf({ selectionId: ids[0], odds: 2.1, at: FIXTURE_KICKOFF - 2 * HOUR }, ctx);
   assert(pos?.status === "settled" && pos.result === "won" && Math.abs(pos.profit! - 1.1) < 1e-9, "a tracked Arsenal price should settle as won");
+
+  // Market Replay once the match is over.
+  const replay = await realReplayData(prisma, await realSnapshot(prisma, FIXTURE_KICKOFF + 4 * HOUR), eventId);
+  assert(replay && replay.kickoffIndex === 1 && replay.frames.length === 5 && replay.frames[4].score?.home === 2, `replay should have 2 pre-match and 3 in-play frames, got ${replay?.frames.length}`);
+  assert(replay.frames[2].model[0] !== null && replay.clv[0] !== null && replay.events.some((x) => x.kind === "goal"), "replay should carry the in-play model, CLV and goals");
 
   console.log(`Fixture ingestion OK. ${preds.length} predictions, chain of ${v.checked} verified, backtest n = ${bt.n}.`);
 }

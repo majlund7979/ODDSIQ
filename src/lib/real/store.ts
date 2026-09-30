@@ -41,22 +41,27 @@ export interface SourceView {
   provider: string;
 }
 
-interface MarketData {
+export interface MarketData {
   id: string;
   type: string;
   name: string;
   selections: { id: string; name: string; side: string; result: string | null }[];
   points: BookPoint[];
   runs: number[];
+  /** Prices observed after kickoff (InPlayOdds) and the times they were observed. */
+  livePoints: BookPoint[];
+  liveRuns: number[];
 }
 
-interface EventData {
+export interface EventData {
   view: EventView;
   oddsKey: string;
   markets: MarketData[];
   forecast: { f: MatchForecast; home: string; away: string } | { reason: string } | null;
   model: LeagueModel | null;
   news: TeamNews | null;
+  /** Scores as the odds feed reported them after kickoff, oldest first. */
+  scores: { at: number; home: number; away: number; completed: boolean }[];
 }
 
 export interface RealSnapshot {
@@ -230,6 +235,7 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
       awayTeam: true,
       markets: { include: { selections: { orderBy: { id: "asc" } } } },
       statsFixtures: { include: { lineups: true, injuries: true }, orderBy: { syncedAt: "desc" }, take: 1 },
+      scoreUpdates: { orderBy: { observedAt: "asc" } },
     },
   });
   // Recent xG for form lines; small, since only fixtures near feed events are stored.
@@ -241,13 +247,22 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
   const snaps = selectionIds.length
     ? await prisma.oddsSnapshot.findMany({ where: { selectionId: { in: selectionIds } }, select: { selectionId: true, bookmakerId: true, observedAt: true, odds: true } })
     : [];
-  const bySelection = new Map<string, BookPoint[]>();
-  for (const s of snaps) {
-    const p = { selectionId: s.selectionId, bookmakerId: s.bookmakerId, observedAt: s.observedAt.getTime(), odds: Number(s.odds) };
-    if (!bySelection.has(p.selectionId)) bySelection.set(p.selectionId, []);
-    bySelection.get(p.selectionId)!.push(p);
-  }
-  const bookRows = await prisma.bookmaker.findMany({ where: { id: { in: [...new Set(snaps.map((s) => s.bookmakerId))] } } });
+  const startedIds = events.filter((e) => e.kickoff.getTime() <= now).flatMap((e) => e.markets.flatMap((m) => m.selections.map((s) => s.id)));
+  const inPlay = startedIds.length
+    ? await prisma.inPlayOdds.findMany({ where: { selectionId: { in: startedIds } }, select: { selectionId: true, bookmakerId: true, observedAt: true, odds: true } })
+    : [];
+  const group = (rows: typeof snaps) => {
+    const out = new Map<string, BookPoint[]>();
+    for (const s of rows) {
+      const p = { selectionId: s.selectionId, bookmakerId: s.bookmakerId, observedAt: s.observedAt.getTime(), odds: Number(s.odds) };
+      if (!out.has(p.selectionId)) out.set(p.selectionId, []);
+      out.get(p.selectionId)!.push(p);
+    }
+    return out;
+  };
+  const bySelection = group(snaps);
+  const liveBySelection = group(inPlay);
+  const bookRows = await prisma.bookmaker.findMany({ where: { id: { in: [...new Set([...snaps, ...inPlay].map((s) => s.bookmakerId))] } } });
   const books = new Map(bookRows.map((b) => [b.id, b.name]));
 
   const models = new Map<string, LeagueModel>();
@@ -259,7 +274,7 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
   const data: EventData[] = events.map((e) => {
     const league = leagueForOddsKey(oddsKeyOf(e.leagueId));
     const model = league ? (models.get(league.code) ?? null) : null;
-    const r = model && league && e.status === "scheduled" ? forecastFor(model, e.homeTeam.name, e.awayTeam.name, league.name) : null;
+    const r = model && league && e.status !== "finished" ? forecastFor(model, e.homeTeam.name, e.awayTeam.name, league.name) : null;
     const status: EventStatus = e.status === "scheduled" && e.kickoff.getTime() <= now ? "live" : (e.status as EventStatus);
     return {
       view: {
@@ -281,9 +296,11 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
       model,
       news: e.statsFixtures[0] ? teamNews(e.statsFixtures[0], xgHistory) : null,
       forecast: r ? (r.ok ? { f: r.forecast, home: r.home, away: r.away } : { reason: r.reason }) : null,
+      scores: e.scoreUpdates.map((u) => ({ at: u.observedAt.getTime(), home: u.homeScore, away: u.awayScore, completed: u.completed })),
       markets: e.markets.map((m) => {
         const sels = [...m.selections].sort((a, b) => order(side(a.id)) - order(side(b.id)));
         const points = sels.flatMap((s) => bySelection.get(s.id) ?? []);
+        const livePoints = sels.flatMap((s) => liveBySelection.get(s.id) ?? []);
         return {
           id: m.id,
           type: m.type,
@@ -291,6 +308,8 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
           selections: sels.map((s) => ({ id: s.id, name: s.name, side: side(s.id), result: s.result })),
           points,
           runs: [...new Set(points.map((p) => p.observedAt))].sort((a, b) => a - b),
+          livePoints,
+          liveRuns: [...new Set(livePoints.map((p) => p.observedAt))].sort((a, b) => a - b),
         };
       }),
     };

@@ -2,12 +2,13 @@ import Link from "next/link";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { MinuteChart } from "@/components/charts/MinuteChart";
 import { Badge, LinkTabs, PageHeader, Panel, Signed, Tip } from "@/components/ui";
-import { DEMO_MODE, requestNow } from "@/lib/data";
-import { DemoOnly } from "@/components/DemoOnly";
 import { INTELLIGENCE_NOTE, marketIntelligence } from "@/lib/demo/intelligence";
-import { inPlayOdds, marketRows, matchView, replayableEvents } from "@/lib/demo/store";
+import { inPlayOdds } from "@/lib/demo/store";
 import { fmtCountdown, fmtOdds, fmtPct, fmtPp, fmtTime } from "@/lib/format";
 import { marketRegime, REGIME_NOTE } from "@/lib/metrics/regime";
+import { IN_PLAY_NOTE } from "@/lib/model/inplay";
+import { realLiveIntelligence, type LiveFrame } from "@/lib/real/live";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Live Markets · ODDSIQ" };
 
@@ -25,32 +26,35 @@ const ODDS_CAP = 15;
 const KIND_MARK: Record<string, string> = { goal: "⚽", red: "■", yellow: "▪", substitution: "⇄", shot: "◦", corner: "⌐", var: "▣" };
 
 export default async function LivePage({ searchParams }: { searchParams: Promise<{ event?: string; sel?: string }> }) {
-  if (!DEMO_MODE) return <DemoOnly title="Live Terminal" needs="in-play scores, match events and in-play prices" />;
-  const now = await requestNow();
+  const term = await terminal();
+  const now = term.now;
   const q = await searchParams;
-  const rows = marketRows(now);
+  const rows = term.marketRows();
 
   const firstRowPerEvent = (list: typeof rows) => [...new Map(list.map((r) => [r.eventId, r])).values()];
-  const live = firstRowPerEvent(rows.filter((r) => r.status === "live"));
-  const soon = firstRowPerEvent(rows.filter((r) => r.status === "scheduled" && r.kickoff - now <= 3 * 3_600_000)).sort((a, b) => a.kickoff - b.kickoff);
-  const finished = replayableEvents(now).filter((e) => e.kickoff > now - 8 * 3_600_000).slice(0, 5);
+  const live = term.liveBoard();
+  const soon = firstRowPerEvent(rows.filter((r) => r.status === "scheduled" && r.kickoff > now && r.kickoff - now <= 3 * 3_600_000)).sort((a, b) => a.kickoff - b.kickoff);
+  const finished = term.replayEvents().filter((e) => e.kickoff > now - 8 * 3_600_000).slice(0, 5);
 
   const eventId = live.some((r) => r.eventId === q.event) ? q.event! : live[0]?.eventId;
-  const view = eventId ? matchView(eventId, now) : undefined;
+  const view = eventId ? term.liveView(eventId) : undefined;
   const sel = Math.min(Math.max(Number(q.sel) || 0, 0), (view?.selections.length ?? 1) - 1);
   const regime = marketRegime({ live: true, minutesToKickoff: 0, lineupsConfirmed: true, minutesSinceNews: null, moveSinceNews: 0, volatilityRatio: 0, booksQuoting: 0, booksTracked: 0 });
-  const intel = view ? marketIntelligence(view, sel, regime) : null;
+  const intel = view ? (term.live ? realLiveIntelligence(view, sel) : marketIntelligence(view, sel, regime)) : null;
   const first = view?.minutes[0];
   const last = view?.minutes.at(-1);
-  const series = (key: "market" | "model", i: number) => view!.minutes.map((m) => ({ minute: m.minute, v: m[key][i] }));
+  const series = (key: "market" | "model", i: number) => view!.minutes.map((m) => ({ minute: m.minute, v: m[key][i] })).filter((p) => Number.isFinite(p.v));
+  // Live data carries the median bookmaker odds of each feed run; demo odds are implied from the probability.
+  const oddsAt = (m: (typeof view & {})["minutes"][number], i: number) => (m as Partial<LiveFrame>).odds?.[i] ?? inPlayOdds(m.market[i], 0.05);
+  const pct = (v: number) => (Number.isFinite(v) ? fmtPct(v) : "—");
 
   return (
     <div className="space-y-4">
       <AutoRefresh seconds={30} />
       <PageHeader
         title="Live Markets"
-        subtitle="Live matches on the left, the selected market in the centre, and a plain summary of what the data shows on the right. The page refreshes itself every 30 seconds."
-        right={<span className="text-xs text-muted">{live.length} live · DEMO DATA</span>}
+        subtitle={`Live matches on the left, the selected market in the centre, and a plain summary of what the data shows on the right. The page refreshes itself every 30 seconds${term.live ? "; the data changes at each live feed run." : "."}`}
+        right={<span className="text-xs text-muted">{live.length} live · {term.live ? "live feed" : "DEMO DATA"}</span>}
       />
 
       <div className="grid gap-4 xl:grid-cols-[250px_minmax(0,1fr)_300px]">
@@ -71,13 +75,14 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
                     >
                       <div className="flex items-center justify-between text-[11px] text-muted">
                         <span className="truncate">{r.league}</span>
-                        <span className="num text-good">{r.minute}′</span>
+                        <span className="num text-good">
+                          {term.live && "~"}
+                          {r.minute}′
+                        </span>
                       </div>
                       <div className="mt-0.5 flex items-center justify-between gap-2 text-sm">
                         <span className="truncate">{r.match}</span>
-                        <span className="num shrink-0 font-semibold">
-                          {r.score?.home}–{r.score?.away}
-                        </span>
+                        <span className="num shrink-0 font-semibold">{r.score ? `${r.score.home}–${r.score.away}` : "–"}</span>
                       </div>
                     </Link>
                   </li>
@@ -126,9 +131,13 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
 
         {/* Centre: selected market */}
         <div className="min-w-0 space-y-4">
-          {!view || !first || !last ? (
+          {!view || !first || !last || (term.live && view.minutes.length < 2) ? (
             <Panel>
-              <p className="px-4 py-10 text-center text-sm text-muted">No live match selected. Matches appear here when they kick off; until then, use Starting soon or replay a finished match.</p>
+              <p className="px-4 py-10 text-center text-sm text-muted">
+                {view
+                  ? `${view.event.homeName} vs ${view.event.awayName} has kicked off, but no in-play prices have been stored yet. They arrive with each live feed run.`
+                  : "No live match selected. Matches appear here when they kick off; until then, use Starting soon or replay a finished match."}
+              </p>
             </Panel>
           ) : (
             <>
@@ -147,7 +156,9 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
-                    <span className="num text-lg text-good">{last.minute}′</span>
+                    <span className="num text-lg text-good">
+                      {term.live ? <Tip text={`Estimated from the clock at the latest feed run (${fmtTime((last as Partial<LiveFrame>).at ?? now)} UTC); the feed has no match clock.`}>~{last.minute}′</Tip> : `${last.minute}′`}
+                    </span>
                     <span className="flex gap-2">
                       <Badge tone="accent">
                         <Tip text={`${REGIME_NOTE} ${regime.reason}`}>Regime: {regime.regime}</Tip>
@@ -169,7 +180,7 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
                 </div>
               </Panel>
 
-              <Panel title={`Probability · ${view.selections[sel].name}`} right="Live · margin-free market and in-play model">
+              <Panel title={`Probability · ${view.selections[sel].name}`} right={term.live ? "Live · margin-free market and in-play model, one point per feed run" : "Live · margin-free market and in-play model"}>
                 <div className="px-3 py-2">
                   <MinuteChart
                     label={`In-play probability for ${view.selections[sel].name}`}
@@ -184,16 +195,16 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
                 </div>
               </Panel>
 
-              <Panel title={`Odds · ${view.selections[sel].name}`} right={`Live · 5% margin assumed · capped at ${ODDS_CAP}`}>
+              <Panel title={`Odds · ${view.selections[sel].name}`} right={term.live ? `Live · median bookmaker odds · capped at ${ODDS_CAP}` : `Live · 5% margin assumed · capped at ${ODDS_CAP}`}>
                 <div className="px-3 py-2">
                   <MinuteChart
                     label={`In-play odds for ${view.selections[sel].name}`}
                     format={(v) => v.toFixed(2)}
                     events={view.timeline}
                     height={150}
-                    domain={[1, Math.min(ODDS_CAP, Math.max(...view.minutes.map((m) => inPlayOdds(m.market[sel], 0.05)), view.closingOdds[sel])) * 1.08]}
+                    domain={[1, Math.min(ODDS_CAP, Math.max(...view.minutes.map((m) => oddsAt(m, sel)), view.closingOdds[sel])) * 1.08]}
                     series={[
-                      { label: "In-play odds", color: "var(--series-market)", points: view.minutes.map((m) => ({ minute: m.minute, v: Math.min(ODDS_CAP, inPlayOdds(m.market[sel], 0.05)) })) },
+                      { label: "In-play odds", color: "var(--series-market)", points: view.minutes.map((m) => ({ minute: m.minute, v: Math.min(ODDS_CAP, oddsAt(m, sel)) })) },
                       { label: "Pre-match closing odds", color: "var(--muted)", dashed: true, points: [{ minute: 0, v: view.closingOdds[sel] }, { minute: last.minute, v: view.closingOdds[sel] }] },
                     ]}
                   />
@@ -226,11 +237,9 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
                             <td className="num px-2.5 py-2 text-right whitespace-nowrap">
                               <Signed value={dm}>{fmtPp(dm)}</Signed>
                             </td>
-                            <td className="num px-2.5 py-2 text-right text-ink-2">{fmtPct(first.model[i])}</td>
-                            <td className="num px-2.5 py-2 text-right">{fmtPct(last.model[i])}</td>
-                            <td className="num px-2.5 py-2 pr-4 text-right whitespace-nowrap">
-                              <Signed value={dmo}>{fmtPp(dmo)}</Signed>
-                            </td>
+                            <td className="num px-2.5 py-2 text-right text-ink-2">{pct(first.model[i])}</td>
+                            <td className="num px-2.5 py-2 text-right">{pct(last.model[i])}</td>
+                            <td className="num px-2.5 py-2 pr-4 text-right whitespace-nowrap">{Number.isFinite(dmo) ? <Signed value={dmo}>{fmtPp(dmo)}</Signed> : "—"}</td>
                           </tr>
                         );
                       })}
@@ -238,13 +247,13 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
                   </table>
                 </div>
                 <p className="border-t border-line px-4 py-2 text-[11px] text-muted">
-                  Live · market is margin-free; in play the model is re-estimated each minute from score, time and red cards.
+                  {term.live ? `Live · market is margin-free. ${IN_PLAY_NOTE}` : "Live · market is margin-free; in play the model is re-estimated each minute from score, time and red cards."}
                   {view.modelVersion ? ` Pre-match ledgered prediction (${view.modelVersion}): ${view.preMatchModel.map((p, i) => `${view.selections[i].name} ${fmtPct(p)}`).join(", ")}.` : " No pre-match prediction was ledgered for this market."}
                 </p>
               </Panel>
 
               <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">
-                <Panel title="Live statistics" right="From the event feed">
+                <Panel title="Live statistics" right={term.live ? "From the odds feed" : "From the event feed"}>
                   <table className="w-full text-[12.5px]">
                     <thead>
                       <tr className="border-b border-line text-[10.5px] uppercase tracking-wider text-muted">
@@ -254,7 +263,7 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
                       </tr>
                     </thead>
                     <tbody>
-                      {STAT_KINDS.map((k) => {
+                      {STAT_KINDS.filter((k) => !term.live || k.kind === "goal").map((k) => {
                         const n = (team: "home" | "away") => view.timeline.filter((e) => e.kind === k.kind && e.team === team).length;
                         return (
                           <tr key={k.kind} className="border-b border-line/60">
@@ -266,9 +275,10 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
                       })}
                     </tbody>
                   </table>
+                  {term.live && <p className="border-t border-line px-4 py-2 text-[11px] text-muted">The odds feed reports the score only. Shots, corners, cards and substitutions need a live statistics feed.</p>}
                 </Panel>
 
-              <Panel title="Event timeline" right="Newest first · model home-win change">
+              <Panel title="Event timeline" right={term.live ? "Newest first · goals from score changes" : "Newest first · model home-win change"}>
                 <ul className="max-h-80 divide-y divide-line overflow-y-auto">
                   {[...view.timeline].reverse().map((e, i) => (
                     <li key={i} className="grid grid-cols-[44px_20px_1fr_auto] items-center gap-2 px-4 py-1.5 text-[13px]">
@@ -319,7 +329,9 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
                 )}
               </div>
             )}
-            <p className="border-t border-line px-4 py-2 text-[11px] text-muted">{INTELLIGENCE_NOTE} Live · DEMO DATA.</p>
+            <p className="border-t border-line px-4 py-2 text-[11px] text-muted">
+              {INTELLIGENCE_NOTE} Live · {term.dataLabel}.
+            </p>
           </Panel>
         </div>
       </div>

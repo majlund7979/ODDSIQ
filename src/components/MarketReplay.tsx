@@ -7,7 +7,8 @@ import { fmtOdds, fmtPct, fmtShortDateTime, fmtSignedPct } from "@/lib/format";
 const EVENT_MARK: Record<string, string> = { news: "✚", lineup: "▣", prediction: "◆", kickoff: "▸", goal: "⚽", red: "■", yellow: "▪", substitution: "⇄", var: "▣" };
 const SPEEDS = [1, 4, 12];
 
-export function MarketReplay({ data }: { data: ReplayData }) {
+export function MarketReplay({ data, live = false }: { data: ReplayData; live?: boolean }) {
+  const label = live ? "live odds feed" : "DEMO DATA";
   const { view, frames, kickoffIndex } = data;
   const [idx, setIdx] = useState(0);
   const [sel, setSel] = useState(0);
@@ -177,6 +178,7 @@ export function MarketReplay({ data }: { data: ReplayData }) {
               {fmtShortDateTime(f.at)} UTC · {f.phase === "live" ? `${f.minute}′ · ${f.score?.home}–${f.score?.away}` : "pre-match"}
             </span>
           </header>
+          <div className="overflow-x-auto">
           <table className="w-full text-[12.5px]">
             <thead>
               <tr className="border-b border-line text-[10.5px] uppercase tracking-wider text-muted">
@@ -197,7 +199,8 @@ export function MarketReplay({ data }: { data: ReplayData }) {
               ))}
             </tbody>
           </table>
-          <p className="px-4 py-2 text-[11px] text-muted">{f.phase === "pre" ? "Consensus odds across tracked bookmakers." : "In-play odds are the margin-free market with a 5% margin applied."} Historical · DEMO DATA.</p>
+          </div>
+          <p className="px-4 py-2 text-[11px] text-muted">{f.phase === "pre" ? "Consensus odds across tracked bookmakers." : live ? "In-play odds are the median bookmaker price at that feed run; the minute is estimated from the clock." : "In-play odds are the margin-free market with a 5% margin applied."} Historical · {label}.</p>
         </section>
 
         <section className="rounded-md border border-line bg-surface">
@@ -224,6 +227,7 @@ export function MarketReplay({ data }: { data: ReplayData }) {
         <header className="border-b border-line px-4 py-2.5">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-2">Outcome</h2>
         </header>
+        <div className="overflow-x-auto">
         <table className="w-full text-[12.5px]">
           <thead>
             <tr className="border-b border-line text-[10.5px] uppercase tracking-wider text-muted">
@@ -248,9 +252,11 @@ export function MarketReplay({ data }: { data: ReplayData }) {
             ))}
           </tbody>
         </table>
+        </div>
         <p className="px-4 py-2 text-[11px] text-muted">
           Final score {view.event.homeName} {view.event.score?.home}–{view.event.score?.away} {view.event.awayName}. CLV compares the odds when the prediction was ledgered with the margin-free closing price.
-          {view.modelVersion ? ` Model ${view.modelVersion}.` : " No prediction was ledgered for this market."} Historical · DEMO DATA.
+          {view.modelVersion ? ` Model ${view.modelVersion}.` : " No prediction was ledgered for this market."}
+          {live && " In play, the model line is the in-play goals model built from a fit on results before kickoff."} Historical · {label}.
         </p>
       </section>
     </div>

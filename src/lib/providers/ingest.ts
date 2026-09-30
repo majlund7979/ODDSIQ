@@ -4,7 +4,9 @@
 //
 // Every run stores one OddsSnapshot per bookmaker price for events that have
 // not kicked off, so the last snapshot at or before kickoff is the closing
-// line (see closing.ts). In-play prices are not stored yet.
+// line (see closing.ts). Prices for events already in play go to InPlayOdds,
+// and every score the feed reports goes to ScoreUpdate, so the Live and
+// Market Replay pages can show them without touching pre-match analytics.
 
 import type { PrismaClient } from "@/generated/prisma/client";
 import { overround } from "@/lib/metrics/probability";
@@ -66,6 +68,8 @@ export interface IngestOptions {
   now?: number;
   /** Id prefix for everything this feed creates. */
   prefix?: string;
+  /** "live" for the in-play runs of /api/cron/live. */
+  kind?: "scheduled" | "live";
 }
 
 export interface IngestSummary {
@@ -73,6 +77,8 @@ export interface IngestSummary {
   competitions: string[];
   events: number;
   snapshots: number;
+  inPlay: number;
+  scores: number;
   results: number;
   quota: FeedQuota | null;
   error: string | null;
@@ -81,10 +87,12 @@ export interface IngestSummary {
 export async function ingest(prisma: PrismaClient, feed: OddsFeed, opts: IngestOptions): Promise<IngestSummary> {
   const now = opts.now ?? Date.now();
   const prefix = opts.prefix ?? "toa";
-  const run = await prisma.ingestRun.create({ data: { provider: feed.provider, startedAt: new Date(now), sportKeys: opts.competitionKeys } });
+  const run = await prisma.ingestRun.create({ data: { provider: feed.provider, kind: opts.kind ?? "scheduled", startedAt: new Date(now), sportKeys: opts.competitionKeys } });
   let quota: FeedQuota | null = null;
   let events = 0;
   let snapshots = 0;
+  let inPlay = 0;
+  let scores = 0;
   let results = 0;
   let error: string | null = null;
 
@@ -134,10 +142,15 @@ export async function ingest(prisma: PrismaClient, feed: OddsFeed, opts: IngestO
             await prisma.selection.upsert({ where: { id: ids.selectionId(m, sel) }, create: { id: ids.selectionId(m, sel), marketId: ids.marketId(m), eventId: ids.eventId, name: selectionName(m, sel, e) }, update: {} });
           }
         }
-        if (now >= e.kickoff) continue;
         const rows = e.prices.map((p) => ({ selectionId: ids.selectionId(p.market, p.selection), bookmakerId: `${prefix}-${p.bookmakerKey}`, observedAt: new Date(now), odds: p.odds, sourceId: feed.provider }));
-        if (rows.length) await prisma.oddsSnapshot.createMany({ data: rows });
-        snapshots += rows.length;
+        if (!rows.length) continue;
+        if (now >= e.kickoff) {
+          await prisma.inPlayOdds.createMany({ data: rows });
+          inPlay += rows.length;
+        } else {
+          await prisma.oddsSnapshot.createMany({ data: rows });
+          snapshots += rows.length;
+        }
       }
 
       // Results cost credits, so only ask when a stored event has kicked off and is unsettled.
@@ -146,10 +159,13 @@ export async function ingest(prisma: PrismaClient, feed: OddsFeed, opts: IngestO
         const res = await feed.results(key, 3);
         quota = res.quota;
         for (const r of res.data) {
-          if (!r.completed || r.homeScore === null || r.awayScore === null) continue;
+          if (r.homeScore === null || r.awayScore === null || r.kickoff > now) continue;
           const ids = feedIds(prefix, r);
           const ev = await prisma.event.findUnique({ where: { id: ids.eventId }, select: { status: true, markets: { select: { type: true, selections: { select: { id: true } } } } } });
           if (!ev || ev.status === "finished") continue;
+          await prisma.scoreUpdate.create({ data: { eventId: ids.eventId, observedAt: new Date(now), homeScore: r.homeScore, awayScore: r.awayScore, completed: r.completed } });
+          scores++;
+          if (!r.completed) continue;
           await prisma.event.update({ where: { id: ids.eventId }, data: { status: "finished", homeScore: r.homeScore, awayScore: r.awayScore } });
           for (const m of ev.markets) {
             for (const sel of MARKET_SELECTIONS[m.type as FeedMarketType] ?? []) {
@@ -175,5 +191,19 @@ export async function ingest(prisma: PrismaClient, feed: OddsFeed, opts: IngestO
     create: { id: feed.provider, name: `${feed.providerName} odds`, kind: "odds", provider: feed.providerName, status: error ? "degraded" : "ok", lastSyncAt: finishedAt },
     update: { status: error ? "degraded" : "ok", ...(error ? {} : { lastSyncAt: finishedAt }) },
   });
-  return { runId: run.id.toString(), competitions: opts.competitionKeys, events, snapshots, results, quota, error };
+  return { runId: run.id.toString(), competitions: opts.competitionKeys, events, snapshots, inPlay, scores, results, quota, error };
+}
+
+/** A football match, half-time and stoppage included, is over well within this. */
+export const IN_PLAY_WINDOW_MS = 150 * 60_000;
+
+/** Configured competitions with a stored feed event in play: kicked off within the in-play window and not finished. */
+export async function inPlayCompetitions(prisma: PrismaClient, competitionKeys: string[], now: number, prefix = "toa"): Promise<string[]> {
+  const rows = await prisma.event.findMany({
+    where: { externalId: { startsWith: `${prefix}:` }, status: { not: "finished" }, kickoff: { lte: new Date(now), gt: new Date(now - IN_PLAY_WINDOW_MS) } },
+    select: { leagueId: true },
+    distinct: ["leagueId"],
+  });
+  const live = new Set(rows.map((r) => r.leagueId));
+  return competitionKeys.filter((k) => live.has(`${prefix}-${k}`));
 }

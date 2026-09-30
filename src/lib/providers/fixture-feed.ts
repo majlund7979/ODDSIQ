@@ -13,10 +13,11 @@ const quota: FeedQuota = { used: null, remaining: null, last: 0 };
 export class FixtureFeed implements OddsFeed {
   readonly provider = "the-odds-api";
   readonly providerName = "The Odds API (recorded fixture)";
-  /** priceFactor multiplies every price, to simulate a later snapshot; shiftMs moves every kickoff. */
+  /** priceFactor multiplies every price, to simulate a later snapshot; shiftMs moves every kickoff; inPlayScore reports the first match as still in play at that score. */
   constructor(
     private readonly priceFactor = 1,
     private readonly shiftMs = 0,
+    private readonly inPlayScore?: { home: number; away: number },
   ) {}
 
   async competitions() {
@@ -27,6 +28,8 @@ export class FixtureFeed implements OddsFeed {
     return { data: events.map((e) => ({ ...e, kickoff: e.kickoff + this.shiftMs, prices: e.prices.map((p) => ({ ...p, odds: Math.round(p.odds * this.priceFactor * 100) / 100 })) })), quota };
   }
   async results(key: string) {
-    return { data: key === "soccer_epl" ? normalizeScores(scores).map((r) => ({ ...r, kickoff: r.kickoff + this.shiftMs })) : [], quota };
+    const rows = key === "soccer_epl" ? normalizeScores(scores).map((r) => ({ ...r, kickoff: r.kickoff + this.shiftMs })) : [];
+    const live = this.inPlayScore;
+    return { data: live ? rows.map((r, i) => (i === 0 ? { ...r, completed: false, homeScore: live.home, awayScore: live.away } : r)) : rows, quota };
   }
 }
