@@ -3,7 +3,7 @@ import { wallClock } from "@/lib/data";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { fmtAgo, fmtOdds, fmtPct, fmtShortDateTime } from "@/lib/format";
 import { CLOSE_MAX_AGE_MS } from "@/lib/providers/closing";
-import { feedConfig } from "@/lib/providers/config";
+import { feedConfig, liveConfig } from "@/lib/providers/config";
 import { feedOverview } from "@/lib/providers/overview";
 import { API_FOOTBALL } from "@/lib/stats/api-football";
 import { statsConfig } from "@/lib/stats/config";
@@ -17,7 +17,7 @@ function Setup({ keySet, statsKeySet }: { keySet: boolean; statsKeySet: boolean 
         <li className={DATABASE_CONFIGURED ? "text-muted line-through" : ""}>Add a Postgres database and set DATABASE_URL, then run the migrations (npm run db:migrate).</li>
         <li className={keySet ? "text-muted line-through" : ""}>Create a free account at the-odds-api.com and set ODDS_API_KEY to the key it emails you.</li>
         <li className={statsKeySet ? "text-muted line-through" : ""}>Optional, for lineups, injuries and xG: create an account at api-football.com and set STATS_API_KEY to the key on its dashboard.</li>
-        <li>Set CRON_SECRET and schedule GET /api/cron/ingest (the included vercel.json runs it every six hours).</li>
+        <li>Set CRON_SECRET and call GET /api/cron/ingest every six hours with the header Authorization: Bearer &lt;CRON_SECRET&gt;. The included vercel.json runs it once a day, the most often Vercel&rsquo;s free plan allows; use a free scheduler such as cron-job.org for every six hours.</li>
       </ol>
     </Panel>
   );
@@ -27,6 +27,7 @@ export default async function DataFeedPage() {
   const now = await wallClock();
   const cfg = feedConfig();
   const stats = statsConfig();
+  const live = liveConfig();
   const ready = DATABASE_CONFIGURED && cfg.apiKey !== null;
   const data = DATABASE_CONFIGURED ? await feedOverview(db(), now) : null;
   const last = data?.runs.find((r) => r.provider !== API_FOOTBALL);
@@ -55,6 +56,10 @@ export default async function DataFeedPage() {
           <dd>{stats.apiKey ? "API-Football" : "Not connected"}</dd>
           <dt className="text-muted">Stats requests per run</dt>
           <dd className="num">up to {stats.budget}</dd>
+          <dt className="text-muted">In-play polling</dt>
+          <dd>{live.enabled ? `Every ${live.intervalMinutes} min while matches are on` : "Off (ODDS_LIVE)"}</dd>
+          <dt className="text-muted">Credits per live run</dt>
+          <dd className="num">{live.enabled ? `${live.creditsPerCompetition} per league in play · stops below ${live.reserve} left` : "—"}</dd>
         </dl>
       </Panel>
 
@@ -137,7 +142,7 @@ export default async function DataFeedPage() {
                     <span className="num text-xs">
                       {r.provider === API_FOOTBALL
                         ? `Team news · ${r.events} matches · ${r.snapshots} updates · ${r.creditsUsed ?? 0} requests${r.creditsRemaining !== null ? ` · ${r.creditsRemaining} left today` : ""}`
-                        : `Odds · ${r.events} events · ${r.snapshots} prices · ${r.results} results${r.creditsRemaining !== null ? ` · ${r.creditsRemaining} credits left` : ""}`}
+                        : `${r.kind === "live" ? "Live odds" : "Odds"} · ${r.events} events · ${r.snapshots} prices · ${r.results} results${r.creditsRemaining !== null ? ` · ${r.creditsRemaining} credits left` : ""}`}
                     </span>
                     {r.error && <span className="w-full text-xs text-critical">{r.error.slice(0, 300)}</span>}
                   </li>

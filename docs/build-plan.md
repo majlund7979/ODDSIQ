@@ -63,6 +63,9 @@ Add a football statistics provider (API-Football to start; Sportmonks for deeper
 **Phase 13 — Remaining pages on real data**
 Move Alerts, Market Efficiency, Weekly Report, Watchlist, My Bets and the AI Analyst to the live read model. Done: `src/lib/real/{alerts,settled,personal}.ts`; the personal features take a data context so they work on demo or live data. Live Markets and Market Replay wait for an in-play feed.
 
+**Phase 14 — Live Markets and Market Replay on real data**
+Store in-play odds and scores from The Odds API and show them on Live Markets and Market Replay. Done: `InPlayOdds` and `ScoreUpdate` tables, `GET /api/cron/live` (off by default, credit reserve), an in-play goals model (`src/lib/model/inplay.ts`), `src/lib/real/live.ts`. Match events beyond goals (cards, substitutions) need a live statistics feed.
+
 ## Guardrails built in from day one
 - "DEMO DATA" label whenever `DEMO_MODE=true`.
 - Historical numbers always labelled historical/backtested/simulated; no guarantees language anywhere.

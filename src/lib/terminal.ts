@@ -10,7 +10,8 @@ import { BOOKMAKERS } from "@/lib/demo/catalog";
 import { demoPersonal, type PersonalCtx } from "@/lib/demo/personal";
 import * as demo from "@/lib/demo/store";
 import { realPersonal } from "@/lib/real/personal";
-import type { LedgerAudit, LedgerRow, MarketDetail, MarketRow, MatchView, SettledSelection } from "@/lib/demo/store";
+import type { LedgerAudit, LedgerRow, MarketDetail, MarketRow, MatchView, ReplayData, SettledSelection } from "@/lib/demo/store";
+import { realLiveBoard, realLiveView, realReplayData, realReplayEvents, type LiveBoardRow } from "@/lib/real/live";
 import { LIVE_ALERT_TYPES, realAlerts } from "@/lib/real/alerts";
 import { realSettledSelections } from "@/lib/real/settled";
 import type { TeamNews } from "@/lib/stats/news";
@@ -40,6 +41,13 @@ export interface Terminal {
   settled(): Promise<{ rows: SettledSelection[]; books: { id: string; name: string }[] }>;
   /** Data for the watchlist, My Bets and the AI Analyst. */
   personal(): Promise<PersonalCtx>;
+  /** Matches in play now. */
+  liveBoard(): LiveBoardRow[];
+  /** A match with its in-play minutes (demo) or feed runs (live). */
+  liveView(eventId: string): MatchView | undefined;
+  /** Finished matches that Market Replay can show, newest first. */
+  replayEvents(): EventView[];
+  replay(eventId: string): Promise<ReplayData | undefined>;
 }
 
 export async function terminal(): Promise<Terminal> {
@@ -63,6 +71,21 @@ export async function terminal(): Promise<Terminal> {
       alertTypes: ALERT_TYPES,
       settled: async () => ({ rows: demo.settledSelections(now), books: BOOKMAKERS }),
       personal: async () => demoPersonal(now),
+      liveBoard: () =>
+        [...new Map(demo.marketRows(now).filter((r) => r.status === "live").map((r) => [r.eventId, r])).values()].map((r) => ({
+          eventId: r.eventId,
+          selectionId: r.selectionId,
+          sport: r.sport,
+          league: r.league,
+          match: r.match,
+          kickoff: r.kickoff,
+          minute: r.minute ?? 0,
+          score: r.score ?? null,
+          scoreAt: null,
+        })),
+      liveView: (id) => demo.matchView(id, now),
+      replayEvents: () => demo.replayableEvents(now),
+      replay: async (id) => demo.replayData(id, now),
     };
   }
   if (!DATABASE_CONFIGURED) throw new DataSourceNotConfiguredError();
@@ -84,5 +107,9 @@ export async function terminal(): Promise<Terminal> {
     alertTypes: LIVE_ALERT_TYPES,
     settled: () => realSettledSelections(db(), now),
     personal: () => realPersonal(db(), snap),
+    liveBoard: () => realLiveBoard(snap),
+    liveView: (id) => realLiveView(snap, id),
+    replayEvents: () => realReplayEvents(snap),
+    replay: (id) => realReplayData(db(), snap, id),
   };
 }

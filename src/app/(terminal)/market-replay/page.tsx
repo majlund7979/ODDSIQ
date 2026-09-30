@@ -1,24 +1,22 @@
 import Link from "next/link";
 import { MarketReplay } from "@/components/MarketReplay";
 import { LinkTabs, PageHeader, Panel } from "@/components/ui";
-import { DEMO_MODE, requestNow } from "@/lib/data";
-import { DemoOnly } from "@/components/DemoOnly";
 import { SPORTS } from "@/lib/demo/catalog";
-import { replayableEvents, replayData } from "@/lib/demo/store";
 import { fmtDate, fmtTime } from "@/lib/format";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Market Replay · ODDSIQ" };
 
 const dayOf = (t: number) => new Date(t).toISOString().slice(0, 10);
 
 export default async function MarketReplayPage({ searchParams }: { searchParams: Promise<{ sport?: string; league?: string; date?: string; event?: string }> }) {
-  if (!DEMO_MODE) return <DemoOnly title="Market Replay" needs="in-play price history and match events" />;
-  const now = await requestNow();
+  const term = await terminal();
   const q = await searchParams;
-  const events = replayableEvents(now);
+  const events = term.replayEvents();
+  const sports = term.live ? [...new Map(events.map((e) => [e.sportId, { id: e.sportId, name: e.sportName }])).values()] : SPORTS;
   const picked = q.event ? events.find((e) => e.id === q.event) : undefined;
 
-  const sport = picked?.sportId ?? SPORTS.find((s) => s.id === q.sport)?.id ?? "football";
+  const sport = picked?.sportId ?? sports.find((s) => s.id === q.sport)?.id ?? "football";
   const inSport = events.filter((e) => e.sportId === sport);
   const leagues = [...new Map(inSport.map((e) => [e.leagueId, e.leagueName])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
   const league = picked?.leagueId ?? (leagues.some(([id]) => id === q.league) ? q.league! : "all");
@@ -27,7 +25,7 @@ export default async function MarketReplayPage({ searchParams }: { searchParams:
   const date = picked ? dayOf(picked.kickoff) : days.includes(q.date ?? "") ? q.date! : days[0];
   const matches = inLeague.filter((e) => dayOf(e.kickoff) === date).sort((a, b) => a.kickoff - b.kickoff);
   const eventId = picked?.id ?? matches.find((e) => e.id.startsWith("live-"))?.id ?? matches[0]?.id;
-  const data = eventId ? replayData(eventId, now) : undefined;
+  const data = eventId ? await term.replay(eventId) : undefined;
 
   const href = (p: { sport?: string; league?: string; date?: string; event?: string }) => {
     const s = new URLSearchParams();
@@ -46,7 +44,7 @@ export default async function MarketReplayPage({ searchParams }: { searchParams:
         <div className="space-y-2 px-4 py-3">
           <div className="flex flex-wrap items-center gap-3">
             <span className="w-14 text-[10.5px] uppercase tracking-wider text-muted">Sport</span>
-            <LinkTabs label="Sport" active={sport} items={SPORTS.map((s) => ({ id: s.id, label: s.name, href: `/market-replay?sport=${s.id}` }))} />
+            <LinkTabs label="Sport" active={sport} items={sports.map((s) => ({ id: s.id, label: s.name, href: `/market-replay?sport=${s.id}` }))} />
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <span className="w-14 text-[10.5px] uppercase tracking-wider text-muted">League</span>
@@ -59,7 +57,7 @@ export default async function MarketReplayPage({ searchParams }: { searchParams:
           <div className="flex flex-wrap items-start gap-3">
             <span className="w-14 pt-1 text-[10.5px] uppercase tracking-wider text-muted">Match</span>
             <div className="flex flex-1 flex-wrap gap-1">
-              {matches.length === 0 && <span className="py-1 text-xs text-muted">No finished matches in the last 60 days for this choice.</span>}
+              {matches.length === 0 && <span className="py-1 text-xs text-muted">{term.live ? "No finished feed matches in the last 7 days yet." : "No finished matches in the last 60 days for this choice."}</span>}
               {matches.map((e) => (
                 <Link
                   key={e.id}
@@ -86,8 +84,14 @@ export default async function MarketReplayPage({ searchParams }: { searchParams:
               </span>
             </h2>
           </div>
-          {data.frames.length - 1 === data.kickoffIndex && <p className="text-xs text-muted">In-play data is simulated for football only in DEMO_MODE, so this replay stops at kickoff and then shows the result.</p>}
-          <MarketReplay key={data.view.event.id} data={data} />
+          {data.frames.length - 1 === data.kickoffIndex && (
+            <p className="text-xs text-muted">
+              {term.live
+                ? "No in-play prices were stored for this match (live polling was off or out of credits), so this replay stops at kickoff and then shows the result."
+                : "In-play data is simulated for football only in DEMO_MODE, so this replay stops at kickoff and then shows the result."}
+            </p>
+          )}
+          <MarketReplay key={data.view.event.id} data={data} live={term.live} />
         </>
       ) : (
         <Panel>

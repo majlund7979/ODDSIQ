@@ -87,7 +87,7 @@ export interface MinuteState {
   minute: number;
   score: { home: number; away: number };
   /** True in-play probabilities [home, draw, away]. */
-  truth: [number, number, number];
+  truth?: [number, number, number];
   model: [number, number, number];
   market: [number, number, number];
 }
