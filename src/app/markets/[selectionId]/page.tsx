@@ -5,9 +5,12 @@ import { ConsensusStrip } from "@/components/charts/ConsensusStrip";
 import { InPlayChart } from "@/components/charts/InPlayChart";
 import { ModelVsMarket } from "@/components/charts/ModelVsMarket";
 import { OddsChart } from "@/components/charts/OddsChart";
+import { TrackPriceButton, WatchToggle } from "@/components/WatchButtons";
 import { Badge, levelTone, Panel, Signed, Tip } from "@/components/ui";
 import { requestNow } from "@/lib/data";
+import { COMMENTARY_NOTE, marketCommentary, whatChangedSummary } from "@/lib/demo/commentary";
 import { MODEL_FAMILIES } from "@/lib/demo/models";
+import { readWatchlist } from "@/lib/personal-store";
 import { dataSources, marketDetail, marketRows } from "@/lib/demo/store";
 import { fmtCountdown, fmtDateTime, fmtOdds, fmtPct, fmtPp, fmtShortDateTime, fmtSignedPct, fmtTime } from "@/lib/format";
 import { CONFIDENCE_DEFINITION } from "@/lib/metrics/consensus";
@@ -28,6 +31,8 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
   const { row, event, analysis, prediction } = d;
   const selectionIsHome = selectionId.endsWith("-home");
   const signals = movementSignals(row);
+  const watchlist = await readWatchlist();
+  const commentary = marketCommentary(d, now);
 
   const priceAround = (at: number, deltaMin: number) => {
     const target = at + deltaMin * 60_000;
@@ -98,6 +103,14 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
               </Tip>
             )}
             <Badge tone="warning">Demo data</Badge>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <WatchToggle kind="market" id={selectionId} label="Market" watchlist={watchlist} />
+            <WatchToggle kind="event" id={event.id} label="Match" watchlist={watchlist} />
+            <WatchToggle kind="team" id={event.homeTeamId} label={event.homeName} watchlist={watchlist} />
+            <WatchToggle kind="team" id={event.awayTeamId} label={event.awayName} watchlist={watchlist} />
+            <WatchToggle kind="league" id={event.leagueId} label={event.leagueName} watchlist={watchlist} />
+            {event.status === "scheduled" && <TrackPriceButton selectionId={selectionId} odds={fmtOdds(row.bestOdds)} />}
           </div>
         </div>
         <div className="grid grid-cols-3 gap-6 text-right">
@@ -201,6 +214,7 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
               <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Factor contributions are model attributions, not proof of cause.</p>
             </Panel>
             <Panel title="What changed?" id="what-changed">
+              <p className="border-b border-line px-4 py-2.5 text-[13px] leading-relaxed text-ink-2">{whatChangedSummary(d)}</p>
               <ol className="space-y-0 px-4 py-2">
                 {whatChanged.map((w, i) => (
                   <li key={i} className="grid grid-cols-[92px_1fr] gap-3 border-l border-line py-1.5 pl-3 text-sm">
@@ -242,6 +256,14 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ s
         </div>
 
         <div className="space-y-4">
+          <Panel title="Market intelligence" right={<Badge>Templated</Badge>}>
+            <div className="space-y-2 px-4 py-3 text-[13px] leading-relaxed">
+              {commentary.map((c) => (
+                <p key={c}>{c}</p>
+              ))}
+            </div>
+            <p className="border-t border-line px-4 py-2 text-[11px] text-muted">{COMMENTARY_NOTE} {row.status === "scheduled" ? "Live" : "Pre-match close"} · DEMO DATA.</p>
+          </Panel>
           <Panel title="Movement">
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 px-4 py-3 text-sm">
               <dt className="text-muted">{row.inPlayModel ? "Price at kickoff" : "Opening"}</dt>

@@ -24,7 +24,7 @@ export const NAV: NavItem[] = [
   { href: "/value-scanner", label: "Value Scanner", shortcut: "V" },
   { href: "/live", label: "Live Markets", shortcut: "L" },
   { href: "/market-replay", label: "Market Replay", shortcut: "R" },
-  { href: "/ai-analyst", label: "AI Analyst", shortcut: "A", phase: 8 },
+  { href: "/ai-analyst", label: "AI Analyst", shortcut: "A" },
   {
     href: "/model-lab",
     label: "Model Lab",
@@ -34,10 +34,12 @@ export const NAV: NavItem[] = [
       { href: "/model-lab/backtest", label: "Backtest" },
       { href: "/model-lab/errors", label: "Error Analysis" },
       { href: "/model-lab/drift", label: "Drift Monitor" },
+      { href: "/model-lab/report", label: "Weekly Report" },
     ],
   },
   { href: "/performance", label: "Performance", shortcut: "P", children: [{ href: "/performance/clv", label: "Closing Line Value" }] },
-  { href: "/my-bets", label: "My Bets", phase: 8 },
+  { href: "/watchlist", label: "Watchlist", shortcut: "W" },
+  { href: "/my-bets", label: "My Bets" },
 ];
 
 export const SHORTCUT_ROUTES: Record<string, string> = {
