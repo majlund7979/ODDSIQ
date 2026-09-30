@@ -51,6 +51,12 @@ Market Intelligence commentary, AI Analyst, weekly model report, watchlists + `/
 **Phase 9 — Real data**
 Plug in the licensed odds feed and stats API behind the same provider interface the seed uses, scheduled snapshot ingestion, closing-line capture, landing page and accounts/billing.
 
+**Phase 10 — Real model**
+Football model trained on public-domain results (openfootball): Dixon-Coles + Elo ensemble, walk-forward backtest with calibration, predictions written to the ledger before kickoff for feed markets, closing lines and settlement, `/model-lab/real-model`.
+
+**Phase 11 — Terminal on real data**
+Point the Market Terminal, Value Scanner, Dashboard and Performance pages at feed data and the real model, so `DEMO_MODE=false` becomes usable.
+
 ## Guardrails built in from day one
 - "DEMO DATA" label whenever `DEMO_MODE=true`.
 - Historical numbers always labelled historical/backtested/simulated; no guarantees language anywhere.

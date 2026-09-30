@@ -29,6 +29,7 @@ export const NAV: NavItem[] = [
     href: "/model-lab",
     label: "Model Lab",
     children: [
+      { href: "/model-lab/real-model", label: "Real Model" },
       { href: "/model-lab/ledger", label: "Prediction Ledger" },
       { href: "/model-lab/audit", label: "Model Audit" },
       { href: "/model-lab/backtest", label: "Backtest" },

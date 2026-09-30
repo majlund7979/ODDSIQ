@@ -25,6 +25,7 @@ export default async function ModelLabPage() {
   const all = segmentStats(rows);
 
   const sections = [
+    { href: "/model-lab/real-model", title: "Real Model", body: "The football model trained on real results: backtest, calibration and its live record against real prices.", badge: <Badge tone="accent">real data</Badge> },
     { href: "/model-lab/ledger", title: "Prediction Ledger", body: `${fmtInt(all.predictions)} immutable, hash-chained predictions with CSV export.` },
     { href: "/model-lab/audit", title: "Model Audit", body: "Chain verification, missing predictions and version changes." },
     { href: "/model-lab/backtest", title: "Backtest", body: "Selection rules replayed over the ledger, with simulated returns and CLV." },

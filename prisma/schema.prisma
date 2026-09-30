@@ -247,3 +247,34 @@ model IngestRun {
 
   @@index([startedAt])
 }
+
+/// A finished match from a public results source, used to train and backtest the real model.
+model HistoricalMatch {
+  id     BigInt   @id @default(autoincrement())
+  source String
+  league String // openfootball code, e.g. en.1
+  season String // e.g. 2025-26
+  date   DateTime
+  home   String
+  away   String
+  hg     Int
+  ag     Int
+
+  @@unique([league, date, home, away])
+  @@index([league, date])
+}
+
+/// Stored walk-forward backtest of a model version on one league.
+model ModelBacktest {
+  id             BigInt   @id @default(autoincrement())
+  modelVersionId String
+  league         String
+  createdAt      DateTime
+  testFrom       DateTime
+  testTo         DateTime
+  n              Int
+  /// Scores per component and benchmark, goals-market scores and calibration bins.
+  summary        Json
+
+  @@index([league, createdAt])
+}
