@@ -3,10 +3,9 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { Ago } from "@/components/Clock";
 import { MarketsNav } from "@/components/MarketsNav";
 import { LinkTabs, PageHeader, Panel, Tip } from "@/components/ui";
-import { DEMO_MODE, requestNow } from "@/lib/data";
-import { DemoOnly } from "@/components/DemoOnly";
-import { ALERT_TYPES, ALERT_WINDOW_HOURS, marketAlerts, type AlertType } from "@/lib/demo/alerts";
+import { ALERT_WINDOW_HOURS, type AlertType } from "@/lib/demo/alerts";
 import { fmtInt, fmtTime } from "@/lib/format";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Market Alerts · ODDSIQ" };
 
@@ -22,10 +21,10 @@ const ICON: Record<AlertType, string> = {
 };
 
 export default async function AlertsPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
-  if (!DEMO_MODE) return <DemoOnly title="Alerts" needs="news items and minute-by-minute price tracking" />;
-  const now = await requestNow();
+  const term = await terminal();
+  const ALERT_TYPES = term.alertTypes;
   const { type } = await searchParams;
-  const all = marketAlerts(now);
+  const all = term.alerts();
   const active = ALERT_TYPES.find((t) => t.id === type)?.id ?? "all";
   const alerts = active === "all" ? all : all.filter((a) => a.type === active);
   const count = (t: AlertType) => all.filter((a) => a.type === t).length;
@@ -116,7 +115,14 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
           ))}
         </ul>
         <p className="border-t border-line px-4 py-2 text-[11px] text-muted">
-          Alerts describe what changed, never why. <Tip text="News items in DEMO_MODE are synthetic and generated with the price paths.">News items are synthetic in DEMO_MODE.</Tip> Times are UTC. DEMO DATA.
+          Alerts describe what changed, never why.{" "}
+          {term.live ? (
+            "Prices come from the odds feed and team news from the statistics feed. Times are UTC."
+          ) : (
+            <>
+              <Tip text="News items in DEMO_MODE are synthetic and generated with the price paths.">News items are synthetic in DEMO_MODE.</Tip> Times are UTC. DEMO DATA.
+            </>
+          )}
         </p>
       </Panel>
     </div>

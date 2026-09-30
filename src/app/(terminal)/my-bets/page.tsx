@@ -1,22 +1,21 @@
 import Link from "next/link";
 import { removePosition } from "@/app/actions";
 import { PageHeader, Panel, Signed, Tip } from "@/components/ui";
-import { DEMO_MODE, requestNow } from "@/lib/data";
-import { DemoOnly } from "@/components/DemoOnly";
-import { positionSummary, positionView } from "@/lib/demo/personal";
+import { positionSummary, positionViewOf } from "@/lib/demo/personal";
 import { fmtDateTime, fmtInt, fmtOdds, fmtPct, fmtSignedPct } from "@/lib/format";
 import { CLV_METHODOLOGY } from "@/lib/metrics/clv";
 import { readPositions } from "@/lib/personal-store";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "My Bets · ODDSIQ" };
 
 const th = "px-2.5 py-2 font-medium";
 
 export default async function MyBetsPage() {
-  if (!DEMO_MODE) return <DemoOnly title="My Bets" needs="demo market ids for tracked prices" />;
-  const now = await requestNow();
+  const t = await terminal();
+  const ctx = await t.personal();
   const positions = await readPositions();
-  const views = positions.map((p, index) => ({ index, v: positionView(p, now) })).filter((x) => x.v !== null);
+  const views = positions.map((p, index) => ({ index, v: positionViewOf(p, ctx) })).filter((x) => x.v !== null);
   const s = positionSummary(views.map((x) => x.v!));
 
   const stat = (label: React.ReactNode, value: React.ReactNode, note: string) => (
@@ -101,7 +100,7 @@ export default async function MyBetsPage() {
           </div>
         )}
         <p className="border-t border-line px-4 py-2 text-[11px] leading-relaxed text-muted">
-          CLV before kickoff is provisional and uses the current margin-free price; after kickoff it uses the closing price. {CLV_METHODOLOGY} Your tracked list is personal and can be edited; the model&rsquo;s own prediction ledger cannot. DEMO DATA.
+          CLV before kickoff is provisional and uses the current margin-free price; after kickoff it uses the closing price. {CLV_METHODOLOGY} Your tracked list is personal and can be edited; the model&rsquo;s own prediction ledger cannot.{t.live ? ` Positions on matches that kicked off more than 7 days ago drop out of this list. ${t.dataLabel}.` : " DEMO DATA."}
         </p>
       </Panel>
     </div>

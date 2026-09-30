@@ -6,9 +6,9 @@ import { fmtOdds, fmtPct, fmtPp, fmtSignedPct } from "@/lib/format";
 import { clv } from "@/lib/metrics/clv";
 import { mean } from "@/lib/metrics/stats";
 import { isSettled, segmentStats } from "./analytics";
-import { leagueById, TEAMS, teamById } from "./catalog";
+import { LEAGUES, TEAMS } from "./catalog";
 import { MODEL_VERSIONS } from "./models";
-import { eventView, findEvent, ledgerRows, marketDetail, marketRows, universeEvents, type MarketRow } from "./store";
+import { eventView, findEvent, ledgerRows, marketDetail, marketRows, universeEvents, type LedgerRow, type MarketDetail, type MarketRow } from "./store";
 
 // ---------------------------------------------------------------------------
 // Watchlist
@@ -44,7 +44,7 @@ export function decodeWatchlist(raw: string | undefined): WatchItem[] {
     const [code, ...rest] = part.split(":");
     const kind = WATCH_KINDS.find((k) => k.code === code)?.kind;
     const id = rest.join(":");
-    if (kind && /^[a-z0-9.-]{1,80}$/i.test(id) && !out.some((o) => o.kind === kind && o.id === id)) out.push({ kind, id });
+    if (kind && /^[a-z0-9._-]{1,80}$/i.test(id) && !out.some((o) => o.kind === kind && o.id === id)) out.push({ kind, id });
   }
   return out.slice(0, MAX_WATCH_ITEMS);
 }
@@ -54,78 +54,144 @@ export function toggleWatchItem(items: WatchItem[], item: WatchItem): WatchItem[
   return has ? items.filter((i) => !(i.kind === item.kind && i.id === item.id)) : [...items, item].slice(-MAX_WATCH_ITEMS);
 }
 
+// ---------------------------------------------------------------------------
+// Data the personal features read. The demo universe and the live read model
+// each provide one, so every function below works on either.
+
+export interface PersonalEvent {
+  id: string;
+  homeTeamId: string;
+  awayTeamId: string;
+  homeName: string;
+  awayName: string;
+  leagueId: string;
+  leagueName: string;
+  kickoff: number;
+  status: "scheduled" | "live" | "finished";
+  score?: { home: number; away: number };
+  /** First selection of the main market, for links. */
+  firstSelectionId: string | null;
+}
+
+export interface PersonalCtx {
+  now: number;
+  /** Live data: no in-play terminal or replay to link to. */
+  live: boolean;
+  rows: MarketRow[];
+  ledger: LedgerRow[];
+  detail(selectionId: string): MarketDetail | undefined;
+  teams: { id: string; name: string; leagueId: string }[];
+  leagues: { id: string; name: string; country: string }[];
+  models: { id: string; releasedAt: number }[];
+  event(eventId: string): PersonalEvent | undefined;
+  /** Finished matches involving the team, newest first. */
+  teamResults(teamId: string): PersonalEvent[];
+  selectionResult(selectionId: string): "won" | "lost" | "void" | undefined;
+}
+
+const demoEvent = (eventId: string, now: number): PersonalEvent | undefined => {
+  const ev = findEvent(eventId, now);
+  if (!ev) return undefined;
+  const v = eventView(ev, now);
+  return { ...v, firstSelectionId: ev.markets[0]?.selections[0]?.selection.id ?? null };
+};
+
+let demoCache: { now: number; ctx: PersonalCtx } | null = null;
+
+export function demoPersonal(now: number): PersonalCtx {
+  if (demoCache?.now === now) return demoCache.ctx;
+  const ctx: PersonalCtx = {
+    now,
+    live: false,
+    rows: marketRows(now),
+    ledger: ledgerRows(now),
+    detail: (id) => marketDetail(id, now),
+    teams: TEAMS,
+    leagues: LEAGUES,
+    models: MODEL_VERSIONS.filter((m) => m.familyId === "ensemble"),
+    event: (id) => demoEvent(id, now),
+    teamResults: (teamId) =>
+      universeEvents(now)
+        .filter((e) => (e.event.homeTeamId === teamId || e.event.awayTeamId === teamId) && e.event.kickoff + 3 * 3_600_000 < now)
+        .map((e) => ({ ...eventView(e, now), firstSelectionId: e.markets[0]?.selections[0]?.selection.id ?? null }))
+        .filter((v) => v.status === "finished" && v.score)
+        .sort((a, b) => b.kickoff - a.kickoff),
+    selectionResult: (id) => {
+      const d = marketDetail(id, now);
+      if (!d || d.event.status !== "finished") return undefined;
+      return findEvent(d.row.eventId, now)?.markets.flatMap((m) => m.selections).find((s) => s.selection.id === id)?.selection.result;
+    },
+  };
+  demoCache = { now, ctx };
+  return ctx;
+}
+
 export interface ResolvedWatchItem extends WatchItem {
   label: string;
   detail: string;
   href: string;
 }
 
-export function resolveWatchItem(item: WatchItem, now: number): ResolvedWatchItem | null {
+export function resolveWatchItemOf(item: WatchItem, ctx: PersonalCtx): ResolvedWatchItem | null {
   switch (item.kind) {
     case "team": {
-      const t = teamById.get(item.id);
-      return t ? { ...item, label: t.name, detail: leagueById.get(t.leagueId)?.name ?? "", href: `/ai-analyst?q=${encodeURIComponent(`analyze ${t.name}`)}` } : null;
+      const t = ctx.teams.find((x) => x.id === item.id);
+      return t ? { ...item, label: t.name, detail: ctx.leagues.find((l) => l.id === t.leagueId)?.name ?? "", href: `/ai-analyst?q=${encodeURIComponent(`analyze ${t.name}`)}` } : null;
     }
     case "league": {
-      const l = leagueById.get(item.id);
+      const l = ctx.leagues.find((x) => x.id === item.id);
       return l ? { ...item, label: l.name, detail: l.country, href: `/markets?q=${encodeURIComponent(l.name)}` } : null;
     }
     case "event": {
-      const ev = findEvent(item.id, now);
-      if (!ev) return null;
-      const v = eventView(ev, now);
-      const href = v.status === "finished" ? `/market-replay?event=${v.id}` : v.status === "live" ? `/live?event=${v.id}` : `/markets/${ev.markets[0].selections[0].selection.id}`;
+      const v = ctx.event(item.id);
+      if (!v) return null;
+      const href = ctx.live || v.status === "scheduled" ? (v.firstSelectionId ? `/markets/${v.firstSelectionId}` : "/matches") : v.status === "finished" ? `/market-replay?event=${v.id}` : `/live?event=${v.id}`;
       return { ...item, label: `${v.homeName} vs ${v.awayName}`, detail: `${v.leagueName} · ${v.status}`, href };
     }
     case "market": {
-      const d = marketDetail(item.id, now);
+      const d = ctx.detail(item.id);
       return d ? { ...item, label: `${d.row.match} · ${d.row.selection}`, detail: `${d.row.market} · ${d.event.status}`, href: `/markets/${item.id}` } : null;
     }
     case "model": {
-      const m = MODEL_VERSIONS.find((v) => v.id === item.id);
-      return m ? { ...item, label: m.id, detail: `released ${new Date(m.releasedAt).toISOString().slice(0, 10)}`, href: "/model-lab" } : null;
+      const m = ctx.models.find((v) => v.id === item.id);
+      return m ? { ...item, label: m.id, detail: `released ${new Date(m.releasedAt).toISOString().slice(0, 10)}`, href: ctx.live ? "/model-lab/real-model" : "/model-lab" } : null;
     }
   }
 }
 
+export const resolveWatchItem = (item: WatchItem, now: number) => resolveWatchItemOf(item, demoPersonal(now));
+
 /** Case-insensitive name lookup for teams and leagues, used by /watch and the analyst. */
-export function findByName(query: string): WatchItem | null {
+export function findByNameOf(query: string, ctx: Pick<PersonalCtx, "teams" | "leagues">): WatchItem | null {
   const q = query.trim().toLowerCase();
   if (!q) return null;
-  const team = TEAMS.find((t) => t.name.toLowerCase() === q) ?? TEAMS.find((t) => t.name.toLowerCase().includes(q));
+  const team = ctx.teams.find((t) => t.name.toLowerCase() === q) ?? ctx.teams.find((t) => t.name.toLowerCase().includes(q));
   if (team) return { kind: "team", id: team.id };
-  const league = [...leagueById.values()].find((l) => l.name.toLowerCase() === q || l.name.toLowerCase().includes(q));
+  const league = ctx.leagues.find((l) => l.name.toLowerCase() === q || l.name.toLowerCase().includes(q));
   if (league) return { kind: "league", id: league.id };
   return null;
 }
 
-let teamIndex: { day: number; map: Map<string, { home: string; away: string; leagueId: string }> } | null = null;
-
-function eventTeams(eventId: string, now: number) {
-  const day = Math.floor(now / 3_600_000);
-  if (!teamIndex || teamIndex.day !== day) {
-    teamIndex = { day, map: new Map(universeEvents(now).map((e) => [e.event.id, { home: e.event.homeTeamId, away: e.event.awayTeamId, leagueId: e.event.leagueId }])) };
-  }
-  const hit = teamIndex.map.get(eventId);
-  if (hit) return hit;
-  const ev = findEvent(eventId, now);
-  return ev ? { home: ev.event.homeTeamId, away: ev.event.awayTeamId, leagueId: ev.event.leagueId } : undefined;
-}
+export const findByName = (query: string) => findByNameOf(query, { teams: TEAMS, leagues: LEAGUES });
 
 /** Open (scheduled or live) market rows covered by the watchlist. */
-export function watchedRows(items: WatchItem[], now: number): MarketRow[] {
+export function watchedRowsOf(items: WatchItem[], ctx: PersonalCtx): MarketRow[] {
   if (!items.length) return [];
   const teams = new Set(items.filter((i) => i.kind === "team").map((i) => i.id));
   const leagues = new Set(items.filter((i) => i.kind === "league").map((i) => i.id));
   const events = new Set(items.filter((i) => i.kind === "event").map((i) => i.id));
   const markets = new Set(items.filter((i) => i.kind === "market").map((i) => i.id));
-  return marketRows(now).filter((r) => {
+  const teamsOf = new Map<string, PersonalEvent | undefined>();
+  return ctx.rows.filter((r) => {
     if (markets.has(r.selectionId) || events.has(r.eventId) || leagues.has(r.leagueId)) return true;
     if (!teams.size) return false;
-    const t = eventTeams(r.eventId, now);
-    return !!t && (teams.has(t.home) || teams.has(t.away));
+    if (!teamsOf.has(r.eventId)) teamsOf.set(r.eventId, ctx.event(r.eventId));
+    const t = teamsOf.get(r.eventId);
+    return !!t && (teams.has(t.homeTeamId) || teams.has(t.awayTeamId));
   });
 }
+
+export const watchedRows = (items: WatchItem[], now: number) => watchedRowsOf(items, demoPersonal(now));
 
 export interface ModelRecord {
   versionId: string;
@@ -137,11 +203,13 @@ export interface ModelRecord {
   periodDays: number;
 }
 
-export function modelRecord(versionId: string, now: number, periodDays = 28): ModelRecord {
-  const rows = ledgerRows(now).filter((r) => r.prediction.modelVersionId === versionId && r.prediction.createdAt > now - periodDays * 86_400_000);
+export function modelRecordOf(versionId: string, ctx: PersonalCtx, periodDays = 28): ModelRecord {
+  const rows = ctx.ledger.filter((r) => r.prediction.modelVersionId === versionId && r.prediction.createdAt > ctx.now - periodDays * 86_400_000);
   const s = segmentStats(rows);
   return { versionId, n: s.n, brier: s.brier, marketBrier: s.marketBrier, avgClv: s.avgClv, clvN: s.clvN, periodDays };
 }
+
+export const modelRecord = (versionId: string, now: number, periodDays = 28) => modelRecordOf(versionId, demoPersonal(now), periodDays);
 
 // ---------------------------------------------------------------------------
 // My Market Assistant
@@ -176,10 +244,13 @@ export function matchAssistantQuestion(text: string): AssistantQuestion | null {
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-export function assistantAnswer(q: AssistantQuestion, items: WatchItem[], thresholdPp: number, now: number): AssistantAnswer {
+export const assistantAnswer = (q: AssistantQuestion, items: WatchItem[], thresholdPp: number, now: number) => assistantAnswerOf(q, items, thresholdPp, demoPersonal(now));
+
+export function assistantAnswerOf(q: AssistantQuestion, items: WatchItem[], thresholdPp: number, ctx: PersonalCtx): AssistantAnswer {
+  const now = ctx.now;
   const question = ASSISTANT_QUESTIONS.find((x) => x.id === q)!.label;
   if (!items.length) return { question, sentences: ["Your watchlist is empty. Add teams, leagues, matches, markets or models and I can summarise them."], rows: [] };
-  const rows = watchedRows(items, now);
+  const rows = watchedRowsOf(items, ctx);
   const pre = rows.filter((r) => r.status === "scheduled");
 
   switch (q) {
@@ -224,7 +295,7 @@ export function assistantAnswer(q: AssistantQuestion, items: WatchItem[], thresh
       if (!teams.size) return { question, sentences: ["Add a team to your watchlist to see the model's recorded history on it."], rows: [] };
       const sentences: string[] = [];
       for (const id of teams) {
-        const p = teamRecord(id, now);
+        const p = teamRecordOf(id, ctx);
         if (!p) continue;
         sentences.push(
           p.n === 0
@@ -255,25 +326,22 @@ export interface TeamRecord {
   form: { eventId: string; kickoff: number; opponent: string; home: boolean; score: string; result: "W" | "D" | "L" }[];
 }
 
-export function teamRecord(teamId: string, now: number): TeamRecord | null {
-  const team = teamById.get(teamId);
+export const teamRecord = (teamId: string, now: number) => teamRecordOf(teamId, demoPersonal(now));
+
+export function teamRecordOf(teamId: string, ctx: PersonalCtx): TeamRecord | null {
+  const team = ctx.teams.find((t) => t.id === teamId);
   if (!team) return null;
-  const rows = ledgerRows(now).filter((r) => {
+  const rows = ctx.ledger.filter((r) => {
     if (r.marketType !== "1X2" && r.marketType !== "ML") return false;
     return (r.side === "home" && r.event.homeTeamId === teamId) || (r.side === "away" && r.event.awayTeamId === teamId);
   });
   const settled = rows.filter(isSettled);
   const s = segmentStats(settled);
-  const finished = universeEvents(now)
-    .filter((e) => (e.event.homeTeamId === teamId || e.event.awayTeamId === teamId) && e.event.kickoff + 3 * 3_600_000 < now)
-    .map((e) => eventView(e, now))
-    .filter((v) => v.status === "finished" && v.score)
-    .sort((a, b) => b.kickoff - a.kickoff)
-    .slice(0, 6);
+  const finished = ctx.teamResults(teamId).filter((v) => v.score).slice(0, 6);
   return {
     id: teamId,
     name: team.name,
-    leagueName: leagueById.get(team.leagueId)?.name ?? "",
+    leagueName: ctx.leagues.find((l) => l.id === team.leagueId)?.name ?? "",
     n: s.n,
     meanPredicted: s.meanPredicted,
     hitRate: s.hitRate,
@@ -313,7 +381,7 @@ export function decodePositions(raw: string | undefined): Position[] {
   return raw
     .split(",")
     .map((s) => s.split("|"))
-    .filter((p) => p.length === 3 && /^[a-z0-9-]{1,80}$/i.test(p[0]))
+    .filter((p) => p.length === 3 && /^[a-z0-9_-]{1,80}$/i.test(p[0]))
     .map(([selectionId, odds, at]) => ({ selectionId, odds: Number(odds), at: Number(at) * 1000 }))
     .filter((p) => Number.isFinite(p.odds) && p.odds > 1 && Number.isFinite(p.at))
     .slice(-MAX_POSITIONS);
@@ -336,14 +404,14 @@ export interface PositionView extends Position {
   profit?: number;
 }
 
-export function positionView(p: Position, now: number): PositionView | null {
-  const d = marketDetail(p.selectionId, now);
+export const positionView = (p: Position, now: number) => positionViewOf(p, demoPersonal(now));
+
+export function positionViewOf(p: Position, ctx: PersonalCtx): PositionView | null {
+  const d = ctx.detail(p.selectionId);
   if (!d) return null;
   const closed = d.event.status !== "scheduled";
   const fair = d.siblings.find((s) => s.selectionId === p.selectionId)?.marketProbability ?? d.row.marketProbability;
-  const ev = findEvent(d.row.eventId, now);
-  const sel = ev?.markets.flatMap((m) => m.selections).find((s) => s.selection.id === p.selectionId);
-  const result = d.event.status === "finished" ? sel?.selection.result : undefined;
+  const result = d.event.status === "finished" ? ctx.selectionResult(p.selectionId) : undefined;
   return {
     ...p,
     match: d.row.match,

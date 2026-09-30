@@ -1,30 +1,35 @@
 import { MarketsNav } from "@/components/MarketsNav";
 import { Badge, LinkTabs, PageHeader, Panel, Signed, Tip } from "@/components/ui";
-import { DEMO_MODE, requestNow } from "@/lib/data";
-import { DemoOnly } from "@/components/DemoOnly";
-import { accuracyByHorizon, bookmakerEfficiency, EFFICIENCY_DEFINITION, EFFICIENCY_DIMS, efficiencyBy, type EfficiencyRow } from "@/lib/demo/efficiency";
-import { settledSelections } from "@/lib/demo/store";
+import { accuracyByHorizonOf, bookmakerEfficiencyOf, EFFICIENCY_DEFINITION, EFFICIENCY_DIMS, efficiencyOf, type EfficiencyRow } from "@/lib/demo/efficiency";
 import { fmtInt, fmtPct, fmtPeriod, fmtSignedPct } from "@/lib/format";
 import { MIN_SAMPLE_FOR_WARNING, periodOf } from "@/lib/metrics/metric";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Market Efficiency · ODDSIQ" };
 
 const th = "px-2.5 py-2 font-medium";
 
 export default async function EfficiencyPage({ searchParams }: { searchParams: Promise<{ by?: string }> }) {
-  if (!DEMO_MODE) return <DemoOnly title="Market Efficiency" needs="several months of closing lines per bookmaker" />;
-  const now = await requestNow();
+  const t = await terminal();
   const { by } = await searchParams;
-  const { dim, rows, total } = efficiencyBy(now, by);
-  const horizons = accuracyByHorizon(now);
-  const books = bookmakerEfficiency(now);
-  const period = periodOf(settledSelections(now).map((s) => s.kickoff));
+  const settled = await t.settled();
+  const { dim, rows, total } = efficiencyOf(settled.rows, t.ledgerRows(), by);
+  const horizons = accuracyByHorizonOf(settled.rows);
+  const books = bookmakerEfficiencyOf(settled.rows, settled.books);
+  const period = periodOf(settled.rows.map((s) => s.kickoff));
   const all = [...rows, total];
 
   return (
     <div className="space-y-4">
       <PageHeader title="Market Efficiency" subtitle="How well closing prices have forecast results, how late information arrives, and how far the model has sat from the market, across settled markets." />
       <MarketsNav active="efficiency" />
+
+      {settled.rows.length === 0 ? (
+        <Panel title="No settled markets yet">
+          <p className="px-4 py-3 text-sm text-muted">Efficiency is measured on finished matches with results and stored prices. It fills in as the feed records matches through kickoff and settles them.</p>
+        </Panel>
+      ) : (
+        <>
 
       <Panel title="Efficiency by segment" right={<LinkTabs label="Segment by" active={dim.id} items={EFFICIENCY_DIMS.map((d) => ({ id: d.id, label: d.label, href: `/markets/efficiency?by=${d.id}` }))} />}>
         <div className="overflow-x-auto">
@@ -88,7 +93,7 @@ export default async function EfficiencyPage({ searchParams }: { searchParams: P
           </table>
         </div>
         <p className="border-t border-line px-4 py-2 text-[11px] leading-relaxed text-muted">
-          Historical · settled markets {fmtPeriod(period.periodFrom, period.periodTo)} · source: tracked bookmakers and ODDSIQ prediction ledger (DEMO DATA). {EFFICIENCY_DEFINITION}
+          Historical · settled markets {fmtPeriod(period.periodFrom, period.periodTo)} · source: {t.live ? "The Odds API bookmakers and the ODDSIQ prediction ledger (live)" : "tracked bookmakers and ODDSIQ prediction ledger (DEMO DATA)"}. {EFFICIENCY_DEFINITION}
         </p>
       </Panel>
 
@@ -141,9 +146,11 @@ export default async function EfficiencyPage({ searchParams }: { searchParams: P
               ))}
             </tbody>
           </table>
-          <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Historical · bookmakers are fictional in DEMO_MODE. No efficiency score is given per bookmaker, because its late-stability part is a market-wide measure.</p>
+          <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Historical · {t.live ? "each bookmaker's last price before kickoff, from feed runs." : "bookmakers are fictional in DEMO_MODE."} No efficiency score is given per bookmaker, because its late-stability part is a market-wide measure.</p>
         </Panel>
       </div>
+        </>
+      )}
     </div>
   );
 }

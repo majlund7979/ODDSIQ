@@ -1,15 +1,14 @@
 import Link from "next/link";
 import { WatchToggle } from "@/components/WatchButtons";
 import { Badge, PageHeader, Panel, Signed } from "@/components/ui";
-import { DEMO_MODE, requestNow } from "@/lib/data";
-import { DemoOnly } from "@/components/DemoOnly";
 import { ANALYST_EXAMPLES, parseQuestion } from "@/lib/demo/analyst";
 import { COMMENTARY_NOTE, marketCommentary } from "@/lib/demo/commentary";
-import { assistantAnswer, teamRecord, watchedRows, type TeamRecord } from "@/lib/demo/personal";
+import { assistantAnswerOf, teamRecordOf, watchedRowsOf, type TeamRecord } from "@/lib/demo/personal";
 import { reportHeadline, reportWeeks, weeklyReport } from "@/lib/demo/report";
-import { ledgerRows, marketDetail, marketRows, type MarketRow } from "@/lib/demo/store";
+import type { MarketRow } from "@/lib/demo/store";
 import { fmtCountdown, fmtDate, fmtOdds, fmtPct, fmtPp, fmtSignedPct } from "@/lib/format";
 import { readThreshold, readWatchlist } from "@/lib/personal-store";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "AI Analyst · ODDSIQ" };
 
@@ -82,18 +81,19 @@ function Form({ record }: { record: TeamRecord }) {
 }
 
 export default async function AiAnalystPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  if (!DEMO_MODE) return <DemoOnly title="AI Analyst" needs="news, lineups and in-play data" />;
-  const now = await requestNow();
+  const term = await terminal();
+  const ctx = await term.personal();
+  const now = term.now;
   const { q = "" } = await searchParams;
-  const intent = parseQuestion(q);
+  const intent = parseQuestion(q, term.live ? ctx.teams : undefined);
   const watchlist = await readWatchlist();
-  const rows = marketRows(now);
+  const rows = term.marketRows();
   const pre = rows.filter((r) => r.status === "scheduled" && r.edgePp !== null);
 
   let answer: React.ReactNode = null;
   if (intent?.kind === "team") {
-    const rec = teamRecord(intent.teamId, now)!;
-    const open = watchedRows([{ kind: "team", id: intent.teamId }], now).sort((a, b) => a.kickoff - b.kickoff);
+    const rec = teamRecordOf(intent.teamId, ctx)!;
+    const open = watchedRowsOf([{ kind: "team", id: intent.teamId }], ctx).sort((a, b) => a.kickoff - b.kickoff);
     const next = open[0];
     answer = (
       <Panel title={`${rec.name} · ${rec.leagueName}`} right={<WatchToggle kind="team" id={rec.id} label="Watch" watchlist={watchlist} />}>
@@ -119,9 +119,10 @@ export default async function AiAnalystPage({ searchParams }: { searchParams: Pr
       </Panel>
     );
   } else if (intent?.kind === "compare") {
-    const a = teamRecord(intent.a, now)!;
-    const b = teamRecord(intent.b, now)!;
-    const shared = watchedRows([{ kind: "team", id: intent.a }], now).filter((r) => watchedRows([{ kind: "team", id: intent.b }], now).some((x) => x.eventId === r.eventId));
+    const a = teamRecordOf(intent.a, ctx)!;
+    const b = teamRecordOf(intent.b, ctx)!;
+    const withB = watchedRowsOf([{ kind: "team", id: intent.b }], ctx);
+    const shared = watchedRowsOf([{ kind: "team", id: intent.a }], ctx).filter((r) => withB.some((x) => x.eventId === r.eventId));
     const stat = (label: string, f: (x: TeamRecord) => string) => (
       <tr className="border-b border-line/60">
         <td className="num px-2.5 py-2 pl-4 text-right">{f(a)}</td>
@@ -161,8 +162,14 @@ export default async function AiAnalystPage({ searchParams }: { searchParams: Pr
         </div>
       </Panel>
     );
+  } else if (intent?.kind === "report" && reportWeeks(term.ledgerRows()).length === 0) {
+    answer = (
+      <Panel title="Weekly model report">
+        <p className="px-4 py-3 text-[13px] text-ink-2">No ledger predictions have settled yet, so there is no weekly report to summarise.</p>
+      </Panel>
+    );
   } else if (intent?.kind === "report") {
-    const lr = ledgerRows(now);
+    const lr = term.ledgerRows();
     const week = reportWeeks(lr)[0];
     const rep = weeklyReport(lr, week, rows);
     answer = (
@@ -181,7 +188,7 @@ export default async function AiAnalystPage({ searchParams }: { searchParams: Pr
       </Panel>
     );
   } else if (intent?.kind === "watchlist") {
-    const a = assistantAnswer("interesting", watchlist, await readThreshold(), now);
+    const a = assistantAnswerOf("interesting", watchlist, await readThreshold(), ctx);
     answer = (
       <Panel title={a.question}>
         <div className="space-y-1.5 px-4 py-3 text-[13px]">
@@ -228,7 +235,10 @@ export default async function AiAnalystPage({ searchParams }: { searchParams: Pr
     .sort((a, b) => Math.abs(b.edgePp!) - Math.abs(a.edgePp!))
     .filter((r, i, all) => all.findIndex((x) => x.eventId === r.eventId) === i)
     .slice(0, 3)
-    .map((r) => ({ row: r, text: marketCommentary(marketDetail(r.selectionId, now)!, now) }));
+    .flatMap((r) => {
+      const d = term.marketDetail(r.selectionId);
+      return d ? [{ row: r, text: marketCommentary(d, now) }] : [];
+    });
 
   return (
     <div className="space-y-4">
@@ -287,7 +297,7 @@ export default async function AiAnalystPage({ searchParams }: { searchParams: Pr
           ))}
         </div>
         <p className="text-[11px] text-muted">
-          The three largest pre-match model-market differences with confidence of 50 or more, one per match. Chosen by size of difference only. {COMMENTARY_NOTE} Live · DEMO DATA.
+          The three largest pre-match model-market differences with confidence of 50 or more, one per match. Chosen by size of difference only. {COMMENTARY_NOTE} Live · {term.dataLabel}.
         </p>
       </div>
     </div>

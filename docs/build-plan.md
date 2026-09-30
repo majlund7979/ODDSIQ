@@ -60,6 +60,9 @@ Point the Market Terminal, Value Scanner, Dashboard and Performance pages at fee
 **Phase 12 — Lineups, injuries and xG**
 Add a football statistics provider (API-Football to start; Sportmonks for deeper xG) for confirmed lineups, injuries and match xG, and feed them into data quality and the match pages. Done: `src/lib/stats/`, a Team news panel, Data Feed status. Using them in the model waits until enough xG and absence history has been collected to backtest the change.
 
+**Phase 13 — Remaining pages on real data**
+Move Alerts, Market Efficiency, Weekly Report, Watchlist, My Bets and the AI Analyst to the live read model. Done: `src/lib/real/{alerts,settled,personal}.ts`; the personal features take a data context so they work on demo or live data. Live Markets and Market Replay wait for an in-play feed.
+
 ## Guardrails built in from day one
 - "DEMO DATA" label whenever `DEMO_MODE=true`.
 - Historical numbers always labelled historical/backtested/simulated; no guarantees language anywhere.
