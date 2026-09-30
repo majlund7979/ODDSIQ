@@ -1,13 +1,21 @@
-// Runs one odds ingestion.
+// Runs one odds ingestion followed by the real model's scheduled work.
 //
 //   npm run ingest              live, from The Odds API (needs ODDS_API_KEY)
-//   npm run ingest:fixture      offline, from recorded responses; then checks
-//                               snapshots, the closing line and settlement
+//                               and openfootball results
+//   npm run ingest:fixture      offline, from recorded responses and a
+//                               committed results snapshot; then checks
+//                               snapshots, closing lines, ledger predictions
+//                               and settlement
 //
 // Both need DATABASE_URL.
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { verifyChain } from "../src/lib/ledger/hash";
+import { REAL_MODEL } from "../src/lib/model/ensemble";
+import { EPL_RESULTS_CSV } from "../src/lib/model/data/epl-2021-2026";
+import { parseResultsCsv } from "../src/lib/model/openfootball";
+import { runModel, storeResults } from "../src/lib/model/pipeline";
 import { closingLine } from "../src/lib/providers/closing";
 import { configuredFeed, feedConfig } from "../src/lib/providers/config";
 import { FIXTURE_KICKOFF, FixtureFeed } from "../src/lib/providers/fixture-feed";
@@ -22,13 +30,20 @@ function assert(cond: unknown, msg: string): asserts cond {
 
 async function fixture() {
   const prefix = `fx${Date.now().toString(36)}`;
-  const runs = [
-    await ingest(prisma, new FixtureFeed(1.03), { competitionKeys: ["soccer_epl"], now: FIXTURE_KICKOFF - 5 * HOUR, prefix }),
-    await ingest(prisma, new FixtureFeed(1), { competitionKeys: ["soccer_epl"], now: FIXTURE_KICKOFF - 1 * HOUR, prefix }),
+  await storeResults(prisma, parseResultsCsv("en.1", EPL_RESULTS_CSV), "fixture: openfootball snapshot");
+  const runs = [];
+  const models = [];
+  for (const [factor, at] of [
+    [1.03, FIXTURE_KICKOFF - 5 * HOUR],
+    [1, FIXTURE_KICKOFF - 1 * HOUR],
     // After kickoff: no new pre-match snapshots, the finished game is settled.
-    await ingest(prisma, new FixtureFeed(0.98), { competitionKeys: ["soccer_epl"], now: FIXTURE_KICKOFF + 3 * HOUR, prefix }),
-  ];
+    [0.98, FIXTURE_KICKOFF + 3 * HOUR],
+  ]) {
+    runs.push(await ingest(prisma, new FixtureFeed(factor), { competitionKeys: ["soccer_epl"], now: at, prefix }));
+    models.push(await runModel(prisma, { oddsKeys: ["soccer_epl"], now: at, skipResultsRefresh: true }));
+  }
   for (const r of runs) console.log(r);
+  for (const m of models) console.log(m);
   assert(runs.every((r) => !r.error), "a run reported an error");
   assert(runs[2].results === 1, "expected one settled event");
 
@@ -48,7 +63,22 @@ async function fixture() {
   assert(result["1x2-home"] === "won" && result["1x2-draw"] === "lost" && result["ou25-over"] === "won", `unexpected settlement ${JSON.stringify(result)}`);
   const other = await prisma.event.findUnique({ where: { id: `${prefix}-fx0002liveve` } });
   assert(other?.status === "live", "unfinished game should be live");
-  console.log("Fixture ingestion OK. Closing line:", close);
+  console.log("Closing line:", close);
+
+  const preds = await prisma.prediction.findMany({ where: { eventId: { startsWith: `${prefix}-` }, modelVersionId: REAL_MODEL.ensemble.id }, include: { outcome: true } });
+  assert(preds.length === 8, `expected 8 real-model predictions (Arsenal 1X2 + O/U 2.5, Liverpool 1X2), got ${preds.length}`);
+  assert(preds.every((p) => p.createdAt.getTime() === FIXTURE_KICKOFF - 5 * HOUR), "predictions must be recorded once, at the first run inside the lead time");
+  assert(preds.every((p) => p.outcome), "every prediction should have a closing line after kickoff");
+  const ars = preds.filter((p) => p.eventId === eventId);
+  assert(ars.every((p) => p.outcome!.result !== null), "the finished game's predictions should be settled");
+  const home = ars.find((p) => p.selectionId.endsWith("-1x2-home"))!;
+  assert(home.outcome!.result === "won" && home.probability > 0.3 && home.probability < 0.8, `unexpected home prediction ${home.probability}`);
+  const chain = await prisma.prediction.findMany({ orderBy: { seq: "asc" } });
+  const v = verifyChain(chain.map((p) => ({ ...p, createdAt: p.createdAt.getTime(), odds: Number(p.odds) })));
+  assert(v.ok, `ledger chain broken: ${v.reason}`);
+  const bt = await prisma.modelBacktest.findFirst({ where: { league: "en.1" }, orderBy: { createdAt: "desc" } });
+  assert(bt && bt.n > 300, "a backtest should be stored");
+  console.log(`Fixture ingestion OK. ${preds.length} predictions, chain of ${v.checked} verified, backtest n = ${bt.n}.`);
 }
 
 async function live() {
@@ -56,6 +86,7 @@ async function live() {
   if (!feed) throw new Error("Set ODDS_API_KEY (and optionally ODDS_SPORTS, ODDS_REGIONS, ODDS_MARKETS).");
   const summary = await ingest(prisma, feed, { competitionKeys: feedConfig().sports });
   console.log(summary);
+  console.log(await runModel(prisma, { oddsKeys: feedConfig().sports }));
   if (summary.error) process.exitCode = 1;
 }
 
