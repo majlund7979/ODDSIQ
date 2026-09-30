@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CalibrationChart } from "@/components/charts/CalibrationChart";
 import { Badge, MetricContextLine, PageHeader, Panel, Signed, StatTile, Tip } from "@/components/ui";
-import { ALERT_TYPES, marketAlerts } from "@/lib/demo/alerts";
+import { ALERT_TYPES } from "@/lib/demo/alerts";
 import { performanceSummaryOf, VALUE_RULE_TEXT } from "@/lib/demo/performance";
 import { universeStats, type MarketRow } from "@/lib/demo/store";
 import { fmtCountdown, fmtInt, fmtOdds, fmtPct, fmtPp, fmtSignedPct, fmtTime } from "@/lib/format";
@@ -36,7 +36,7 @@ export default async function Dashboard() {
   const stats = t.live
     ? { events: new Set(rows.map((r) => r.eventId)).size, leagues: new Set(rows.map((r) => r.league)).size, bookmakers: Math.max(0, ...rows.map((r) => r.booksQuoting)) }
     : universeStats(now);
-  const alerts = t.live ? null : marketAlerts(now);
+  const alerts = t.alerts();
 
   const movers = [...pre].sort((a, b) => Math.abs(b.movement) - Math.abs(a.movement)).slice(0, 6);
   const disagreements = [...withModel].sort((a, b) => Math.abs(b.edgePp!) - Math.abs(a.edgePp!)).slice(0, 6);
@@ -163,7 +163,7 @@ export default async function Dashboard() {
               {liveEvents.size === 0 && <li className="px-4 py-3 text-sm text-muted">No matches in play right now.{t.live && " Live prices are not stored after kickoff."}</li>}
             </ul>
           </Panel>
-          {alerts && <Panel title="Latest alerts" right={<Link href="/markets/alerts" className="text-accent hover:underline">All alerts →</Link>}>
+          <Panel title="Latest alerts" right={<Link href="/markets/alerts" className="text-accent hover:underline">All alerts →</Link>}>
             <ul className="divide-y divide-line">
               {alerts.slice(0, 5).map((a) => (
                 <li key={a.id} className="px-4 py-2">
@@ -177,7 +177,7 @@ export default async function Dashboard() {
               ))}
               {alerts.length === 0 && <li className="px-4 py-3 text-sm text-muted">No alerts in the last 24 hours.</li>}
             </ul>
-          </Panel>}
+          </Panel>
         </div>
 
         <Panel title="Calibration" right={<Link href="/model-lab/ledger" className="text-accent hover:underline">Ledger →</Link>}>

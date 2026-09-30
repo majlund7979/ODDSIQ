@@ -634,6 +634,9 @@ export interface SettledSelection {
   selectionId: string;
   sportId: SportId;
   leagueId: string;
+  /** Display names, when they do not come from the demo catalog. */
+  sportName?: string;
+  leagueName?: string;
   marketType: MarketSim["market"]["type"];
   marketName: string;
   kickoff: number;

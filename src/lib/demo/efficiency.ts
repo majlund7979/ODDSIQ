@@ -85,16 +85,19 @@ function row(key: string, label: string, sel: SettledSelection[], ledger: Ledger
 export type EfficiencyDim = "sport" | "league" | "market" | "odds";
 
 export const EFFICIENCY_DIMS: { id: EfficiencyDim; label: string; sel: (s: SettledSelection) => { key: string; label: string }; led: (r: LedgerRow) => string; ordered: boolean }[] = [
-  { id: "sport", label: "Sport", sel: (s) => ({ key: s.sportId, label: SPORTS.find((x) => x.id === s.sportId)!.name }), led: (r) => r.event.sportId, ordered: false },
-  { id: "league", label: "League", sel: (s) => ({ key: s.leagueId, label: leagueById.get(s.leagueId)!.name }), led: (r) => r.event.leagueId, ordered: false },
+  { id: "sport", label: "Sport", sel: (s) => ({ key: s.sportId, label: s.sportName ?? SPORTS.find((x) => x.id === s.sportId)?.name ?? s.sportId }), led: (r) => r.event.sportId, ordered: false },
+  { id: "league", label: "League", sel: (s) => ({ key: s.leagueId, label: s.leagueName ?? leagueById.get(s.leagueId)?.name ?? s.leagueId }), led: (r) => r.event.leagueId, ordered: false },
   { id: "market", label: "Market", sel: (s) => ({ key: s.marketName, label: s.marketName }), led: (r) => r.marketName, ordered: false },
   { id: "odds", label: "Odds range", sel: (s) => oddsBand(s.closingOdds), led: (r) => oddsBand(r.closingOdds ?? r.prediction.odds).key, ordered: true },
 ];
 
-export function efficiencyBy(now: number, dimId: string | undefined): { dim: (typeof EFFICIENCY_DIMS)[number]; rows: EfficiencyRow[]; total: EfficiencyRow } {
+export function efficiencyBy(now: number, dimId: string | undefined) {
+  return efficiencyOf(settledSelections(now), ledgerRows(now), dimId);
+}
+
+export function efficiencyOf(sel: SettledSelection[], allLedger: LedgerRow[], dimId: string | undefined): { dim: (typeof EFFICIENCY_DIMS)[number]; rows: EfficiencyRow[]; total: EfficiencyRow } {
   const dim = EFFICIENCY_DIMS.find((d) => d.id === dimId) ?? EFFICIENCY_DIMS[0];
-  const sel = settledSelections(now);
-  const ledger = ledgerRows(now).filter((r) => r.status === "settled");
+  const ledger = allLedger.filter((r) => r.status === "settled");
   const groups = new Map<string, { label: string; sel: SettledSelection[]; ledger: LedgerRow[] }>();
   for (const s of sel) {
     const g = dim.sel(s);
@@ -116,7 +119,11 @@ export interface HorizonRow {
 
 /** How well the margin-free market forecasts results at each point before kickoff. */
 export function accuracyByHorizon(now: number): HorizonRow[] {
-  const sel = settledSelections(now);
+  return accuracyByHorizonOf(settledSelections(now));
+}
+
+export function accuracyByHorizonOf(sel: SettledSelection[]): HorizonRow[] {
+  if (!sel.length) return [];
   const ref = referenceBrier(sel);
   return HORIZON_HOURS.map((hours, i) => {
     const b = brier(sel.map((s) => ({ p: s.horizons[i], y: s.won })));
@@ -136,8 +143,11 @@ export interface BookmakerRow {
 }
 
 export function bookmakerEfficiency(now: number): BookmakerRow[] {
-  const sel = settledSelections(now);
-  return BOOKMAKERS.map((b) => {
+  return bookmakerEfficiencyOf(settledSelections(now), BOOKMAKERS);
+}
+
+export function bookmakerEfficiencyOf(sel: SettledSelection[], bookmakers: { id: string; name: string }[]): BookmakerRow[] {
+  return bookmakers.map((b) => {
     const rows = sel.flatMap((s) => {
       const q = s.books.find((x) => x.bookmakerId === b.id);
       return q ? [{ s, q }] : [];
@@ -152,5 +162,7 @@ export function bookmakerEfficiency(now: number): BookmakerRow[] {
       avgMargin: mean(rows.map(({ q }) => q.margin)),
       deviationPp: mean(rows.map(({ s, q }) => Math.abs(q.probability - s.horizons[CLOSE]) * 100)),
     };
-  }).sort((a, b) => a.closingBrier - b.closingBrier);
+  })
+    .filter((b) => b.n > 0)
+    .sort((a, b) => a.closingBrier - b.closingBrier);
 }

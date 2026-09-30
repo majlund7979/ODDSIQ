@@ -76,7 +76,7 @@ const side = (selectionId: string) => selectionId.slice(selectionId.lastIndexOf(
 const oddsKeyOf = (leagueId: string) => leagueId.slice(leagueId.indexOf("-") + 1);
 
 /** Each book's latest price per selection observed in (at − window, at]. */
-function latestByBook(points: BookPoint[], at: number, window = PRICE_WINDOW_MS): Map<string, Map<string, number>> {
+export function latestByBook(points: BookPoint[], at: number, window = PRICE_WINDOW_MS): Map<string, Map<string, number>> {
   const best = new Map<string, BookPoint>();
   for (const p of points) {
     if (p.observedAt > at || p.observedAt <= at - window) continue;
@@ -92,7 +92,7 @@ function latestByBook(points: BookPoint[], at: number, window = PRICE_WINDOW_MS)
   return out;
 }
 
-function consensusAt(m: MarketData, at: number) {
+export function consensusAt(m: MarketData, at: number) {
   const line = closingLine(m.points, m.selections.map((s) => s.id), at, PRICE_WINDOW_MS);
   return line;
 }

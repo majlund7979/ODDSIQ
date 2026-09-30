@@ -2,30 +2,28 @@ import Link from "next/link";
 import { setThreshold } from "@/app/actions";
 import { WatchToggle } from "@/components/WatchButtons";
 import { PageHeader, Panel, Signed } from "@/components/ui";
-import { DEMO_MODE, requestNow } from "@/lib/data";
-import { DemoOnly } from "@/components/DemoOnly";
-import { LEAGUES } from "@/lib/demo/catalog";
-import { MODEL_VERSIONS } from "@/lib/demo/models";
-import { ASSISTANT_QUESTIONS, assistantAnswer, matchAssistantQuestion, modelRecord, resolveWatchItem, WATCH_KINDS, watchedRows, type AssistantQuestion } from "@/lib/demo/personal";
+import { ASSISTANT_QUESTIONS, assistantAnswerOf, matchAssistantQuestion, modelRecordOf, resolveWatchItemOf, WATCH_KINDS, watchedRowsOf, type AssistantQuestion } from "@/lib/demo/personal";
 import { fmtCountdown, fmtOdds, fmtPp, fmtSignedPct } from "@/lib/format";
 import { readThreshold, readWatchlist } from "@/lib/personal-store";
+import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Watchlist · ODDSIQ" };
 
 const th = "px-2.5 py-2 font-medium";
 
 export default async function WatchlistPage({ searchParams }: { searchParams: Promise<{ ask?: string; text?: string }> }) {
-  if (!DEMO_MODE) return <DemoOnly title="Watchlist" needs="demo teams, players and news" />;
-  const now = await requestNow();
+  const t = await terminal();
+  const ctx = await t.personal();
+  const now = t.now;
   const q = await searchParams;
   const items = await readWatchlist();
   const threshold = await readThreshold();
-  const resolved = items.map((i) => resolveWatchItem(i, now)).filter((x) => x !== null);
-  const rows = watchedRows(items, now);
+  const resolved = items.map((i) => resolveWatchItemOf(i, ctx)).filter((x) => x !== null);
+  const rows = watchedRowsOf(items, ctx);
   const open = [...new Map(rows.map((r) => [r.eventId, r])).values()].sort((a, b) => (a.status === "live" ? -1 : 0) - (b.status === "live" ? -1 : 0) || a.kickoff - b.kickoff);
   const ask: AssistantQuestion | null = ASSISTANT_QUESTIONS.some((x) => x.id === q.ask) ? (q.ask as AssistantQuestion) : q.text ? matchAssistantQuestion(q.text) : null;
-  const answer = ask ? assistantAnswer(ask, items, threshold, now) : null;
-  const models = items.filter((i) => i.kind === "model").map((i) => modelRecord(i.id, now));
+  const answer = ask ? assistantAnswerOf(ask, items, threshold, ctx) : null;
+  const models = items.filter((i) => i.kind === "model").map((i) => modelRecordOf(i.id, ctx));
 
   return (
     <div className="space-y-4">
@@ -137,7 +135,7 @@ export default async function WatchlistPage({ searchParams }: { searchParams: Pr
                 </table>
               </div>
             )}
-            <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Live · difference is model minus margin-free market probability (in play: in-play model); move is consensus price change since opening. DEMO DATA.</p>
+            <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Live · difference is model minus margin-free market probability (in play: in-play model); move is consensus price change since opening. {t.dataLabel}.</p>
           </Panel>
 
           {models.length > 0 && (
@@ -168,7 +166,7 @@ export default async function WatchlistPage({ searchParams }: { searchParams: Pr
         </div>
 
         <div className="space-y-4">
-          <Panel title="Watching" right={`${resolved.length} items`}>
+          <Panel title="Watching" right={`${resolved.length} ${resolved.length === 1 ? "item" : "items"}`}>
             {resolved.length === 0 ? (
               <p className="px-4 py-4 text-sm text-muted">Nothing yet.</p>
             ) : (
@@ -194,14 +192,14 @@ export default async function WatchlistPage({ searchParams }: { searchParams: Pr
 
           <Panel title="Add leagues">
             <div className="flex flex-wrap gap-1.5 px-4 py-3">
-              {LEAGUES.map((l) => (
+              {ctx.leagues.map((l) => (
                 <WatchToggle key={l.id} kind="league" id={l.id} label={l.name} watchlist={items} />
               ))}
             </div>
           </Panel>
           <Panel title="Add models">
             <div className="flex flex-wrap gap-1.5 px-4 py-3">
-              {MODEL_VERSIONS.filter((m) => m.familyId === "ensemble").map((m) => (
+              {ctx.models.map((m) => (
                 <WatchToggle key={m.id} kind="model" id={m.id} label={m.id} watchlist={items} />
               ))}
             </div>
