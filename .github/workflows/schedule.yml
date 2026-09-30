@@ -1,0 +1,40 @@
+# Calls the site's cron routes on a schedule. Vercel's free (Hobby) plan only
+# runs its own cron jobs once a day, so this does the six-hourly odds run and,
+# when enabled, the in-play runs.
+#
+# Setup (GitHub → Settings → Secrets and variables → Actions):
+#   variable SITE_URL     e.g. https://oddsiq.vercel.app
+#   secret   CRON_SECRET  the same value as CRON_SECRET on Vercel
+#   variable ODDS_LIVE    "on" to also poll in-play odds (costs odds credits)
+# Nothing runs until SITE_URL is set. "Run workflow" starts an odds run by hand.
+
+name: Scheduled data runs
+
+on:
+  schedule:
+    - cron: "15 */6 * * *"
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    if: vars.SITE_URL != '' && (github.event_name == 'workflow_dispatch' || github.event.schedule == '15 */6 * * *')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Odds, team news and model run
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: curl -fsS --max-time 320 -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/ingest"
+
+  live:
+    if: vars.SITE_URL != '' && vars.ODDS_LIVE == 'on' && github.event.schedule == '*/10 * * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: In-play odds and scores (skips itself when no match is on)
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: curl -fsS --max-time 130 -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/live"

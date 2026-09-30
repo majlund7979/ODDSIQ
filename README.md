@@ -108,7 +108,9 @@ Everything here is off until its settings are present; without them the app beha
 | `ODDS_LIVE_INTERVAL_MINUTES` | Minimum minutes between live runs, default 10 |
 | `ODDS_LIVE_RESERVE` | Live runs stop when fewer credits than this are left, default 100 |
 
-**Scheduling.** Call `/api/cron/ingest` every six hours. `vercel.json` runs it once a day, because Vercel's Hobby plan rejects cron jobs that run more often ([Vercel cron limits](https://vercel.com/docs/cron-jobs/usage-and-pricing)); on Hobby, add a six-hourly job at a free scheduler such as cron-job.org with the `Authorization` header, or on Pro change the schedule to `0 */6 * * *`.
+**Scheduling.** Call `/api/cron/ingest` every six hours. `vercel.json` runs it once a day, because Vercel's Hobby plan rejects cron jobs that run more often ([Vercel cron limits](https://vercel.com/docs/cron-jobs/usage-and-pricing)). The GitHub workflow `.github/workflows/schedule.yml` covers the rest: set the repository variable `SITE_URL` and the secret `CRON_SECRET`, and it calls the ingest every six hours (and `/api/cron/live` every ten minutes when the variable `ODDS_LIVE` is `on`); its "Run workflow" button starts a run by hand. On Vercel Pro you can instead change the `vercel.json` schedule to `0 */6 * * *`.
+
+**Deploying on Vercel.** Import the repository, add a Postgres database from the Vercel Marketplace (Neon sets `DATABASE_URL` and `DATABASE_URL_UNPOOLED`), and set the environment variables above plus `DEMO_MODE=false`. The build command `npm run vercel-build` applies pending migrations before building whenever `DATABASE_URL` is set. Do not run `db:seed` against production: demo predictions would share the ledger chain.
 
 One run costs competitions × regions × markets credits, plus 2 per competition when finished games need results. The defaults (one league, every six hours) use about 120–240 credits a month. Each run stores one snapshot per bookmaker price for games not yet started; the **closing line** is each bookmaker's last price at or before kickoff (no older than six hours), de-vigged and averaged. Feed data uses its own ids (`toa-…`) and never mixes with DEMO DATA.
 
