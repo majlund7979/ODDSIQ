@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NAV, type NavItem } from "./nav";
+import { SIMPLE_NAV, type NavItem } from "./nav";
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function Item({ item, pathname, nested = false }: { item: NavItem; pathname: string; nested?: boolean }) {
-  const active = nested ? pathname === item.href : isActive(pathname, item.href) && !item.children?.some((c) => pathname === c.href);
+function Item({ item, pathname, nested = false, exact = false }: { item: NavItem; pathname: string; nested?: boolean; exact?: boolean }) {
+  const active = nested || exact ? pathname === item.href : isActive(pathname, item.href) && !item.children?.some((c) => pathname === c.href);
   return (
     <Link
       href={item.href}
@@ -30,13 +30,8 @@ export function Sidebar() {
   const pathname = usePathname();
   return (
     <nav aria-label="Main" className="flex flex-col gap-0.5 p-2">
-      {NAV.map((item) => (
-        <div key={item.href}>
-          {item.href === "/markets" && <div className="mt-3 mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">Market Terminal</div>}
-          <Item item={item} pathname={pathname} />
-          {item.children?.map((c) => <Item key={c.href} item={c} pathname={pathname} nested />)}
-          {item.href === "/markets" && <div className="mb-3" />}
-        </div>
+      {SIMPLE_NAV.map((item) => (
+        <Item key={item.href} item={item} pathname={pathname} exact />
       ))}
     </nav>
   );

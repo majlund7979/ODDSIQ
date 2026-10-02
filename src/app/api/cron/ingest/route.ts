@@ -10,6 +10,9 @@ import { runModel } from "@/lib/model/pipeline";
 import { ingest } from "@/lib/providers/ingest";
 import { configuredStatsFeed, statsConfig } from "@/lib/stats/config";
 import { ingestStats } from "@/lib/stats/ingest";
+import { DEMO_MODE } from "@/lib/data";
+import { recordPicks } from "@/lib/real/pick-records";
+import { terminal } from "@/lib/terminal";
 
 export const maxDuration = 300;
 
@@ -33,6 +36,15 @@ export async function GET(req: Request): Promise<Response> {
   } catch (e) {
     model = { error: e instanceof Error ? e.message.trim().split("\n").at(-1)! : String(e) };
   }
+  // Record today's picks for the results board; a failure here never fails the run.
+  let picksRecorded: number | { error: string } = 0;
+  if (!DEMO_MODE) {
+    try {
+      picksRecorded = await recordPicks(db(), await terminal());
+    } catch (e) {
+      picksRecorded = { error: e instanceof Error ? e.message.trim().split("\n").at(-1)! : String(e) };
+    }
+  }
   const ok = !summary.error && !stats?.error && !("error" in model);
-  return Response.json({ ok, ...summary, stats, model }, { status: ok ? 200 : 502 });
+  return Response.json({ ok, ...summary, stats, model, picksRecorded }, { status: ok ? 200 : 502 });
 }

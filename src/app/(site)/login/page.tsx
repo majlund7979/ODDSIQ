@@ -6,7 +6,7 @@ import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 export const metadata = { title: "Sign in · ODDSIQ" };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const { next = "/dashboard" } = await searchParams;
+  const { next = "/picks" } = await searchParams;
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
       <h1 className="text-xl font-semibold">Sign in</h1>

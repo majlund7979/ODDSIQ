@@ -284,6 +284,56 @@ model IngestRun {
 }
 
 /// A finished match from a public results source, used to train and backtest the real model.
+/// A pick shown on Dagens bedste bets, recorded the first time it appears so the
+/// results board can show how the picks did. Settled when read, from the event's
+/// score and the match stats; never edited.
+model PickRecord {
+  id          BigInt   @id @default(autoincrement())
+  createdAt   DateTime
+  eventId     String
+  kickoff     DateTime
+  leagueName  String
+  /// openfootball code, for looking up match stats; null outside the model's leagues.
+  leagueCode  String?
+  home        String
+  away        String
+  category    String
+  outcome     String
+  /// Machine-readable bet, e.g. "1X2:home", "OU:over:2.5", "COUNT:corners:over:9.5".
+  spec        String
+  probability Float
+  odds        Float?
+
+  @@unique([eventId, category])
+  @@index([kickoff])
+}
+
+/// Corners, cards (yellow + red) and fouls per match, from football-data.co.uk.
+model MatchStat {
+  id      BigInt   @id @default(autoincrement())
+  source  String
+  league  String // openfootball code, e.g. en.1
+  season  String // e.g. 2025-26
+  date    DateTime
+  home    String
+  away    String
+  hc      Int?
+  ac      Int?
+  hcards  Int?
+  acards  Int?
+  hf      Int?
+  af      Int?
+  /// Full-time and half-time goals, and the referee's name as the source writes it.
+  hg      Int?
+  ag      Int?
+  hthg    Int?
+  htag    Int?
+  referee String?
+
+  @@unique([league, date, home, away])
+  @@index([league, date])
+}
+
 model HistoricalMatch {
   id     BigInt   @id @default(autoincrement())
   source String
@@ -328,6 +378,7 @@ model StatsFixture {
   status     String // scheduled | live | finished | other
   homeGoals  Int?
   awayGoals  Int?
+  referee    String?
   homeXg     Float?
   awayXg     Float?
   /// Per-side shots, shots on target and possession.

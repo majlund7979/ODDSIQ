@@ -11,6 +11,7 @@ import { closingLine } from "@/lib/providers/closing";
 import { backtest } from "./backtest";
 import { REAL_MODEL } from "./ensemble";
 import { buildLeagueModel, forecastFor } from "./league-model";
+import { fetchFootballData, FOOTBALL_DATA_DIVISIONS, FOOTBALL_DATA_SOURCE, type StatMatch } from "./match-stats";
 import { fetchSeason, leagueForOddsKey, OPENFOOTBALL_SOURCE, recentSeasons, seasonOf, type HistMatch } from "./openfootball";
 
 const HOUR = 3_600_000;
@@ -19,10 +20,14 @@ export const PREDICTION_LEAD_MS = 24 * HOUR;
 /** A price older than this is not used as the recorded price. */
 export const PRICE_MAX_AGE_MS = 6 * HOUR;
 const SEASONS_KEPT = 4;
+const MATCH_STAT_SEASONS = 2;
 const MODEL_RELEASED = Date.parse("2026-09-30T00:00:00Z");
 
 export interface ModelRunSummary {
   resultsAdded: number;
+  matchStatsAdded: number;
+  /** Corner/card/foul refreshes that failed; the model run carries on without them. */
+  matchStatsErrors: string[];
   predictions: number;
   missing: { event: string; reason: string }[];
   outcomes: number;
@@ -47,6 +52,48 @@ export async function storeResults(prisma: PrismaClient, rows: HistMatch[], sour
     skipDuplicates: true,
   });
   return r.count;
+}
+
+/** Corners, cards and fouls: the current season every run, earlier seasons once. */
+export async function refreshMatchStats(prisma: PrismaClient, league: string, now: number, fetchImpl: typeof fetch = fetch): Promise<number> {
+  if (!FOOTBALL_DATA_DIVISIONS[league]) return 0;
+  let added = 0;
+  const current = seasonOf(now);
+  for (const season of recentSeasons(now, MATCH_STAT_SEASONS)) {
+    if (season !== current && (await prisma.matchStat.count({ where: { league, season } })) > 0) continue;
+    const rows = await fetchFootballData(league, season, fetchImpl);
+    if (!rows?.length) continue;
+    const r = await prisma.matchStat.createMany({
+      data: rows.map((m) => ({
+        source: FOOTBALL_DATA_SOURCE,
+        league: m.league,
+        season: m.season,
+        date: new Date(m.date),
+        home: m.home,
+        away: m.away,
+        hc: m.corners?.[0] ?? null,
+        ac: m.corners?.[1] ?? null,
+        hcards: m.cards?.[0] ?? null,
+        acards: m.cards?.[1] ?? null,
+        hf: m.fouls?.[0] ?? null,
+        af: m.fouls?.[1] ?? null,
+        hg: m.goals?.[0] ?? null,
+        ag: m.goals?.[1] ?? null,
+        hthg: m.ht?.[0] ?? null,
+        htag: m.ht?.[1] ?? null,
+        referee: m.referee ?? null,
+      })),
+      skipDuplicates: true,
+    });
+    added += r.count;
+  }
+  return added;
+}
+
+export async function loadMatchStats(prisma: PrismaClient, league: string, before: number): Promise<StatMatch[]> {
+  const rows = await prisma.matchStat.findMany({ where: { league, date: { lt: new Date(before), gte: new Date(before - MATCH_STAT_SEASONS * 366 * DAY) } }, orderBy: { date: "asc" } });
+  const pair = (a: number | null, b: number | null): [number, number] | null => (a === null || b === null ? null : [a, b]);
+  return rows.map((r) => ({ league: r.league, season: r.season, date: r.date.getTime(), home: r.home, away: r.away, corners: pair(r.hc, r.ac), cards: pair(r.hcards, r.acards), fouls: pair(r.hf, r.af), goals: pair(r.hg, r.ag), ht: pair(r.hthg, r.htag), referee: r.referee }));
 }
 
 export async function loadResults(prisma: PrismaClient, league: string, before: number): Promise<HistMatch[]> {
@@ -184,12 +231,19 @@ export async function refreshBacktest(prisma: PrismaClient, league: string, now:
 
 export async function runModel(prisma: PrismaClient, opts: { oddsKeys: string[]; now?: number; fetchImpl?: typeof fetch; skipResultsRefresh?: boolean }): Promise<ModelRunSummary> {
   const now = opts.now ?? Date.now();
-  const summary: ModelRunSummary = { resultsAdded: 0, predictions: 0, missing: [], outcomes: 0, settled: 0, backtests: [] };
+  const summary: ModelRunSummary = { resultsAdded: 0, matchStatsAdded: 0, matchStatsErrors: [], predictions: 0, missing: [], outcomes: 0, settled: 0, backtests: [] };
   await ensureModelVersions(prisma, now);
   for (const key of opts.oddsKeys) {
     const league = leagueForOddsKey(key);
     if (!league) continue;
-    if (!opts.skipResultsRefresh) summary.resultsAdded += await refreshResults(prisma, league.code, now, opts.fetchImpl);
+    if (!opts.skipResultsRefresh) {
+      summary.resultsAdded += await refreshResults(prisma, league.code, now, opts.fetchImpl);
+      try {
+        summary.matchStatsAdded += await refreshMatchStats(prisma, league.code, now, opts.fetchImpl);
+      } catch (err) {
+        summary.matchStatsErrors.push(`${league.code}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
     const p = await predictUpcoming(prisma, key, now);
     summary.predictions += p.predictions;
     summary.missing.push(...p.missing);

@@ -45,6 +45,22 @@ const ALIASES: Record<string, string> = {
   "real betis": "betis",
   "rayo vallecano madrid": "rayo vallecano",
   "hertha bsc": "hertha",
+  // football-data.co.uk short names
+  "man united": "manchester united",
+  "man city": "manchester city",
+  "nottm forest": "nottingham forest",
+  "sheffield weds": "sheffield wednesday",
+  "qpr": "queens park rangers",
+  "ath madrid": "atletico",
+  "ath bilbao": "athletic",
+  "sociedad": "real sociedad",
+  "vallecano": "rayo vallecano",
+  "espanol": "espanyol",
+  "paris sg": "psg",
+  "sp lisbon": "sporting cp",
+  "sp braga": "braga",
+  "ein frankfurt": "eintracht frankfurt",
+  "mgladbach": "borussia monchengladbach",
 };
 
 export function normalizeName(name: string): string {

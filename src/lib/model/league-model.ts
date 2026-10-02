@@ -22,6 +22,8 @@ export interface LeagueModel {
   dataThrough: number | null;
   /** League frequencies over the last three years, the benchmark for "why" factors. */
   baseRates: { home: number; draw: number; away: number; over25: number; bttsYes: number };
+  /** Results before asOf, oldest first, for form and head-to-head views. */
+  history: HistMatch[];
 }
 
 export function buildLeagueModel(history: HistMatch[], asOf: number): LeagueModel {
@@ -45,7 +47,7 @@ export function buildLeagueModel(history: HistMatch[], asOf: number): LeagueMode
     over25: share((m) => m.hg + m.ag > 2.5),
     bttsYes: share((m) => m.hg > 0 && m.ag > 0),
   };
-  return { asOf, fit, elo, ol: fitOrderedLogit(rows), names, ready: Boolean(fit) && rows.length >= MIN_OUTCOME_ROWS, dataThrough: past.at(-1)?.date ?? null, baseRates };
+  return { asOf, fit, elo, ol: fitOrderedLogit(rows), names, ready: Boolean(fit) && rows.length >= MIN_OUTCOME_ROWS, dataThrough: past.at(-1)?.date ?? null, baseRates, history: past };
 }
 
 export type ForecastResult = { ok: true; forecast: MatchForecast; home: string; away: string } | { ok: false; reason: string };

@@ -1,0 +1,618 @@
+import Link from "next/link";
+import {
+  analysedMatches,
+  COUNT_CATEGORIES,
+  countPicks,
+  dailyPicks,
+  GOAL_CATEGORIES,
+  lineLabel,
+  marketPicks,
+  PICK_COUNTS,
+  signedPp,
+  type CountPick,
+  type FormGame,
+  type Pick,
+} from "@/lib/picks";
+import { correctScorePicks, coupons, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
+import { terminal } from "@/lib/terminal";
+
+export const metadata = { title: "Dagens bedste bets · ODDSIQ" };
+
+const TZ = "Europe/Copenhagen";
+const dayKey = (t: number) => new Date(t).toLocaleDateString("en-CA", { timeZone: TZ });
+const clock = (t: number) => new Date(t).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit", timeZone: TZ, hour12: false });
+const dec = (x: number, d = 2) => x.toFixed(d).replace(".", ",");
+
+function kickoffLabel(t: number, now: number) {
+  const day = dayKey(t) === dayKey(now) ? "I dag" : dayKey(t) === dayKey(now + 86_400_000) ? "I morgen" : new Date(t).toLocaleDateString("da-DK", { weekday: "long", timeZone: TZ });
+  return `${day} kl. ${clock(t)}`;
+}
+
+const STRENGTH_TONE: Record<Pick["strength"], string> = {
+  "Meget stærk": "bg-good/15 text-good border-good/40",
+  Stærk: "bg-accent/15 text-accent border-accent/40",
+  God: "bg-surface-3 text-ink border-line-strong",
+  Middel: "bg-surface-3 text-ink-2 border-line",
+};
+
+function Gauge({ p }: { p: number }) {
+  const r = 34;
+  const c = 2 * Math.PI * r;
+  return (
+    <div className="relative h-24 w-24 shrink-0">
+      <svg viewBox="0 0 80 80" className="h-full w-full -rotate-90" aria-hidden>
+        <circle cx="40" cy="40" r={r} fill="none" stroke="var(--surface-3)" strokeWidth="7" />
+        <circle cx="40" cy="40" r={r} fill="none" stroke="var(--accent)" strokeWidth="7" strokeLinecap="round" strokeDasharray={`${c * p} ${c}`} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="num text-2xl font-semibold leading-none">{Math.round(p * 100)}%</span>
+        <span className="mt-1 text-[10px] uppercase tracking-wider text-muted">chance</span>
+      </div>
+    </div>
+  );
+}
+
+function FormRow({ team, games }: { team: string; games: FormGame[] }) {
+  const tone = { V: "bg-good text-page", U: "bg-surface-3 text-ink-2", T: "bg-critical text-ink" };
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="truncate text-ink-2">{team}</span>
+      <span className="flex shrink-0 gap-1">
+        {games.length === 0 && <span className="text-muted">ingen data</span>}
+        {[...games].reverse().map((g, i) => (
+          <span key={i} title={`${g.home ? "Hjemme" : "Ude"} mod ${g.opponent}: ${g.score}`} className={`num flex h-5 w-5 items-center justify-center rounded text-[11px] font-semibold ${tone[g.result]}`}>
+            {g.result}
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+}
+
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">{label}</div>
+      <div className="text-sm">{children}</div>
+    </div>
+  );
+}
+
+function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
+  const i = p.insights;
+  const maxPp = Math.max(4, ...p.factors.map((f) => Math.abs(f.pp ?? 0)));
+  return (
+    <div className="grid gap-6 border-t border-line px-5 py-5 md:grid-cols-2">
+      <div className="space-y-3">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">Sådan er procenten regnet ud</div>
+        <ul className="space-y-3">
+          {p.factors.map((f) => (
+            <li key={f.label} className="space-y-1">
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="font-medium">{f.label}</span>
+                {f.pp !== null && <span className={`num text-xs ${Math.abs(f.pp) < 0.05 ? "text-muted" : f.pp > 0 ? "text-good" : "text-serious"}`}>{signedPp(f.pp)}</span>}
+              </div>
+              {f.pp !== null && (
+                <div className="relative h-1.5 rounded bg-surface-3">
+                  <span className="absolute top-0 left-1/2 h-1.5 w-px bg-line-strong" />
+                  <span
+                    className={`absolute top-0 h-1.5 rounded ${f.pp >= 0 ? "bg-good" : "bg-serious"}`}
+                    style={f.pp >= 0 ? { left: "50%", width: `${(f.pp / maxPp) * 50}%` } : { right: "50%", width: `${(-f.pp / maxPp) * 50}%` }}
+                  />
+                </div>
+              )}
+              <div className="text-xs text-ink-2">{f.detail}</div>
+            </li>
+          ))}
+        </ul>
+        <div className="flex items-baseline justify-between border-t border-line pt-3 text-sm">
+          <span className="font-semibold">Samlet chance</span>
+          <span className="num font-semibold text-accent">{Math.round(p.probability * 100)}%</span>
+        </div>
+      </div>
+
+      <div className="space-y-5">
+        {i.expectedGoals && (
+          <Fact label="Forventede mål">
+            <div className="flex items-center gap-3">
+              <span className="num text-lg font-semibold">{dec(i.expectedGoals.home, 1)}</span>
+              <div className="flex h-2 flex-1 overflow-hidden rounded bg-surface-3">
+                <span className="bg-accent" style={{ width: `${(i.expectedGoals.home / (i.expectedGoals.home + i.expectedGoals.away)) * 100}%` }} />
+                <span className="flex-1 bg-model/70" />
+              </div>
+              <span className="num text-lg font-semibold">{dec(i.expectedGoals.away, 1)}</span>
+            </div>
+          </Fact>
+        )}
+        {i.elo && (
+          <Fact label="Holdstyrke (Elo)">
+            <span className="num">{i.elo.home}</span> mod <span className="num">{i.elo.away}</span>
+            <span className="text-ink-2">
+              {" · "}
+              {Math.abs(i.elo.home - i.elo.away) < 25 ? "jævnbyrdige hold" : `${i.elo.home > i.elo.away ? home : away} er ${Math.abs(i.elo.home - i.elo.away)} point stærkere`}
+            </span>
+          </Fact>
+        )}
+        {i.form && (
+          <Fact label="Form, seneste 5 kampe">
+            <div className="space-y-1.5">
+              <FormRow team={home} games={i.form.home} />
+              <FormRow team={away} games={i.form.away} />
+            </div>
+          </Fact>
+        )}
+        {i.h2h && (
+          <Fact label={`Indbyrdes, seneste ${i.h2h.games.length}`}>
+            {home}: <span className="text-good">{i.h2h.home} sejre</span>, {i.h2h.draw} uafgjort, <span className="text-serious">{i.h2h.away} nederlag</span>
+            <div className="num mt-1 text-xs text-muted">{i.h2h.games.map((g) => g.score).join(" · ")}</div>
+          </Fact>
+        )}
+        <Fact label="Oddsen">
+          {Math.abs(i.movement) < 0.01 ? "Stort set uændret siden markedet åbnede." : `${i.movement < 0 ? "Faldet" : "Steget"} ${dec(Math.abs(i.movement) * 100, 0)} % siden markedet åbnede (fra ${dec(p.row.openingOdds)} til ${dec(p.row.currentOdds)}).`}
+          <div className="text-xs text-muted">
+            {p.row.booksQuoting} bookmakere · fair odds efter vores procent: {dec(p.fairOdds)}
+          </div>
+        </Fact>
+        <Fact label="Startopstilling">{i.lineupsConfirmed ? "Bekræftet for begge hold." : "Ikke meldt endnu. Kommer typisk en time før kampstart."}</Fact>
+      </div>
+    </div>
+  );
+}
+
+function PickCard({ p, rank, now }: { p: Pick; rank: number; now: number }) {
+  const [home, away] = p.row.match.split(" vs ");
+  return (
+    <article className="overflow-hidden rounded-xl border border-line bg-surface shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1 space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+            <span className="num flex h-6 w-6 items-center justify-center rounded-full bg-surface-3 text-[12px] font-semibold text-ink">{rank}</span>
+            <span>{p.row.league}</span>
+            <span aria-hidden>·</span>
+            <span>{kickoffLabel(p.row.kickoff, now)}</span>
+            <span className={`ml-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:ml-2 ${STRENGTH_TONE[p.strength]}`}>{p.strength}</span>
+          </div>
+          <h2 className="text-lg font-semibold leading-tight sm:text-xl">
+            {home} <span className="text-muted">–</span> {away}
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-lg bg-accent/15 px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
+            {p.value && <span className="rounded-full border border-good/40 bg-good/10 px-2 py-0.5 text-[11px] font-semibold text-good">Værdi</span>}
+            {p.lineupsConfirmed && <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2">Opstilling bekræftet</span>}
+          </div>
+        </div>
+        <div className="flex items-center gap-5">
+          <Gauge p={p.probability} />
+          <div className="min-w-[88px] rounded-lg border border-line bg-surface-2 px-3 py-2 text-center">
+            <div className="text-[10px] uppercase tracking-wider text-muted">Bedste odds</div>
+            <div className="num text-2xl font-semibold">{dec(p.row.bestOdds)}</div>
+            <div className="truncate text-[11px] text-ink-2">{p.row.bestBook}</div>
+          </div>
+        </div>
+      </div>
+      <details className="group" open={rank === 1}>
+        <summary className="flex cursor-pointer list-none items-center justify-between border-t border-line px-5 py-2.5 text-sm text-ink-2 hover:bg-surface-2 hover:text-ink">
+          <span>Se hele analysen</span>
+          <span className="transition-transform group-open:rotate-180" aria-hidden>
+            ▾
+          </span>
+        </summary>
+        <Analysis p={p} home={home} away={away} />
+      </details>
+    </article>
+  );
+}
+
+function CountCard({ p, rank, now }: { p: CountPick; rank: number; now: number }) {
+  const [home, away] = p.row.match.split(" vs ");
+  const f = p.forecast;
+  const leagueAvg = f.league.homeMean + f.league.awayMean;
+  const vs = Math.round(f.suggestion.vsLeague * 100);
+  return (
+    <article className="overflow-hidden rounded-xl border border-line bg-surface">
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1 space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+            <span className="num flex h-6 w-6 items-center justify-center rounded-full bg-surface-3 text-[12px] font-semibold text-ink">{rank}</span>
+            <span>{p.row.league}</span>
+            <span aria-hidden>·</span>
+            <span>{kickoffLabel(p.row.kickoff, now)}</span>
+            <span className={`ml-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:ml-2 ${STRENGTH_TONE[p.strength]}`}>{p.strength}</span>
+          </div>
+          <h2 className="text-lg font-semibold leading-tight sm:text-xl">
+            {home} <span className="text-muted">–</span> {away}
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-lg bg-accent/15 px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
+            <span className="text-sm text-ink-2">
+              Forventet <span className="num font-semibold text-ink">{dec(f.expected.total, 1)}</span> · {vs === 0 ? "som ligasnittet" : `${Math.abs(vs)} % ${vs > 0 ? "over" : "under"} ligasnittet`}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-5">
+          <Gauge p={p.probability} />
+          <div className="min-w-[96px] rounded-lg border border-line bg-surface-2 px-3 py-2 text-center">
+            <div className="text-[10px] uppercase tracking-wider text-muted">Linjen</div>
+            <div className="num text-2xl font-semibold">{lineLabel(f.fairLine)}</div>
+            <div className="text-[11px] text-ink-2">fair odds {dec(p.fairOdds)}</div>
+          </div>
+        </div>
+      </div>
+      <details className="group" open={rank === 1}>
+        <summary className="flex cursor-pointer list-none items-center justify-between border-t border-line px-5 py-2.5 text-sm text-ink-2 hover:bg-surface-2 hover:text-ink">
+          <span>Se hele analysen</span>
+          <span className="transition-transform group-open:rotate-180" aria-hidden>
+            ▾
+          </span>
+        </summary>
+        <div className="grid gap-6 border-t border-line px-5 py-5 md:grid-cols-2">
+          <div className="space-y-5">
+            <Fact label={`Forventede ${p.unit}`}>
+              <div className="flex items-center gap-3">
+                <span className="num text-lg font-semibold">{dec(f.expected.home, 1)}</span>
+                <div className="flex h-2 flex-1 overflow-hidden rounded bg-surface-3">
+                  <span className="bg-accent" style={{ width: `${(f.expected.home / f.expected.total) * 100}%` }} />
+                  <span className="flex-1 bg-model/70" />
+                </div>
+                <span className="num text-lg font-semibold">{dec(f.expected.away, 1)}</span>
+              </div>
+              <div className="mt-1 text-xs text-muted">
+                I alt {dec(f.expected.total, 1)} · ligasnit {dec(leagueAvg, 1)} ({f.league.matches} kampe)
+              </div>
+            </Fact>
+            <Fact label="Pr. kamp, seneste kampe">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted">
+                    <th className="pb-1 font-normal">Hold</th>
+                    <th className="pb-1 text-right font-normal">For</th>
+                    <th className="pb-1 text-right font-normal">Imod</th>
+                    <th className="pb-1 text-right font-normal">Kampe</th>
+                  </tr>
+                </thead>
+                <tbody className="num">
+                  {[
+                    { team: home, r: f.rates.home },
+                    { team: away, r: f.rates.away },
+                  ].map(({ team, r }) => (
+                    <tr key={team} className="border-t border-line">
+                      <td className="py-1.5 font-sans text-ink-2">{team}</td>
+                      <td className="py-1.5 text-right">{dec(r.forAvg, 1)}</td>
+                      <td className="py-1.5 text-right">{dec(r.againstAvg, 1)}</td>
+                      <td className="py-1.5 text-right text-muted">{r.n}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {p.stat === "fouls" && <div className="mt-1 text-xs text-muted">&quot;For&quot; er frispark holdet begår, &quot;imod&quot; er frispark det får.</div>}
+            </Fact>
+            {p.stat === "cards" && (
+              <Fact label="Dommer">
+                {f.referee ? (
+                  <>
+                    {f.referee.name}: <span className="num">{dec(f.referee.cardsPerMatch, 1)}</span> kort pr. kamp i {f.referee.n} kampe, ligasnit{" "}
+                    <span className="num">{dec(f.referee.leagueCardsPerMatch, 1)}</span>.
+                    <div className="text-xs text-muted">
+                      {Math.abs(f.referee.factor - 1) < 0.03
+                        ? "Dommeren ændrer ikke forventningen."
+                        : `Forventede kort er ${f.referee.factor > 1 ? "skruet op" : "skruet ned"} med ${Math.round(Math.abs(f.referee.factor - 1) * 100)} % for dommeren.`}
+                    </div>
+                  </>
+                ) : (
+                  <span className="text-ink-2">Dommeren er ikke meldt endnu, eller vi har ikke hans kampe.</span>
+                )}
+              </Fact>
+            )}
+          </div>
+          <Fact label="Hvor ligger linjen">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-muted">
+                  <th className="pb-1 font-normal">Linje</th>
+                  <th className="pb-1 text-right font-normal">Over</th>
+                  <th className="pb-1 text-right font-normal">Fair odds</th>
+                  <th className="pb-1 text-right font-normal">Under</th>
+                  <th className="pb-1 text-right font-normal">Fair odds</th>
+                </tr>
+              </thead>
+              <tbody className="num">
+                {f.lines.map((l) => (
+                  <tr key={l.line} className={`border-t border-line ${l.line === f.fairLine ? "bg-surface-2 font-semibold" : ""} ${l.line === f.suggestion.line ? "text-accent" : ""}`}>
+                    <td className="py-1.5">{lineLabel(l.line)}</td>
+                    <td className="py-1.5 text-right">{Math.round(l.over * 100)}%</td>
+                    <td className="py-1.5 text-right">{dec(1 / Math.max(l.over, 0.01))}</td>
+                    <td className="py-1.5 text-right">{Math.round(l.under * 100)}%</td>
+                    <td className="py-1.5 text-right">{dec(1 / Math.max(l.under, 0.01))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-2 text-xs text-ink-2">
+              Den fremhævede række er linjen, hvor over og under er tættest på 50/50. Spil kun, hvis bookmakeren giver en højere odds end fair odds for samme
+              linje.
+            </p>
+          </Fact>
+        </div>
+      </details>
+    </article>
+  );
+}
+
+function ExtraCard({ p, rank, now }: { p: ExtraPick; rank: number; now: number }) {
+  const [home, away] = p.row.match.split(" vs ");
+  return (
+    <article className="overflow-hidden rounded-xl border border-line bg-surface">
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1 space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+            <span className="num flex h-6 w-6 items-center justify-center rounded-full bg-surface-3 text-[12px] font-semibold text-ink">{rank}</span>
+            <span>{p.row.league}</span>
+            <span aria-hidden>·</span>
+            <span>{kickoffLabel(p.row.kickoff, now)}</span>
+            <span className={`ml-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:ml-2 ${STRENGTH_TONE[p.strength]}`}>{p.strength}</span>
+          </div>
+          <h2 className="text-lg font-semibold leading-tight sm:text-xl">
+            {home} <span className="text-muted">–</span> {away}
+          </h2>
+          <span className="inline-block rounded-lg bg-accent/15 px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
+        </div>
+        <div className="flex items-center gap-5">
+          <Gauge p={p.probability} />
+          <div className="min-w-[96px] rounded-lg border border-line bg-surface-2 px-3 py-2 text-center">
+            <div className="text-[10px] uppercase tracking-wider text-muted">Fair odds</div>
+            <div className="num text-2xl font-semibold">{dec(p.fairOdds)}</div>
+            <div className="text-[11px] text-ink-2">spil over denne</div>
+          </div>
+        </div>
+      </div>
+      <details className="group" open={rank === 1}>
+        <summary className="flex cursor-pointer list-none items-center justify-between border-t border-line px-5 py-2.5 text-sm text-ink-2 hover:bg-surface-2 hover:text-ink">
+          <span>Se hele analysen</span>
+          <span className="transition-transform group-open:rotate-180" aria-hidden>
+            ▾
+          </span>
+        </summary>
+        <div className="space-y-4 border-t border-line px-5 py-5">
+          <ul className="space-y-2.5">
+            {p.table.map((x) => (
+              <li key={x.label} className="space-y-1">
+                <div className="flex items-baseline justify-between gap-3 text-sm">
+                  <span>{x.label}</span>
+                  <span className="num">
+                    {Math.round(x.probability * 100)}% <span className="text-xs text-muted">· fair odds {dec(1 / Math.max(x.probability, 0.01))}</span>
+                  </span>
+                </div>
+                <div className="h-1.5 rounded bg-surface-3">
+                  <div className="h-1.5 rounded bg-accent" style={{ width: `${Math.min(100, x.probability * 100)}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-ink-2">{p.note}</p>
+        </div>
+      </details>
+    </article>
+  );
+}
+
+function CouponCard({ coupons }: { coupons: Coupon[] }) {
+  if (!coupons.length) return null;
+  return (
+    <section className="rounded-xl border border-accent/40 bg-accent/5 p-5">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold">Dagens kupon</h2>
+        <span className="text-xs text-muted">De stærkeste bets lagt sammen. Alle skal gå hjem.</span>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {coupons.map((c) => (
+          <div key={c.picks.length} className="rounded-lg border border-line bg-surface p-4">
+            <div className="mb-2 flex items-baseline justify-between">
+              <span className="font-semibold">{c.picks.length} bets</span>
+              <span className="num text-sm">
+                <span className="text-accent">{Math.round(c.probability * 100)}%</span> · odds {dec(c.odds)}
+              </span>
+            </div>
+            <ul className="space-y-1 text-sm">
+              {c.picks.map((p) => (
+                <li key={p.row.selectionId} className="flex justify-between gap-3">
+                  <span className="truncate">
+                    {p.outcome} <span className="text-muted">· {p.row.match.replace(" vs ", " – ")}</span>
+                  </span>
+                  <span className="num shrink-0 text-ink-2">{dec(p.row.bestOdds)}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 text-xs text-muted">100 kr giver {Math.round(c.odds * 100)} kr, hvis alle går hjem.</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const EXTRA: Record<string, (rows: Parameters<typeof doubleChancePicks>[0], now: number, n: number, ctx: Parameters<typeof doubleChancePicks>[3]) => ExtraPick[]> = {
+  dobbelt: doubleChancePicks,
+  resultat: correctScorePicks,
+  halvleg: halfTimePicks,
+};
+
+const TABS = [
+  { id: "bedste", label: "Bedste bets" },
+  { id: "vinder", label: "Hvem vinder" },
+  { id: "dobbelt", label: "Dobbeltchance" },
+  { id: "maal", label: "Over/under 2,5 mål" },
+  { id: "btts", label: "Begge hold scorer" },
+  { id: "resultat", label: "Korrekt resultat" },
+  { id: "halvleg", label: "1. halvleg" },
+  ...COUNT_CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
+  { id: "straffe", label: "Straffespark" },
+];
+
+function Empty({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-xl border border-line bg-surface px-6 py-10 text-center">
+      <div className="text-lg font-semibold">{title}</div>
+      <p className="mx-auto mt-2 max-w-md text-sm text-ink-2">{text}</p>
+    </div>
+  );
+}
+
+export default async function PicksPage({ searchParams }: { searchParams: Promise<{ antal?: string; type?: string }> }) {
+  const t = await terminal();
+  const q = await searchParams;
+  const count = PICK_COUNTS.find((n) => String(n) === q.antal) ?? 10;
+  const tab = TABS.find((x) => x.id === q.type)?.id ?? "bedste";
+  const rows = t.marketRows();
+  const goalCat = GOAL_CATEGORIES.find((c) => c.id === tab);
+  const countCat = COUNT_CATEGORIES.find((c) => c.id === tab);
+  const picks = tab === "bedste" ? dailyPicks(rows, t.now, count, t.pickContext) : goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [];
+  const cPicks = countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [];
+  const xPicks = EXTRA[tab] ? EXTRA[tab](rows, t.now, count, t.pickContext) : [];
+  const recent = tab === "bedste" ? summarise((await t.recordedPicks()).filter((p) => p.category === "bedste")) : null;
+  const href = (type: string, n: number) => `/picks?${new URLSearchParams({ ...(type !== "bedste" ? { type } : {}), ...(n !== 10 ? { antal: String(n) } : {}) })}`;
+  const scope = analysedMatches(rows, t.now);
+  const today = new Date(t.now).toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: TZ });
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-6 pb-10">
+      <header className="space-y-4">
+        <div className="text-sm text-muted">{today.charAt(0).toUpperCase() + today.slice(1)}</div>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">Dagens bedste bets</h1>
+            <p className="mt-2 max-w-2xl text-[15px] text-ink-2">
+              Vi har gennemgået alle fodboldkampe de næste 24 timer og valgt det udfald i hver kamp, der har størst chance for at gå hjem.
+            </p>
+          </div>
+          <nav aria-label="Antal bets" className="flex rounded-lg border border-line bg-surface p-1">
+            {PICK_COUNTS.map((n) => (
+              <Link
+                key={n}
+                href={href(tab, n)}
+                scroll={false}
+                aria-current={n === count ? "page" : undefined}
+                className={`rounded-md px-4 py-1.5 text-sm font-medium ${n === count ? "bg-accent text-page" : "text-ink-2 hover:text-ink"}`}
+              >
+                Top {n}
+              </Link>
+            ))}
+          </nav>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { v: scope.matches, l: "kampe analyseret" },
+            { v: scope.leagues, l: scope.leagues === 1 ? "liga" : "ligaer" },
+            { v: clock(t.feedTime), l: "odds opdateret" },
+          ].map((s) => (
+            <div key={s.l} className="rounded-xl border border-line bg-surface px-4 py-3">
+              <div className="num text-xl font-semibold">{s.v}</div>
+              <div className="text-xs text-muted">{s.l}</div>
+            </div>
+          ))}
+        </div>
+      </header>
+
+      <nav aria-label="Bet-type" className="flex flex-wrap gap-2">
+        {TABS.map((x) => (
+          <Link
+            key={x.id}
+            href={href(x.id, count)}
+            scroll={false}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-sm ${x.id === tab ? "border-accent bg-accent/15 font-medium text-accent" : "border-line text-ink-2 hover:border-line-strong hover:text-ink"}`}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === "bedste" && recent && recent.settled > 0 && (
+        <Link href="/picks/resultater" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm hover:bg-surface-2">
+          <span>
+            Sidste 7 dage: <span className="font-semibold">{recent.won} af {recent.settled}</span> bets gik hjem ({Math.round((recent.won / recent.settled) * 100)} %)
+            {recent.withOdds > 0 && (
+              <>
+                {" · "}
+                <span className={recent.profit >= 0 ? "text-good" : "text-serious"}>
+                  {recent.profit >= 0 ? "+" : "−"}
+                  {Math.round(Math.abs(recent.profit) * 100)} kr
+                </span>{" "}
+                ved 100 kr pr. bet
+              </>
+            )}
+          </span>
+          <span className="text-ink-2">Se alle resultater →</span>
+        </Link>
+      )}
+      {tab === "bedste" && <CouponCard coupons={coupons(picks)} />}
+
+      {EXTRA[tab] ? (
+        xPicks.length === 0 ? (
+          <Empty title="Ingen kampe at vise lige nu" text="Der er ingen fodboldkampe med en analyse de næste 24 timer. Kig forbi igen senere." />
+        ) : (
+          <ol className="space-y-4">
+            {xPicks.map((p, i) => (
+              <li key={p.row.eventId}>
+                <ExtraCard p={p} rank={i + 1} now={t.now} />
+              </li>
+            ))}
+          </ol>
+        )
+      ) : tab === "straffe" ? (
+        <Empty
+          title="Straffespark kommer senere"
+          text="Vores kampdata har ikke straffespark med. Det kræver kamphændelser fra statistik-feedet (API-Football), som skal sættes op med STATS_API_KEY først."
+        />
+      ) : countCat ? (
+        cPicks.length === 0 ? (
+          <Empty
+            title={`Ingen ${countCat.unit}-analyser lige nu`}
+            text={`Der er ingen kampe de næste 24 timer, hvor vi har nok ${countCat.unit}-historik for begge hold. Data hentes automatisk fra football-data.co.uk.`}
+          />
+        ) : (
+          <ol className="space-y-4">
+            {cPicks.map((p, i) => (
+              <li key={p.row.eventId}>
+                <CountCard p={p} rank={i + 1} now={t.now} />
+              </li>
+            ))}
+          </ol>
+        )
+      ) : picks.length === 0 ? (
+        <Empty
+          title="Ingen kampe at vise lige nu"
+          text="Der er ingen fodboldkampe med en analyse de næste 24 timer. Vi analyserer en kamp, når der er under et døgn til kampstart. Kig forbi igen senere."
+        />
+      ) : (
+        <ol className="space-y-4">
+          {picks.map((p, i) => (
+            <li key={p.row.selectionId}>
+              <PickCard p={p} rank={i + 1} now={t.now} />
+            </li>
+          ))}
+        </ol>
+      )}
+
+      <section className="grid gap-4 rounded-xl border border-line bg-surface p-5 text-sm text-ink-2 md:grid-cols-3">
+        <div>
+          <div className="mb-1 font-semibold text-ink">Hvad vi analyserer</div>
+          Kampresultater og holdstyrke (Elo), forventede mål, xG-form, skader og karantæner, startopstillinger, form, indbyrdes opgør, bookmakernes odds,
+          hjørnespark, kort og frispark for hvert hold, dommerens kortstatistik og målene i 1. halvleg.
+        </div>
+        <div>
+          <div className="mb-1 font-semibold text-ink">Hvad &quot;Værdi&quot; betyder</div>
+          Oddsen betaler mere, end vores procent siger den burde. Høj procent giver ofte lav odds, så værdi er ikke det samme som et sikkert bet.
+        </div>
+        <div>
+          <div className="mb-1 font-semibold text-ink">Husk</div>
+          Procenterne er skøn, ikke garantier. Selv 80 % taber hver femte gang. Spil kun for penge, du har råd til at tabe. 18+.
+        </div>
+        <p className="text-xs text-muted md:col-span-3">
+          Kilde: {t.dataLabel}. Bookmakernes odds vejer halvdelen, fordi de rummer nyheder og rygter. Skader og xG-form flytter de forventede mål efter en fast
+          tommelfingerregel. Form og indbyrdes opgør indgår allerede i resultatmodellen og vises som baggrund. Hjørnespark, kort og frispark: holdenes seneste 20 kampe fra
+          football-data.co.uk sammenlignet med ligasnittet; tippet går i retning af, om kampen ventes over eller under snittet, én linje på den sikre side.
+        </p>
+      </section>
+    </div>
+  );
+}
