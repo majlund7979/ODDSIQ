@@ -7,12 +7,10 @@ export interface NavItem {
   children?: NavItem[];
 }
 
-/** The everyday menu. Everything in NAV sits behind "Avancerede værktøjer". */
+/** The site's menu. NAV below is the retired terminal, kept for reference; its URLs redirect to /picks (next.config.ts). */
 export const SIMPLE_NAV: NavItem[] = [
   { href: "/picks", label: "Dagens bedste bets" },
   { href: "/picks/resultater", label: "Resultater" },
-  { href: "/matches", label: "Kampe" },
-  { href: "/my-bets", label: "Mine bets" },
 ];
 
 export const NAV: NavItem[] = [
