@@ -2,10 +2,10 @@ import type { NextConfig } from "next";
 
 /**
  * The analytics terminal is retired from the site (Mads, 2026-10-02): only
- * Dagens bedste bets and its results board are shown. The old pages stay in
- * the code for now; their URLs send visitors to the picks.
+ * Dagens bedste bets and its results board are shown. The old pages were
+ * removed; their URLs send visitors to the picks.
  */
-const RETIRED = ["/", "/dashboard", "/markets", "/matches", "/value-scanner", "/live", "/market-replay", "/ai-analyst", "/model-lab", "/performance", "/watchlist", "/my-bets"];
+const RETIRED = ["/", "/dashboard", "/markets", "/matches", "/value-scanner", "/live", "/market-replay", "/ai-analyst", "/model-lab", "/performance", "/watchlist", "/my-bets", "/data-feed"];
 
 const nextConfig: NextConfig = {
   async redirects() {

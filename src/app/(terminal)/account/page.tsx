@@ -1,11 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { openBillingPortal, signOut, startCheckout } from "@/app/auth-actions";
 import { Badge, PageHeader, Panel } from "@/components/ui";
 import { ACCOUNTS_ENABLED, currentUser } from "@/lib/auth/session";
 import { BILLING_ENABLED, PLANS } from "@/lib/billing/plans";
-import { decodePositions, decodeWatchlist } from "@/lib/demo/personal";
 import { fmtDate } from "@/lib/format";
 
 export const metadata = { title: "Account · ODDSIQ" };
@@ -56,27 +54,6 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
             </form>
           )}
         </div>
-      </Panel>
-
-      <Panel title="Saved to your account">
-        <ul className="divide-y divide-line text-sm">
-          <li className="flex justify-between px-4 py-2">
-            <Link href="/watchlist" className="hover:text-accent">
-              Watchlist
-            </Link>
-            <span className="num text-ink-2">{decodeWatchlist(user.watchlist).length}</span>
-          </li>
-          <li className="flex justify-between px-4 py-2">
-            <Link href="/my-bets" className="hover:text-accent">
-              Tracked prices
-            </Link>
-            <span className="num text-ink-2">{decodePositions(user.positions).length}</span>
-          </li>
-          <li className="flex justify-between px-4 py-2">
-            <span>Assistant threshold</span>
-            <span className="num text-ink-2">{user.thresholdPp} pp</span>
-          </li>
-        </ul>
       </Panel>
 
       <form action={signOut}>
