@@ -15,6 +15,7 @@ import { realLiveBoard, realLiveView, realReplayData, realReplayEvents, type Liv
 import { LIVE_ALERT_TYPES, realAlerts } from "@/lib/real/alerts";
 import { realSettledSelections } from "@/lib/real/settled";
 import type { TeamNews } from "@/lib/stats/news";
+import type { PickContext } from "@/lib/picks";
 import { realFinishedEvents, realMarketDetail, realMatchView, realSnapshot, type EventView, type SourceView } from "@/lib/real/store";
 
 export interface Terminal {
@@ -48,6 +49,8 @@ export interface Terminal {
   /** Finished matches that Market Replay can show, newest first. */
   replayEvents(): EventView[];
   replay(eventId: string): Promise<ReplayData | undefined>;
+  /** Expected goals and team news behind a match's forecast, for the daily picks. */
+  pickContext(eventId: string): PickContext | null;
 }
 
 export async function terminal(): Promise<Terminal> {
@@ -86,6 +89,7 @@ export async function terminal(): Promise<Terminal> {
       liveView: (id) => demo.matchView(id, now),
       replayEvents: () => demo.replayableEvents(now),
       replay: async (id) => demo.replayData(id, now),
+      pickContext: () => null,
     };
   }
   if (!DATABASE_CONFIGURED) throw new DataSourceNotConfiguredError();
@@ -111,5 +115,9 @@ export async function terminal(): Promise<Terminal> {
     liveView: (id) => realLiveView(snap, id),
     replayEvents: () => realReplayEvents(snap),
     replay: (id) => realReplayData(db(), snap, id),
+    pickContext: (id) => {
+      const e = snap.events.find((x) => x.view.id === id);
+      return e?.forecast && "f" in e.forecast ? { expectedGoals: e.forecast.f.expectedGoals, news: e.news } : null;
+    },
   };
 }
