@@ -6,7 +6,7 @@ import { absences, analysePick, countPicks, dailyPicks, marketPicks, goalsProbab
 const now = Date.UTC(2026, 9, 2, 12);
 const row = (o: Partial<MarketRow>): MarketRow =>
   ({ selectionId: "s", eventId: "e1", sportId: "football", movement: 0, marketType: "1X2", side: "home", selection: "Arsenal", match: "Arsenal vs Chelsea", status: "scheduled", kickoff: now + 3_600_000, modelProbability: 0.5, marketProbability: 0.5, bestOdds: 2, ...o }) as MarketRow;
-const news = (o: Partial<TeamNews>): TeamNews => ({ provider: "t", syncedAt: now, lineups: [], lineupsAt: null, injuries: [], injuriesAt: now, xg: null, form: { home: null, away: null }, ...o });
+const news = (o: Partial<TeamNews>): TeamNews => ({ provider: "t", syncedAt: now, lineups: [], lineupsAt: null, injuries: [], injuriesAt: now, xg: null, form: { home: null, away: null }, referee: null, ...o });
 const ctx = (n: TeamNews | null) => ({ expectedGoals: { home: 1.6, away: 1.1 }, news: n });
 
 describe("dailyPicks", () => {

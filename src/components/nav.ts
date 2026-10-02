@@ -10,6 +10,7 @@ export interface NavItem {
 /** The everyday menu. Everything in NAV sits behind "Avancerede værktøjer". */
 export const SIMPLE_NAV: NavItem[] = [
   { href: "/picks", label: "Dagens bedste bets" },
+  { href: "/picks/resultater", label: "Resultater" },
   { href: "/matches", label: "Kampe" },
   { href: "/my-bets", label: "Mine bets" },
 ];

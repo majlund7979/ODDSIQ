@@ -66,7 +66,7 @@ export async function ingestStats(
       for (const f of fixtures) {
         const ev = events.find((e) => Math.abs(e.kickoff.getTime() - f.kickoff) <= KICKOFF_TOLERANCE_MS && matchTeam(f.home, [e.homeTeam.name]) && matchTeam(f.away, [e.awayTeam.name]));
         const id = `${feed.provider}:${f.id}`;
-        const fields = { kickoff: new Date(f.kickoff), home: f.home, away: f.away, status: f.status, homeGoals: f.homeGoals, awayGoals: f.awayGoals, eventId: ev?.id ?? null, syncedAt: new Date(now) };
+        const fields = { kickoff: new Date(f.kickoff), home: f.home, away: f.away, status: f.status, homeGoals: f.homeGoals, awayGoals: f.awayGoals, referee: f.referee ?? null, eventId: ev?.id ?? null, syncedAt: new Date(now) };
         await prisma.statsFixture.upsert({ where: { id }, create: { id, provider: feed.provider, leagueId, ...fields }, update: fields });
         if (ev) {
           s.matched++;

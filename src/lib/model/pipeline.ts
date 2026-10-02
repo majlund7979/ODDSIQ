@@ -77,6 +77,11 @@ export async function refreshMatchStats(prisma: PrismaClient, league: string, no
         acards: m.cards?.[1] ?? null,
         hf: m.fouls?.[0] ?? null,
         af: m.fouls?.[1] ?? null,
+        hg: m.goals?.[0] ?? null,
+        ag: m.goals?.[1] ?? null,
+        hthg: m.ht?.[0] ?? null,
+        htag: m.ht?.[1] ?? null,
+        referee: m.referee ?? null,
       })),
       skipDuplicates: true,
     });
@@ -88,7 +93,7 @@ export async function refreshMatchStats(prisma: PrismaClient, league: string, no
 export async function loadMatchStats(prisma: PrismaClient, league: string, before: number): Promise<StatMatch[]> {
   const rows = await prisma.matchStat.findMany({ where: { league, date: { lt: new Date(before), gte: new Date(before - MATCH_STAT_SEASONS * 366 * DAY) } }, orderBy: { date: "asc" } });
   const pair = (a: number | null, b: number | null): [number, number] | null => (a === null || b === null ? null : [a, b]);
-  return rows.map((r) => ({ league: r.league, season: r.season, date: r.date.getTime(), home: r.home, away: r.away, corners: pair(r.hc, r.ac), cards: pair(r.hcards, r.acards), fouls: pair(r.hf, r.af) }));
+  return rows.map((r) => ({ league: r.league, season: r.season, date: r.date.getTime(), home: r.home, away: r.away, corners: pair(r.hc, r.ac), cards: pair(r.hcards, r.acards), fouls: pair(r.hf, r.af), goals: pair(r.hg, r.ag), ht: pair(r.hthg, r.htag), referee: r.referee }));
 }
 
 export async function loadResults(prisma: PrismaClient, league: string, before: number): Promise<HistMatch[]> {

@@ -24,6 +24,8 @@ export interface StatsFixture {
   status: "scheduled" | "live" | "finished" | "other";
   homeGoals: number | null;
   awayGoals: number | null;
+  /** As the provider writes it, e.g. "Anthony Taylor, England"; often set a few days before kickoff. */
+  referee?: string | null;
 }
 
 export interface LineupPlayer {

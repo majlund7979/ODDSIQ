@@ -18,7 +18,7 @@ interface RawTeam {
   name: string;
 }
 export interface RawFixture {
-  fixture: { id: number; date: string; timestamp: number; status: { short: string } };
+  fixture: { id: number; date: string; timestamp: number; status: { short: string }; referee?: string | null };
   league: { id: number; season: number };
   teams: { home: RawTeam; away: RawTeam };
   goals: { home: number | null; away: number | null };
@@ -59,6 +59,7 @@ export function normalizeFixtures(raw: RawFixture[]): StatsFixture[] {
       status: FINISHED.has(s) ? "finished" : LIVE.has(s) ? "live" : SCHEDULED.has(s) ? "scheduled" : "other",
       homeGoals: f.goals.home,
       awayGoals: f.goals.away,
+      referee: f.fixture.referee ?? null,
     };
   });
 }

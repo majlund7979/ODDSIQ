@@ -17,7 +17,9 @@ import { realSettledSelections } from "@/lib/real/settled";
 import type { TeamNews } from "@/lib/stats/news";
 import type { PickContext } from "@/lib/picks";
 import { rating } from "@/lib/model/elo";
-import { demoPickContext } from "@/lib/demo/picks";
+import { demoPickContext, demoRecordedPicks } from "@/lib/demo/picks";
+import type { RecordedPick } from "@/lib/picks-extra";
+import { readRecordedPicks } from "@/lib/real/pick-records";
 import { realFinishedEvents, realMarketDetail, realMatchView, realSnapshot, type EventView, type SourceView } from "@/lib/real/store";
 
 export interface Terminal {
@@ -53,6 +55,8 @@ export interface Terminal {
   replay(eventId: string): Promise<ReplayData | undefined>;
   /** Expected goals and team news behind a match's forecast, for the daily picks. */
   pickContext(eventId: string): PickContext | null;
+  /** Picks shown on recent days, settled where the result is known. */
+  recordedPicks(): Promise<RecordedPick[]>;
 }
 
 export async function terminal(): Promise<Terminal> {
@@ -92,6 +96,7 @@ export async function terminal(): Promise<Terminal> {
       replayEvents: () => demo.replayableEvents(now),
       replay: async (id) => demo.replayData(id, now),
       pickContext: (id) => demoPickContext(id, now),
+      recordedPicks: async () => demoRecordedPicks(now),
     };
   }
   if (!DATABASE_CONFIGURED) throw new DataSourceNotConfiguredError();
@@ -117,12 +122,13 @@ export async function terminal(): Promise<Terminal> {
     liveView: (id) => realLiveView(snap, id),
     replayEvents: () => realReplayEvents(snap),
     replay: (id) => realReplayData(db(), snap, id),
+    recordedPicks: () => readRecordedPicks(db(), now),
     pickContext: (id) => {
       const e = snap.events.find((x) => x.view.id === id);
       if (!e?.forecast || !("f" in e.forecast)) return null;
       const { f, home, away } = e.forecast;
       const teams = e.model ? { home, away, homeElo: rating(e.model.elo, home), awayElo: rating(e.model.elo, away), history: e.model.history } : undefined;
-      return { expectedGoals: f.expectedGoals, news: e.news, teams, counts: e.counts };
+      return { expectedGoals: f.expectedGoals, news: e.news, teams, counts: e.counts, htShare: e.htShare };
     },
   };
 }

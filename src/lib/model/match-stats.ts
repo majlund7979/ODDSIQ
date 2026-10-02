@@ -38,6 +38,10 @@ export interface StatMatch {
   /** Yellow plus red cards. */
   cards: [number, number] | null;
   fouls: [number, number] | null;
+  /** Full-time and half-time goals, when the source has them. */
+  goals?: [number, number] | null;
+  ht?: [number, number] | null;
+  referee?: string | null;
 }
 
 /** "2025-26" → "2526". */
@@ -55,7 +59,7 @@ export function parseFootballDataCsv(league: string, season: string, csv: string
   if (!lines.length) return [];
   const head = lines[0].split(",").map((h) => h.trim());
   const col = (name: string) => head.indexOf(name);
-  const idx = { date: col("Date"), home: col("HomeTeam"), away: col("AwayTeam"), hc: col("HC"), ac: col("AC"), hy: col("HY"), ay: col("AY"), hr: col("HR"), ar: col("AR"), hf: col("HF"), af: col("AF") };
+  const idx = { date: col("Date"), home: col("HomeTeam"), away: col("AwayTeam"), hc: col("HC"), ac: col("AC"), hy: col("HY"), ay: col("AY"), hr: col("HR"), ar: col("AR"), hf: col("HF"), af: col("AF"), fthg: col("FTHG"), ftag: col("FTAG"), hthg: col("HTHG"), htag: col("HTAG"), ref: col("Referee") };
   if (idx.date < 0 || idx.home < 0 || idx.away < 0) return [];
   const out: StatMatch[] = [];
   for (const line of lines.slice(1)) {
@@ -81,6 +85,9 @@ export function parseFootballDataCsv(league: string, season: string, csv: string
       corners: pair(idx.hc, idx.ac),
       cards: yellow ? [yellow[0] + (red?.[0] ?? 0), yellow[1] + (red?.[1] ?? 0)] : null,
       fouls: pair(idx.hf, idx.af),
+      goals: pair(idx.fthg, idx.ftag),
+      ht: pair(idx.hthg, idx.htag),
+      referee: idx.ref >= 0 && c[idx.ref]?.trim() ? c[idx.ref].trim() : null,
     });
   }
   return out;
@@ -199,6 +206,8 @@ export interface CountForecast {
    * vsLeague is the expected total relative to the league average (0.1 = 10% more).
    */
   suggestion: { side: "over" | "under"; line: number; probability: number; vsLeague: number };
+  /** Cards only: the appointed referee's record, when known. */
+  referee?: RefereeRate;
 }
 
 /** Teams are the names used in the stats history (match them first). */
@@ -206,8 +215,11 @@ export function forecastCount(model: CountModel, home: string, away: string): Co
   const h = teamRate(model, home);
   const a = teamRate(model, away);
   if (h.n < 5 || a.n < 5) return null;
-  const eh = model.homeMean * h.forRatio * a.againstRatio;
-  const ea = model.awayMean * a.forRatio * h.againstRatio;
+  return lineForecast(model, model.homeMean * h.forRatio * a.againstRatio, model.awayMean * a.forRatio * h.againstRatio, { home: h, away: a });
+}
+
+/** The fair line, line table and suggestion for given expected counts. */
+export function lineForecast(model: CountModel, eh: number, ea: number, rates: CountForecast["rates"]): CountForecast {
   const total = eh + ea;
   let fairLine = Math.floor(total) + 0.5;
   for (let l = Math.max(0.5, fairLine - 3); l <= fairLine + 3; l++) {
@@ -224,7 +236,7 @@ export function forecastCount(model: CountModel, home: string, away: string): Co
   const line = side === "over" ? Math.max(0.5, fairLine - 1) : fairLine + 1;
   const pOver = overProbability(line, total, model.size);
   const suggestion = { side, line, probability: side === "over" ? pOver : 1 - pOver, vsLeague: total / leagueTotal - 1 };
-  return { stat: model.stat, expected: { home: eh, away: ea, total }, rates: { home: h, away: a }, league: { homeMean: model.homeMean, awayMean: model.awayMean, matches: model.matches }, fairLine, lines, suggestion };
+  return { stat: model.stat, expected: { home: eh, away: ea, total }, rates, league: { homeMean: model.homeMean, awayMean: model.awayMean, matches: model.matches }, fairLine, lines, suggestion };
 }
 
 export type CountModels = Partial<Record<CountStat, CountModel>>;
@@ -240,7 +252,7 @@ export function buildCountModels(history: StatMatch[], asOf: number): CountModel
 }
 
 /** Forecasts for a fixture named as another source names it; teams not found in the stats history give none. */
-export function forecastCounts(models: CountModels, homeName: string, awayName: string): CountForecasts {
+export function forecastCounts(models: CountModels, homeName: string, awayName: string, referee?: string | null): CountForecasts {
   const out: CountForecasts = {};
   for (const s of COUNT_STATS) {
     const m = models[s];
@@ -249,7 +261,61 @@ export function forecastCounts(models: CountModels, homeName: string, awayName: 
     const home = matchTeam(homeName, names);
     const away = matchTeam(awayName, names);
     const f = home && away ? forecastCount(m, home, away) : null;
-    if (f) out[s] = f;
+    if (f) out[s] = s === "cards" ? withReferee(m, f, referee) : f;
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Referees and first halves
+
+/** "Anthony Taylor, England", "A. Taylor" and "A Taylor" all become "a taylor". */
+export function refereeKey(name: string): string {
+  const base = name.split(",")[0].normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z\s-]/g, " ").trim();
+  const parts = base.split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return parts[0] ?? "";
+  return `${parts[0][0]} ${parts.slice(1).join(" ")}`;
+}
+
+/** Pseudo-matches pulling a referee's card rate toward the league average. */
+export const REFEREE_SHRINK = 10;
+
+export interface RefereeRate {
+  name: string;
+  n: number;
+  cardsPerMatch: number;
+  leagueCardsPerMatch: number;
+  /** Multiplier on a match's expected cards, shrunk toward 1. */
+  factor: number;
+}
+
+export function refereeRate(model: CountModel, referee: string): RefereeRate | null {
+  if (model.stat !== "cards") return null;
+  const key = refereeKey(referee);
+  if (!key) return null;
+  const rows = model.history.filter((m) => m.referee && refereeKey(m.referee) === key).slice(-60);
+  const league = model.homeMean + model.awayMean;
+  const n = rows.length;
+  const total = rows.reduce((s, m) => s + m.cards![0] + m.cards![1], 0);
+  if (!n) return null;
+  return { name: rows.at(-1)!.referee!, n, cardsPerMatch: total / n, leagueCardsPerMatch: league, factor: (total / league + REFEREE_SHRINK) / (n + REFEREE_SHRINK) };
+}
+
+/** Re-prices a cards forecast with the referee's tendency. */
+export function withReferee(model: CountModel, f: CountForecast, referee: string | null | undefined): CountForecast {
+  const r = referee ? refereeRate(model, referee) : null;
+  if (!r) return f;
+  const scaled = { home: f.expected.home * r.factor, away: f.expected.away * r.factor };
+  return { ...lineForecast(model, scaled.home, scaled.away, f.rates), referee: r };
+}
+
+/** Share of each side's goals scored before half-time, from the league's own history. */
+export function halfTimeShare(history: StatMatch[], asOf: number): { home: number; away: number; n: number } {
+  const rows = history.filter((m) => m.date < asOf && m.date >= asOf - 2 * LEAGUE_WINDOW_MS && m.goals && m.ht);
+  const sum = (i: 0 | 1, k: "goals" | "ht") => rows.reduce((s, m) => s + m[k]![i], 0);
+  const share = (i: 0 | 1) => (rows.length >= 100 && sum(i, "goals") > 0 ? sum(i, "ht") / sum(i, "goals") : DEFAULT_HT_SHARE);
+  return { home: share(0), away: share(1), n: rows.length };
+}
+
+/** Typical share of goals scored in the first half in European top leagues; used when a league has no half-time data. */
+export const DEFAULT_HT_SHARE = 0.44;

@@ -23,6 +23,8 @@ export interface TeamNews {
   /** This match's xG, once finished and published. */
   xg: { home: number; away: number } | null;
   form: { home: XgForm | null; away: XgForm | null };
+  /** The appointed referee, when announced. */
+  referee: string | null;
 }
 
 export interface StoredFixture {
@@ -32,6 +34,7 @@ export interface StoredFixture {
   away: string;
   homeXg: number | null;
   awayXg: number | null;
+  referee?: string | null;
   syncedAt: Date;
   lineupsAt: Date | null;
   injuriesAt: Date | null;
@@ -69,5 +72,6 @@ export function teamNews(f: StoredFixture, history: StoredFixture[]): TeamNews {
     injuriesAt: f.injuriesAt?.getTime() ?? null,
     xg: f.homeXg !== null && f.awayXg !== null ? { home: f.homeXg, away: f.awayXg } : null,
     form: { home: xgForm(f.home, history, f.kickoff.getTime()), away: xgForm(f.away, history, f.kickoff.getTime()) },
+    referee: f.referee ?? null,
   };
 }

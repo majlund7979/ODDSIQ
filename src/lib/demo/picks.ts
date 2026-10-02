@@ -3,7 +3,8 @@
 // matches, Elo fitted on them, and absences from the demo news feed.
 
 import { buildLeagueModel, type LeagueModel } from "@/lib/model/league-model";
-import { buildCountModels, forecastCounts, type CountModels, type StatMatch } from "@/lib/model/match-stats";
+import { buildCountModels, forecastCounts, halfTimeShare, type CountModels, type StatMatch } from "@/lib/model/match-stats";
+import { allPickDrafts, settle, type MatchOutcome, type RecordedPick } from "@/lib/picks-extra";
 import { rating } from "@/lib/model/elo";
 import type { HistMatch } from "@/lib/model/openfootball";
 import type { PickContext } from "@/lib/picks";
@@ -11,7 +12,20 @@ import type { InjuryItem } from "@/lib/stats/types";
 import { teamById } from "./catalog";
 import { expectedGoals } from "./football";
 import { Rng } from "./rng";
-import { feedTime, findEvent, statusAt, universeEvents } from "./store";
+import { feedTime, findEvent, marketRows, statusAt, universeEvents } from "./store";
+
+/** Demo referees: each has a fixed card tendency. */
+const REFEREES: { name: string; cards: number }[] = [
+  { name: "A Taylor", cards: 1.0 },
+  { name: "M Oliver", cards: 0.95 },
+  { name: "S Hooper", cards: 1.15 },
+  { name: "C Kavanagh", cards: 1.25 },
+  { name: "P Tierney", cards: 0.85 },
+  { name: "J Brooks", cards: 1.1 },
+  { name: "R Jones", cards: 0.8 },
+  { name: "T Robinson", cards: 1.35 },
+];
+const refereeFor = (eventId: string) => REFEREES[new Rng(`ref:${eventId}`).int(0, REFEREES.length - 1)];
 
 function poisson(rng: Rng, mean: number): number {
   const l = Math.exp(-mean);
@@ -24,7 +38,7 @@ function poisson(rng: Rng, mean: number): number {
   return k;
 }
 
-const leagueCache = new Map<string, { history: HistMatch[]; model: LeagueModel; counts: CountModels }>();
+const leagueCache = new Map<string, { history: HistMatch[]; model: LeagueModel; counts: CountModels; htShare: ReturnType<typeof halfTimeShare>; outcomes: Map<string, MatchOutcome> }>();
 
 function demoLeague(leagueId: string, now: number) {
   const t = feedTime(now);
@@ -51,13 +65,17 @@ function demoLeague(leagueId: string, now: number) {
     const a = teamById.get(e.event.awayTeamId)!;
     const hc = poisson(rng, 5.4 * Math.exp(0.9 * (h.attack - a.defence) + 0.08));
     const ac = poisson(rng, 4.4 * Math.exp(0.9 * (a.attack - h.defence)));
-    const hk = poisson(rng, 1.8 * Math.exp(-0.6 * (h.attack - a.attack)));
-    const ak = poisson(rng, 2.1 * Math.exp(-0.6 * (a.attack - h.attack)));
+    const ref = refereeFor(e.event.id).cards;
+    const hk = poisson(rng, ref * 1.8 * Math.exp(-0.6 * (h.attack - a.attack)));
+    const ak = poisson(rng, ref * 2.1 * Math.exp(-0.6 * (a.attack - h.attack)));
     const hf = poisson(rng, 11 * Math.exp(-0.4 * (h.attack - a.attack)));
     const af = poisson(rng, 11.8 * Math.exp(-0.4 * (a.attack - h.attack)));
-    return { ...history[i], corners: [hc, ac], cards: [hk, ak], fouls: [hf, af] };
+    const half = (g: number) => Array.from({ length: g }, () => rng.chance(0.44)).filter(Boolean).length;
+    const goals: [number, number] = [history[i].hg, history[i].ag];
+    return { ...history[i], corners: [hc, ac], cards: [hk, ak], fouls: [hf, af], goals, ht: [half(goals[0]), half(goals[1])], referee: refereeFor(e.event.id).name };
   });
-  const out = { history, model: buildLeagueModel(history, t), counts: buildCountModels(stats, t) };
+  const outcomes = new Map(finished.map((e, i) => [e.event.id, { goals: stats[i].goals!, ht: stats[i].ht!, corners: stats[i].corners, cards: stats[i].cards, fouls: stats[i].fouls } as MatchOutcome]));
+  const out = { history, model: buildLeagueModel(history, t), counts: buildCountModels(stats, t), htShare: halfTimeShare(stats, t), outcomes };
   leagueCache.set(key, out);
   return out;
 }
@@ -76,7 +94,8 @@ export function demoPickContext(eventId: string, now: number): PickContext | nul
   const t = feedTime(now);
   const home = teamById.get(ev.event.homeTeamId)!;
   const away = teamById.get(ev.event.awayTeamId)!;
-  const { history, model, counts } = demoLeague(ev.event.leagueId, now);
+  const { history, model, counts, htShare } = demoLeague(ev.event.leagueId, now);
+  const referee = refereeFor(ev.event.id).name;
   const injuries: InjuryItem[] = ev.news
     .filter((n) => n.at <= t && (n.kind === "injury" || n.kind === "suspension"))
     .map((n) => {
@@ -87,8 +106,58 @@ export function demoPickContext(eventId: string, now: number): PickContext | nul
     });
   return {
     expectedGoals: expectedGoals(home.attack, home.defence, away.attack, away.defence),
-    news: { provider: "demo", syncedAt: t, lineups: [], lineupsAt: null, injuries, injuriesAt: t, xg: null, form: { home: null, away: null } },
+    news: { provider: "demo", syncedAt: t, lineups: [], lineupsAt: null, injuries, injuriesAt: t, xg: null, form: { home: null, away: null }, referee },
     teams: { home: home.name, away: away.name, homeElo: rating(model.elo, home.name), awayElo: rating(model.elo, away.name), history },
-    counts: forecastCounts(counts, home.name, away.name),
+    counts: forecastCounts(counts, home.name, away.name, referee),
+    htShare,
   };
+}
+
+/**
+ * The results board in demo mode: what the page would have shown on each of
+ * the last days (picks made at 10:00 UTC), settled against the demo results.
+ */
+const recordedCache = new Map<string, RecordedPick[]>();
+
+export function demoRecordedPicks(now: number, days = 7): RecordedPick[] {
+  const t = feedTime(now);
+  const key = `${Math.floor(t / 3_600_000)}|${days}`;
+  const hit = recordedCache.get(key);
+  if (hit) return hit;
+  if (recordedCache.size > 20) recordedCache.clear();
+  const result = computeRecorded(now, t, days);
+  recordedCache.set(key, result);
+  return result;
+}
+
+function computeRecorded(now: number, t: number, days: number): RecordedPick[] {
+  const out: RecordedPick[] = [];
+  for (let d = 1; d <= days; d++) {
+    const at = Math.floor((t - d * 86_400_000) / 86_400_000) * 86_400_000 + 10 * 3_600_000;
+    const drafts = allPickDrafts(marketRows(at), at, 10, (id) => demoPickContext(id, at));
+    for (const p of drafts) {
+      if (p.row.kickoff > t - 2 * 3_600_000) continue;
+      const o = demoLeague(p.row.leagueId, now).outcomes.get(p.row.eventId);
+      out.push({
+        day: new Date(p.row.kickoff).toLocaleDateString("en-CA", { timeZone: "Europe/Copenhagen" }),
+        kickoff: p.row.kickoff,
+        league: p.row.league,
+        match: p.row.match,
+        category: p.category,
+        outcome: p.outcome,
+        probability: p.probability,
+        odds: p.odds,
+        result: o ? settle(p.spec, o) : null,
+      });
+    }
+  }
+  const seen = new Set<string>();
+  return out
+    .sort((a, b) => b.kickoff - a.kickoff)
+    .filter((p) => {
+      const k = `${p.match}|${p.kickoff}|${p.category}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCountModel, countPmf, forecastCount, forecastCounts, footballDataSeason, overProbability, parseFootballDataCsv, type StatMatch } from "./match-stats";
+import { buildCountModel, countPmf, refereeKey, refereeRate, forecastCount, forecastCounts, footballDataSeason, overProbability, parseFootballDataCsv, type StatMatch } from "./match-stats";
 import { matchTeam } from "./teams";
 
 const CSV = `﻿Div,Date,Time,HomeTeam,AwayTeam,FTHG,FTAG,FTR,HTHG,HTAG,HTR,Referee,HS,AS,HST,AST,HF,AF,HC,AC,HY,AY,HR,AR,B365H
@@ -15,6 +15,7 @@ describe("football-data.co.uk CSV", () => {
     expect(rows[0]).toMatchObject({ home: "Liverpool", away: "Bournemouth", corners: [6, 7], cards: [1, 2], fouls: [7, 10] });
     expect(rows[1].cards).toEqual([4, 4]);
     expect(rows[2].fouls).toBeNull();
+    expect(rows[0]).toMatchObject({ goals: [4, 2], ht: [1, 0], referee: "A Taylor" });
     expect(new Date(rows[2].date).getUTCFullYear()).toBe(2025);
     expect(footballDataSeason("2025-26")).toBe("2526");
   });
@@ -63,5 +64,27 @@ describe("count model", () => {
     const models = { corners: buildCountModel("corners", history, asOf)! };
     expect(forecastCounts(models, "A", "B").corners).toBeDefined();
     expect(forecastCounts(models, "A", "Zebra").corners).toBeUndefined();
+  });
+});
+
+describe("referees", () => {
+  it("matches names across sources", () => {
+    expect(refereeKey("Anthony Taylor, England")).toBe("a taylor");
+    expect(refereeKey("A. Taylor")).toBe("a taylor");
+    expect(refereeKey("A Taylor")).toBe("a taylor");
+  });
+
+  it("raises expected cards for a strict referee, shrunk toward the average", () => {
+    const asOf = Date.UTC(2026, 9, 1);
+    const h: StatMatch[] = Array.from({ length: 100 }, (_, i) => ({
+      league: "x", season: "s", date: asOf - (100 - i) * 86_400_000, home: `T${i % 10}`, away: `T${(i + 3) % 10}`,
+      corners: null, fouls: null, cards: i % 5 === 0 ? [4, 4] : [2, 2], referee: i % 5 === 0 ? "C Kavanagh" : "Other Ref",
+    }));
+    const m = buildCountModel("cards", h, asOf)!;
+    const r = refereeRate(m, "Chris Kavanagh, England")!;
+    expect(r.n).toBe(20);
+    expect(r.cardsPerMatch).toBe(8);
+    expect(r.factor).toBeGreaterThan(1);
+    expect(r.factor).toBeLessThan(8 / (m.homeMean + m.awayMean));
   });
 });

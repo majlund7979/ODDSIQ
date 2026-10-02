@@ -36,6 +36,8 @@ export interface PickContext {
   teams?: { home: string; away: string; homeElo: number; awayElo: number; history: HistMatch[] };
   /** Corners, cards and fouls forecasts. */
   counts?: CountForecasts;
+  /** Share of each side's goals scored before half-time in this league. */
+  htShare?: { home: number; away: number; n: number } | null;
 }
 
 export interface FormGame {

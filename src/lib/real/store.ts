@@ -16,7 +16,7 @@ import { REAL_MODEL, type MatchForecast } from "@/lib/model/ensemble";
 import { explainSelection } from "@/lib/model/explain";
 import { buildLeagueModel, forecastFor, type LeagueModel } from "@/lib/model/league-model";
 import { leagueForOddsKey, OPENFOOTBALL_SOURCE } from "@/lib/model/openfootball";
-import { buildCountModels, forecastCounts, type CountForecasts, type CountModels } from "@/lib/model/match-stats";
+import { buildCountModels, forecastCounts, halfTimeShare, type CountForecasts, type CountModels } from "@/lib/model/match-stats";
 import { loadMatchStats, loadResults } from "@/lib/model/pipeline";
 import { closingLine, type PricePoint as BookPoint } from "@/lib/providers/closing";
 import type { LedgerAudit, LedgerRow, MarketDetail, MarketRow, MatchView } from "@/lib/demo/store";
@@ -63,6 +63,8 @@ export interface EventData {
   news: TeamNews | null;
   /** Corners, cards and fouls forecasts (football, before kickoff). */
   counts: CountForecasts;
+  /** Share of goals before half-time in this league. */
+  htShare: { home: number; away: number; n: number } | null;
   /** Scores as the odds feed reported them after kickoff, oldest first. */
   scores: { at: number; home: number; away: number; completed: boolean }[];
 }
@@ -281,9 +283,13 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
 
   const models = new Map<string, LeagueModel>();
   const countModels = new Map<string, CountModels>();
+  const htShares = new Map<string, { home: number; away: number; n: number }>();
   for (const code of new Set(events.map((e) => leagueForOddsKey(oddsKeyOf(e.leagueId))?.code).filter((c): c is string => Boolean(c)))) {
     models.set(code, await leagueModel(prisma, code, now));
-    countModels.set(code, await leagueCountModels(prisma, code, now));
+    const cm = await leagueCountModels(prisma, code, now);
+    countModels.set(code, cm);
+    const anyModel = cm.corners ?? cm.cards ?? cm.fouls;
+    htShares.set(code, halfTimeShare(anyModel?.history ?? [], now));
   }
 
   const order = (s: string) => ["home", "draw", "away", "over", "under", "yes", "no"].indexOf(s);
@@ -311,7 +317,8 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
       oddsKey: oddsKeyOf(e.leagueId),
       model,
       news: e.statsFixtures[0] ? teamNews(e.statsFixtures[0], xgHistory) : null,
-      counts: league && status === "scheduled" ? forecastCounts(countModels.get(league.code) ?? {}, e.homeTeam.name, e.awayTeam.name) : {},
+      counts: league && status === "scheduled" ? forecastCounts(countModels.get(league.code) ?? {}, e.homeTeam.name, e.awayTeam.name, e.statsFixtures[0]?.referee) : {},
+      htShare: league ? (htShares.get(league.code) ?? null) : null,
       forecast: r ? (r.ok ? { f: r.forecast, home: r.home, away: r.away } : { reason: r.reason }) : null,
       scores: e.scoreUpdates.map((u) => ({ at: u.observedAt.getTime(), home: u.homeScore, away: u.awayScore, completed: u.completed })),
       markets: e.markets.map((m) => {

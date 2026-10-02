@@ -8,8 +8,8 @@ function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function Item({ item, pathname, nested = false }: { item: NavItem; pathname: string; nested?: boolean }) {
-  const active = nested ? pathname === item.href : isActive(pathname, item.href) && !item.children?.some((c) => pathname === c.href);
+function Item({ item, pathname, nested = false, exact = false }: { item: NavItem; pathname: string; nested?: boolean; exact?: boolean }) {
+  const active = nested || exact ? pathname === item.href : isActive(pathname, item.href) && !item.children?.some((c) => pathname === c.href);
   return (
     <Link
       href={item.href}
@@ -32,7 +32,7 @@ export function Sidebar() {
   return (
     <nav aria-label="Main" className="flex flex-col gap-0.5 p-2">
       {SIMPLE_NAV.map((item) => (
-        <Item key={item.href} item={item} pathname={pathname} />
+        <Item key={item.href} item={item} pathname={pathname} exact />
       ))}
       <details open={inAdvanced} className="mt-4 group/adv">
         <summary className="cursor-pointer list-none rounded px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted hover:text-ink">

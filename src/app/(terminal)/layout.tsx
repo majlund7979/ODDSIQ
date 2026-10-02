@@ -44,6 +44,7 @@ export default function TerminalLayout({ children }: Readonly<{ children: React.
             <nav aria-label="Main (mobile)" className="flex gap-3 overflow-x-auto border-b border-line px-4 py-2 text-xs text-ink-2 md:hidden">
               <Link href="/picks">Dagens bets</Link>
               <Link href="/matches">Kampe</Link>
+              <Link href="/picks/resultater">Resultater</Link>
               <Link href="/my-bets">Mine bets</Link>
               <Link href="/dashboard">Avanceret</Link>
             </nav>

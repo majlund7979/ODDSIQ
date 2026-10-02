@@ -13,6 +13,7 @@ import {
   type FormGame,
   type Pick,
 } from "@/lib/picks";
+import { correctScorePicks, coupons, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Dagens bedste bets · ODDSIQ" };
@@ -285,6 +286,23 @@ function CountCard({ p, rank, now }: { p: CountPick; rank: number; now: number }
               </table>
               {p.stat === "fouls" && <div className="mt-1 text-xs text-muted">&quot;For&quot; er frispark holdet begår, &quot;imod&quot; er frispark det får.</div>}
             </Fact>
+            {p.stat === "cards" && (
+              <Fact label="Dommer">
+                {f.referee ? (
+                  <>
+                    {f.referee.name}: <span className="num">{dec(f.referee.cardsPerMatch, 1)}</span> kort pr. kamp i {f.referee.n} kampe, ligasnit{" "}
+                    <span className="num">{dec(f.referee.leagueCardsPerMatch, 1)}</span>.
+                    <div className="text-xs text-muted">
+                      {Math.abs(f.referee.factor - 1) < 0.03
+                        ? "Dommeren ændrer ikke forventningen."
+                        : `Forventede kort er ${f.referee.factor > 1 ? "skruet op" : "skruet ned"} med ${Math.round(Math.abs(f.referee.factor - 1) * 100)} % for dommeren.`}
+                    </div>
+                  </>
+                ) : (
+                  <span className="text-ink-2">Dommeren er ikke meldt endnu, eller vi har ikke hans kampe.</span>
+                )}
+              </Fact>
+            )}
           </div>
           <Fact label="Hvor ligger linjen">
             <table className="w-full text-sm">
@@ -320,9 +338,112 @@ function CountCard({ p, rank, now }: { p: CountPick; rank: number; now: number }
   );
 }
 
+function ExtraCard({ p, rank, now }: { p: ExtraPick; rank: number; now: number }) {
+  const [home, away] = p.row.match.split(" vs ");
+  return (
+    <article className="overflow-hidden rounded-xl border border-line bg-surface">
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1 space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+            <span className="num flex h-6 w-6 items-center justify-center rounded-full bg-surface-3 text-[12px] font-semibold text-ink">{rank}</span>
+            <span>{p.row.league}</span>
+            <span aria-hidden>·</span>
+            <span>{kickoffLabel(p.row.kickoff, now)}</span>
+            <span className={`ml-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:ml-2 ${STRENGTH_TONE[p.strength]}`}>{p.strength}</span>
+          </div>
+          <h2 className="text-lg font-semibold leading-tight sm:text-xl">
+            {home} <span className="text-muted">–</span> {away}
+          </h2>
+          <span className="inline-block rounded-lg bg-accent/15 px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
+        </div>
+        <div className="flex items-center gap-5">
+          <Gauge p={p.probability} />
+          <div className="min-w-[96px] rounded-lg border border-line bg-surface-2 px-3 py-2 text-center">
+            <div className="text-[10px] uppercase tracking-wider text-muted">Fair odds</div>
+            <div className="num text-2xl font-semibold">{dec(p.fairOdds)}</div>
+            <div className="text-[11px] text-ink-2">spil over denne</div>
+          </div>
+        </div>
+      </div>
+      <details className="group" open={rank === 1}>
+        <summary className="flex cursor-pointer list-none items-center justify-between border-t border-line px-5 py-2.5 text-sm text-ink-2 hover:bg-surface-2 hover:text-ink">
+          <span>Se hele analysen</span>
+          <span className="transition-transform group-open:rotate-180" aria-hidden>
+            ▾
+          </span>
+        </summary>
+        <div className="space-y-4 border-t border-line px-5 py-5">
+          <ul className="space-y-2.5">
+            {p.table.map((x) => (
+              <li key={x.label} className="space-y-1">
+                <div className="flex items-baseline justify-between gap-3 text-sm">
+                  <span>{x.label}</span>
+                  <span className="num">
+                    {Math.round(x.probability * 100)}% <span className="text-xs text-muted">· fair odds {dec(1 / Math.max(x.probability, 0.01))}</span>
+                  </span>
+                </div>
+                <div className="h-1.5 rounded bg-surface-3">
+                  <div className="h-1.5 rounded bg-accent" style={{ width: `${Math.min(100, x.probability * 100)}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-ink-2">{p.note}</p>
+        </div>
+      </details>
+    </article>
+  );
+}
+
+function CouponCard({ coupons }: { coupons: Coupon[] }) {
+  if (!coupons.length) return null;
+  return (
+    <section className="rounded-xl border border-accent/40 bg-accent/5 p-5">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold">Dagens kupon</h2>
+        <span className="text-xs text-muted">De stærkeste bets lagt sammen. Alle skal gå hjem.</span>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {coupons.map((c) => (
+          <div key={c.picks.length} className="rounded-lg border border-line bg-surface p-4">
+            <div className="mb-2 flex items-baseline justify-between">
+              <span className="font-semibold">{c.picks.length} bets</span>
+              <span className="num text-sm">
+                <span className="text-accent">{Math.round(c.probability * 100)}%</span> · odds {dec(c.odds)}
+              </span>
+            </div>
+            <ul className="space-y-1 text-sm">
+              {c.picks.map((p) => (
+                <li key={p.row.selectionId} className="flex justify-between gap-3">
+                  <span className="truncate">
+                    {p.outcome} <span className="text-muted">· {p.row.match.replace(" vs ", " – ")}</span>
+                  </span>
+                  <span className="num shrink-0 text-ink-2">{dec(p.row.bestOdds)}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 text-xs text-muted">100 kr giver {Math.round(c.odds * 100)} kr, hvis alle går hjem.</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const EXTRA: Record<string, (rows: Parameters<typeof doubleChancePicks>[0], now: number, n: number, ctx: Parameters<typeof doubleChancePicks>[3]) => ExtraPick[]> = {
+  dobbelt: doubleChancePicks,
+  resultat: correctScorePicks,
+  halvleg: halfTimePicks,
+};
+
 const TABS = [
   { id: "bedste", label: "Bedste bets" },
-  ...GOAL_CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
+  { id: "vinder", label: "Hvem vinder" },
+  { id: "dobbelt", label: "Dobbeltchance" },
+  { id: "maal", label: "Over/under 2,5 mål" },
+  { id: "btts", label: "Begge hold scorer" },
+  { id: "resultat", label: "Korrekt resultat" },
+  { id: "halvleg", label: "1. halvleg" },
   ...COUNT_CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
   { id: "straffe", label: "Straffespark" },
 ];
@@ -346,6 +467,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   const countCat = COUNT_CATEGORIES.find((c) => c.id === tab);
   const picks = tab === "bedste" ? dailyPicks(rows, t.now, count, t.pickContext) : goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [];
   const cPicks = countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [];
+  const xPicks = EXTRA[tab] ? EXTRA[tab](rows, t.now, count, t.pickContext) : [];
+  const recent = tab === "bedste" ? summarise((await t.recordedPicks()).filter((p) => p.category === "bedste")) : null;
   const href = (type: string, n: number) => `/picks?${new URLSearchParams({ ...(type !== "bedste" ? { type } : {}), ...(n !== 10 ? { antal: String(n) } : {}) })}`;
   const scope = analysedMatches(rows, t.now);
   const today = new Date(t.now).toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: TZ });
@@ -403,7 +526,39 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         ))}
       </nav>
 
-      {tab === "straffe" ? (
+      {tab === "bedste" && recent && recent.settled > 0 && (
+        <Link href="/picks/resultater" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm hover:bg-surface-2">
+          <span>
+            Sidste 7 dage: <span className="font-semibold">{recent.won} af {recent.settled}</span> bets gik hjem ({Math.round((recent.won / recent.settled) * 100)} %)
+            {recent.withOdds > 0 && (
+              <>
+                {" · "}
+                <span className={recent.profit >= 0 ? "text-good" : "text-serious"}>
+                  {recent.profit >= 0 ? "+" : "−"}
+                  {Math.round(Math.abs(recent.profit) * 100)} kr
+                </span>{" "}
+                ved 100 kr pr. bet
+              </>
+            )}
+          </span>
+          <span className="text-ink-2">Se alle resultater →</span>
+        </Link>
+      )}
+      {tab === "bedste" && <CouponCard coupons={coupons(picks)} />}
+
+      {EXTRA[tab] ? (
+        xPicks.length === 0 ? (
+          <Empty title="Ingen kampe at vise lige nu" text="Der er ingen fodboldkampe med en analyse de næste 24 timer. Kig forbi igen senere." />
+        ) : (
+          <ol className="space-y-4">
+            {xPicks.map((p, i) => (
+              <li key={p.row.eventId}>
+                <ExtraCard p={p} rank={i + 1} now={t.now} />
+              </li>
+            ))}
+          </ol>
+        )
+      ) : tab === "straffe" ? (
         <Empty
           title="Straffespark kommer senere"
           text="Vores kampdata har ikke straffespark med. Det kræver kamphændelser fra statistik-feedet (API-Football), som skal sættes op med STATS_API_KEY først."
@@ -441,8 +596,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
       <section className="grid gap-4 rounded-xl border border-line bg-surface p-5 text-sm text-ink-2 md:grid-cols-3">
         <div>
           <div className="mb-1 font-semibold text-ink">Hvad vi analyserer</div>
-          Kampresultater og holdstyrke (Elo), forventede mål, xG-form, skader og karantæner, startopstillinger, form, indbyrdes opgør, bookmakernes odds samt
-          hjørnespark, kort og frispark for hvert hold.
+          Kampresultater og holdstyrke (Elo), forventede mål, xG-form, skader og karantæner, startopstillinger, form, indbyrdes opgør, bookmakernes odds,
+          hjørnespark, kort og frispark for hvert hold, dommerens kortstatistik og målene i 1. halvleg.
         </div>
         <div>
           <div className="mb-1 font-semibold text-ink">Hvad &quot;Værdi&quot; betyder</div>
