@@ -1,5 +1,18 @@
 import Link from "next/link";
-import { analysedMatches, dailyPicks, PICK_COUNTS, signedPp, type FormGame, type Pick } from "@/lib/picks";
+import {
+  analysedMatches,
+  COUNT_CATEGORIES,
+  countPicks,
+  dailyPicks,
+  GOAL_CATEGORIES,
+  lineLabel,
+  marketPicks,
+  PICK_COUNTS,
+  signedPp,
+  type CountPick,
+  type FormGame,
+  type Pick,
+} from "@/lib/picks";
 import { terminal } from "@/lib/terminal";
 
 export const metadata = { title: "Dagens bedste bets · ODDSIQ" };
@@ -189,12 +202,151 @@ function PickCard({ p, rank, now }: { p: Pick; rank: number; now: number }) {
   );
 }
 
-export default async function PicksPage({ searchParams }: { searchParams: Promise<{ antal?: string }> }) {
+function CountCard({ p, rank, now }: { p: CountPick; rank: number; now: number }) {
+  const [home, away] = p.row.match.split(" vs ");
+  const f = p.forecast;
+  const leagueAvg = f.league.homeMean + f.league.awayMean;
+  const vs = Math.round(f.suggestion.vsLeague * 100);
+  return (
+    <article className="overflow-hidden rounded-xl border border-line bg-surface">
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1 space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+            <span className="num flex h-6 w-6 items-center justify-center rounded-full bg-surface-3 text-[12px] font-semibold text-ink">{rank}</span>
+            <span>{p.row.league}</span>
+            <span aria-hidden>·</span>
+            <span>{kickoffLabel(p.row.kickoff, now)}</span>
+            <span className={`ml-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:ml-2 ${STRENGTH_TONE[p.strength]}`}>{p.strength}</span>
+          </div>
+          <h2 className="text-lg font-semibold leading-tight sm:text-xl">
+            {home} <span className="text-muted">–</span> {away}
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-lg bg-accent/15 px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
+            <span className="text-sm text-ink-2">
+              Forventet <span className="num font-semibold text-ink">{dec(f.expected.total, 1)}</span> · {vs === 0 ? "som ligasnittet" : `${Math.abs(vs)} % ${vs > 0 ? "over" : "under"} ligasnittet`}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-5">
+          <Gauge p={p.probability} />
+          <div className="min-w-[96px] rounded-lg border border-line bg-surface-2 px-3 py-2 text-center">
+            <div className="text-[10px] uppercase tracking-wider text-muted">Linjen</div>
+            <div className="num text-2xl font-semibold">{lineLabel(f.fairLine)}</div>
+            <div className="text-[11px] text-ink-2">fair odds {dec(p.fairOdds)}</div>
+          </div>
+        </div>
+      </div>
+      <details className="group" open={rank === 1}>
+        <summary className="flex cursor-pointer list-none items-center justify-between border-t border-line px-5 py-2.5 text-sm text-ink-2 hover:bg-surface-2 hover:text-ink">
+          <span>Se hele analysen</span>
+          <span className="transition-transform group-open:rotate-180" aria-hidden>
+            ▾
+          </span>
+        </summary>
+        <div className="grid gap-6 border-t border-line px-5 py-5 md:grid-cols-2">
+          <div className="space-y-5">
+            <Fact label={`Forventede ${p.unit}`}>
+              <div className="flex items-center gap-3">
+                <span className="num text-lg font-semibold">{dec(f.expected.home, 1)}</span>
+                <div className="flex h-2 flex-1 overflow-hidden rounded bg-surface-3">
+                  <span className="bg-accent" style={{ width: `${(f.expected.home / f.expected.total) * 100}%` }} />
+                  <span className="flex-1 bg-model/70" />
+                </div>
+                <span className="num text-lg font-semibold">{dec(f.expected.away, 1)}</span>
+              </div>
+              <div className="mt-1 text-xs text-muted">
+                I alt {dec(f.expected.total, 1)} · ligasnit {dec(leagueAvg, 1)} ({f.league.matches} kampe)
+              </div>
+            </Fact>
+            <Fact label="Pr. kamp, seneste kampe">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted">
+                    <th className="pb-1 font-normal">Hold</th>
+                    <th className="pb-1 text-right font-normal">For</th>
+                    <th className="pb-1 text-right font-normal">Imod</th>
+                    <th className="pb-1 text-right font-normal">Kampe</th>
+                  </tr>
+                </thead>
+                <tbody className="num">
+                  {[
+                    { team: home, r: f.rates.home },
+                    { team: away, r: f.rates.away },
+                  ].map(({ team, r }) => (
+                    <tr key={team} className="border-t border-line">
+                      <td className="py-1.5 font-sans text-ink-2">{team}</td>
+                      <td className="py-1.5 text-right">{dec(r.forAvg, 1)}</td>
+                      <td className="py-1.5 text-right">{dec(r.againstAvg, 1)}</td>
+                      <td className="py-1.5 text-right text-muted">{r.n}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {p.stat === "fouls" && <div className="mt-1 text-xs text-muted">&quot;For&quot; er frispark holdet begår, &quot;imod&quot; er frispark det får.</div>}
+            </Fact>
+          </div>
+          <Fact label="Hvor ligger linjen">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-muted">
+                  <th className="pb-1 font-normal">Linje</th>
+                  <th className="pb-1 text-right font-normal">Over</th>
+                  <th className="pb-1 text-right font-normal">Fair odds</th>
+                  <th className="pb-1 text-right font-normal">Under</th>
+                  <th className="pb-1 text-right font-normal">Fair odds</th>
+                </tr>
+              </thead>
+              <tbody className="num">
+                {f.lines.map((l) => (
+                  <tr key={l.line} className={`border-t border-line ${l.line === f.fairLine ? "bg-surface-2 font-semibold" : ""} ${l.line === f.suggestion.line ? "text-accent" : ""}`}>
+                    <td className="py-1.5">{lineLabel(l.line)}</td>
+                    <td className="py-1.5 text-right">{Math.round(l.over * 100)}%</td>
+                    <td className="py-1.5 text-right">{dec(1 / Math.max(l.over, 0.01))}</td>
+                    <td className="py-1.5 text-right">{Math.round(l.under * 100)}%</td>
+                    <td className="py-1.5 text-right">{dec(1 / Math.max(l.under, 0.01))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-2 text-xs text-ink-2">
+              Den fremhævede række er linjen, hvor over og under er tættest på 50/50. Spil kun, hvis bookmakeren giver en højere odds end fair odds for samme
+              linje.
+            </p>
+          </Fact>
+        </div>
+      </details>
+    </article>
+  );
+}
+
+const TABS = [
+  { id: "bedste", label: "Bedste bets" },
+  ...GOAL_CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
+  ...COUNT_CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
+  { id: "straffe", label: "Straffespark" },
+];
+
+function Empty({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-xl border border-line bg-surface px-6 py-10 text-center">
+      <div className="text-lg font-semibold">{title}</div>
+      <p className="mx-auto mt-2 max-w-md text-sm text-ink-2">{text}</p>
+    </div>
+  );
+}
+
+export default async function PicksPage({ searchParams }: { searchParams: Promise<{ antal?: string; type?: string }> }) {
   const t = await terminal();
   const q = await searchParams;
   const count = PICK_COUNTS.find((n) => String(n) === q.antal) ?? 10;
+  const tab = TABS.find((x) => x.id === q.type)?.id ?? "bedste";
   const rows = t.marketRows();
-  const picks = dailyPicks(rows, t.now, count, t.pickContext);
+  const goalCat = GOAL_CATEGORIES.find((c) => c.id === tab);
+  const countCat = COUNT_CATEGORIES.find((c) => c.id === tab);
+  const picks = tab === "bedste" ? dailyPicks(rows, t.now, count, t.pickContext) : goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [];
+  const cPicks = countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [];
+  const href = (type: string, n: number) => `/picks?${new URLSearchParams({ ...(type !== "bedste" ? { type } : {}), ...(n !== 10 ? { antal: String(n) } : {}) })}`;
   const scope = analysedMatches(rows, t.now);
   const today = new Date(t.now).toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: TZ });
 
@@ -213,7 +365,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
             {PICK_COUNTS.map((n) => (
               <Link
                 key={n}
-                href={`/picks?antal=${n}`}
+                href={href(tab, n)}
                 scroll={false}
                 aria-current={n === count ? "page" : undefined}
                 className={`rounded-md px-4 py-1.5 text-sm font-medium ${n === count ? "bg-accent text-page" : "text-ink-2 hover:text-ink"}`}
@@ -237,13 +389,45 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         </div>
       </header>
 
-      {picks.length === 0 ? (
-        <div className="rounded-xl border border-line bg-surface px-6 py-10 text-center">
-          <div className="text-lg font-semibold">Ingen kampe at vise lige nu</div>
-          <p className="mx-auto mt-2 max-w-md text-sm text-ink-2">
-            Der er ingen fodboldkampe med en analyse de næste 24 timer. Vi analyserer en kamp, når der er under et døgn til kampstart. Kig forbi igen senere.
-          </p>
-        </div>
+      <nav aria-label="Bet-type" className="flex flex-wrap gap-2">
+        {TABS.map((x) => (
+          <Link
+            key={x.id}
+            href={href(x.id, count)}
+            scroll={false}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-sm ${x.id === tab ? "border-accent bg-accent/15 font-medium text-accent" : "border-line text-ink-2 hover:border-line-strong hover:text-ink"}`}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === "straffe" ? (
+        <Empty
+          title="Straffespark kommer senere"
+          text="Vores kampdata har ikke straffespark med. Det kræver kamphændelser fra statistik-feedet (API-Football), som skal sættes op med STATS_API_KEY først."
+        />
+      ) : countCat ? (
+        cPicks.length === 0 ? (
+          <Empty
+            title={`Ingen ${countCat.unit}-analyser lige nu`}
+            text={`Der er ingen kampe de næste 24 timer, hvor vi har nok ${countCat.unit}-historik for begge hold. Data hentes automatisk fra football-data.co.uk.`}
+          />
+        ) : (
+          <ol className="space-y-4">
+            {cPicks.map((p, i) => (
+              <li key={p.row.eventId}>
+                <CountCard p={p} rank={i + 1} now={t.now} />
+              </li>
+            ))}
+          </ol>
+        )
+      ) : picks.length === 0 ? (
+        <Empty
+          title="Ingen kampe at vise lige nu"
+          text="Der er ingen fodboldkampe med en analyse de næste 24 timer. Vi analyserer en kamp, når der er under et døgn til kampstart. Kig forbi igen senere."
+        />
       ) : (
         <ol className="space-y-4">
           {picks.map((p, i) => (
@@ -257,7 +441,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
       <section className="grid gap-4 rounded-xl border border-line bg-surface p-5 text-sm text-ink-2 md:grid-cols-3">
         <div>
           <div className="mb-1 font-semibold text-ink">Hvad vi analyserer</div>
-          Kampresultater og holdstyrke (Elo), forventede mål, xG-form, skader og karantæner, startopstillinger, form, indbyrdes opgør og bookmakernes odds.
+          Kampresultater og holdstyrke (Elo), forventede mål, xG-form, skader og karantæner, startopstillinger, form, indbyrdes opgør, bookmakernes odds samt
+          hjørnespark, kort og frispark for hvert hold.
         </div>
         <div>
           <div className="mb-1 font-semibold text-ink">Hvad &quot;Værdi&quot; betyder</div>
@@ -269,7 +454,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         </div>
         <p className="text-xs text-muted md:col-span-3">
           Kilde: {t.dataLabel}. Bookmakernes odds vejer halvdelen, fordi de rummer nyheder og rygter. Skader og xG-form flytter de forventede mål efter en fast
-          tommelfingerregel. Form og indbyrdes opgør indgår allerede i resultatmodellen og vises som baggrund.
+          tommelfingerregel. Form og indbyrdes opgør indgår allerede i resultatmodellen og vises som baggrund. Hjørnespark, kort og frispark: holdenes seneste 20 kampe fra
+          football-data.co.uk sammenlignet med ligasnittet; tippet går i retning af, om kampen ventes over eller under snittet, én linje på den sikre side.
         </p>
       </section>
     </div>

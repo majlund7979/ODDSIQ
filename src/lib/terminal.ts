@@ -122,7 +122,7 @@ export async function terminal(): Promise<Terminal> {
       if (!e?.forecast || !("f" in e.forecast)) return null;
       const { f, home, away } = e.forecast;
       const teams = e.model ? { home, away, homeElo: rating(e.model.elo, home), awayElo: rating(e.model.elo, away), history: e.model.history } : undefined;
-      return { expectedGoals: f.expectedGoals, news: e.news, teams };
+      return { expectedGoals: f.expectedGoals, news: e.news, teams, counts: e.counts };
     },
   };
 }

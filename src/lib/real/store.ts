@@ -16,7 +16,8 @@ import { REAL_MODEL, type MatchForecast } from "@/lib/model/ensemble";
 import { explainSelection } from "@/lib/model/explain";
 import { buildLeagueModel, forecastFor, type LeagueModel } from "@/lib/model/league-model";
 import { leagueForOddsKey, OPENFOOTBALL_SOURCE } from "@/lib/model/openfootball";
-import { loadResults } from "@/lib/model/pipeline";
+import { buildCountModels, forecastCounts, type CountForecasts, type CountModels } from "@/lib/model/match-stats";
+import { loadMatchStats, loadResults } from "@/lib/model/pipeline";
 import { closingLine, type PricePoint as BookPoint } from "@/lib/providers/closing";
 import type { LedgerAudit, LedgerRow, MarketDetail, MarketRow, MatchView } from "@/lib/demo/store";
 import { teamNews, type StoredFixture, type TeamNews } from "@/lib/stats/news";
@@ -60,6 +61,8 @@ export interface EventData {
   forecast: { f: MatchForecast; home: string; away: string } | { reason: string } | null;
   model: LeagueModel | null;
   news: TeamNews | null;
+  /** Corners, cards and fouls forecasts (football, before kickoff). */
+  counts: CountForecasts;
   /** Scores as the odds feed reported them after kickoff, oldest first. */
   scores: { at: number; home: number; away: number; completed: boolean }[];
 }
@@ -111,6 +114,17 @@ async function leagueModel(prisma: PrismaClient, code: string, now: number): Pro
   const model = buildLeagueModel(await loadResults(prisma, code, now), now);
   modelCache.set(code, { hour, model });
   return model;
+}
+
+const countCache = new Map<string, { hour: number; models: CountModels }>();
+
+async function leagueCountModels(prisma: PrismaClient, code: string, now: number): Promise<CountModels> {
+  const hour = Math.floor(now / HOUR);
+  const hit = countCache.get(code);
+  if (hit && hit.hour === hour) return hit.models;
+  const models = buildCountModels(await loadMatchStats(prisma, code, now), now);
+  countCache.set(code, { hour, models });
+  return models;
 }
 
 function toPrediction(p: { id: string; seq: number; createdAt: Date; eventId: string; marketId: string; selectionId: string; modelVersionId: string; probability: number; ciLow: number; ciHigh: number; confidence: number; odds: unknown; bookmakerId: string; prevHash: string; hash: string }): Prediction {
@@ -266,8 +280,10 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
   const books = new Map(bookRows.map((b) => [b.id, b.name]));
 
   const models = new Map<string, LeagueModel>();
+  const countModels = new Map<string, CountModels>();
   for (const code of new Set(events.map((e) => leagueForOddsKey(oddsKeyOf(e.leagueId))?.code).filter((c): c is string => Boolean(c)))) {
     models.set(code, await leagueModel(prisma, code, now));
+    countModels.set(code, await leagueCountModels(prisma, code, now));
   }
 
   const order = (s: string) => ["home", "draw", "away", "over", "under", "yes", "no"].indexOf(s);
@@ -295,6 +311,7 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
       oddsKey: oddsKeyOf(e.leagueId),
       model,
       news: e.statsFixtures[0] ? teamNews(e.statsFixtures[0], xgHistory) : null,
+      counts: league && status === "scheduled" ? forecastCounts(countModels.get(league.code) ?? {}, e.homeTeam.name, e.awayTeam.name) : {},
       forecast: r ? (r.ok ? { f: r.forecast, home: r.home, away: r.away } : { reason: r.reason }) : null,
       scores: e.scoreUpdates.map((u) => ({ at: u.observedAt.getTime(), home: u.homeScore, away: u.awayScore, completed: u.completed })),
       markets: e.markets.map((m) => {

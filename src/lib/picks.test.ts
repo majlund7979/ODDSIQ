@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MarketRow } from "@/lib/demo/store";
 import type { TeamNews } from "@/lib/stats/news";
-import { absences, analysePick, dailyPicks, goalsProbability, headToHead, MARKET_WEIGHT, outcomeLabel, recentForm, strengthOf } from "./picks";
+import { absences, analysePick, countPicks, dailyPicks, marketPicks, goalsProbability, headToHead, MARKET_WEIGHT, outcomeLabel, recentForm, strengthOf } from "./picks";
 
 const now = Date.UTC(2026, 9, 2, 12);
 const row = (o: Partial<MarketRow>): MarketRow =>
@@ -100,5 +100,20 @@ describe("match facts", () => {
     expect(dailyPicks([row({ sportId: "tennis" })], now, 5)).toEqual([]);
     expect(strengthOf(0.8)).toBe("Meget stærk");
     expect(strengthOf(0.5)).toBe("Middel");
+  });
+});
+
+describe("bet types", () => {
+  it("keeps one market when split by type", () => {
+    const rows = [row({ selectionId: "a", modelProbability: 0.7, marketProbability: 0.7, marketType: "OU25", side: "over" }), row({ selectionId: "b", modelProbability: 0.5 })];
+    expect(marketPicks(rows, now, 5, "1X2").map((p) => p.row.selectionId)).toEqual(["b"]);
+  });
+
+  it("ranks corner suggestions by how far the match is from the league average", () => {
+    const f = (vsLeague: number) => ({ suggestion: { side: "over", line: 8.5, probability: 0.7, vsLeague } }) as never;
+    const ctx = (id: string) => ({ expectedGoals: { home: 1, away: 1 }, news: null, counts: { corners: f(id === "e1" ? 0.05 : -0.2) } });
+    const picks = countPicks([row({ eventId: "e1" }), row({ eventId: "e2" })], now, 5, "corners", ctx);
+    expect(picks.map((p) => p.row.eventId)).toEqual(["e2", "e1"]);
+    expect(picks[1].outcome).toBe("Over 8,5 hjørnespark");
   });
 });

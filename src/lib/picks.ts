@@ -11,6 +11,7 @@
 // a Poisson goals model; their size is a heuristic, not a fitted parameter.
 
 import type { MarketRow } from "@/lib/demo/store";
+import type { CountForecast, CountForecasts, CountStat } from "@/lib/model/match-stats";
 import type { HistMatch } from "@/lib/model/openfootball";
 import { teamKey } from "@/lib/model/teams";
 import type { TeamNews } from "@/lib/stats/news";
@@ -33,6 +34,8 @@ export interface PickContext {
   news: TeamNews | null;
   /** The results data behind the model, when the teams are matched to it. */
   teams?: { home: string; away: string; homeElo: number; awayElo: number; history: HistMatch[] };
+  /** Corners, cards and fouls forecasts. */
+  counts?: CountForecasts;
 }
 
 export interface FormGame {
@@ -245,3 +248,65 @@ export function analysedMatches(rows: MarketRow[], now: number) {
 }
 
 export { signedPp };
+
+// ---------------------------------------------------------------------------
+// Bet types
+
+export const GOAL_CATEGORIES = [
+  { id: "vinder", label: "Hvem vinder", market: "1X2" },
+  { id: "maal", label: "Over/under 2,5 mål", market: "OU25" },
+  { id: "btts", label: "Begge hold scorer", market: "BTTS" },
+] as const;
+
+export const COUNT_CATEGORIES: { id: string; label: string; stat: CountStat; unit: string }[] = [
+  { id: "hjorne", label: "Hjørnespark", stat: "corners", unit: "hjørnespark" },
+  { id: "kort", label: "Kort", stat: "cards", unit: "kort" },
+  { id: "frispark", label: "Frispark", stat: "fouls", unit: "frispark" },
+];
+
+/** The best pick per match within one goal market. */
+export function marketPicks(rows: MarketRow[], now: number, count: number, market: string, context: (eventId: string) => PickContext | null = () => null): Pick[] {
+  return dailyPicks(
+    rows.filter((r) => r.marketType === market),
+    now,
+    count,
+    context,
+  );
+}
+
+export interface CountPick {
+  row: MarketRow;
+  stat: CountStat;
+  unit: string;
+  outcome: string;
+  probability: number;
+  fairOdds: number;
+  forecast: CountForecast;
+  strength: Pick["strength"];
+}
+
+export const lineLabel = (line: number) => line.toFixed(1).replace(".", ",");
+
+/** One suggestion per match for corners, cards or fouls. */
+export function countPicks(rows: MarketRow[], now: number, count: number, stat: CountStat, context: (eventId: string) => PickContext | null): CountPick[] {
+  const cat = COUNT_CATEGORIES.find((c) => c.stat === stat)!;
+  const seen = new Map<string, CountPick>();
+  for (const r of rows) {
+    if (r.sportId !== "football" || r.status !== "scheduled" || r.kickoff <= now || r.kickoff > now + PICK_WINDOW_MS || seen.has(r.eventId)) continue;
+    const f = context(r.eventId)?.counts?.[stat];
+    if (!f) continue;
+    const s = f.suggestion;
+    seen.set(r.eventId, {
+      row: r,
+      stat,
+      unit: cat.unit,
+      outcome: `${s.side === "over" ? "Over" : "Under"} ${lineLabel(s.line)} ${cat.unit}`,
+      probability: s.probability,
+      fairOdds: 1 / s.probability,
+      forecast: f,
+      strength: strengthOf(s.probability),
+    });
+  }
+  // Matches that differ most from a normal league match first: that is where the analysis says the most.
+  return [...seen.values()].sort((a, b) => Math.abs(b.forecast.suggestion.vsLeague) - Math.abs(a.forecast.suggestion.vsLeague) || a.row.kickoff - b.row.kickoff).slice(0, count);
+}
