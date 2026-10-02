@@ -42,10 +42,10 @@ export default function TerminalLayout({ children }: Readonly<{ children: React.
               </div>
             </header>
             <nav aria-label="Main (mobile)" className="flex gap-3 overflow-x-auto border-b border-line px-4 py-2 text-xs text-ink-2 md:hidden">
-              <Link href="/picks">Dashboard</Link>
-              <Link href="/markets">Markets</Link>
-              <Link href="/model-lab/ledger">Ledger</Link>
-              <Link href="/model-lab/audit">Audit</Link>
+              <Link href="/picks">Dagens bets</Link>
+              <Link href="/matches">Kampe</Link>
+              <Link href="/my-bets">Mine bets</Link>
+              <Link href="/dashboard">Avanceret</Link>
             </nav>
             <main className="min-w-0 flex-1 px-4 py-5 md:px-6">{children}</main>
           </div>

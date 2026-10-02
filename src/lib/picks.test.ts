@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { MarketRow } from "@/lib/demo/store";
 import type { TeamNews } from "@/lib/stats/news";
-import { absences, analysePick, dailyPicks, goalsProbability, MARKET_WEIGHT, outcomeLabel } from "./picks";
+import { absences, analysePick, dailyPicks, goalsProbability, headToHead, MARKET_WEIGHT, outcomeLabel, recentForm, strengthOf } from "./picks";
 
 const now = Date.UTC(2026, 9, 2, 12);
 const row = (o: Partial<MarketRow>): MarketRow =>
-  ({ selectionId: "s", eventId: "e1", marketType: "1X2", side: "home", selection: "Arsenal", match: "Arsenal vs Chelsea", status: "scheduled", kickoff: now + 3_600_000, modelProbability: 0.5, marketProbability: 0.5, bestOdds: 2, ...o }) as MarketRow;
+  ({ selectionId: "s", eventId: "e1", sportId: "football", movement: 0, marketType: "1X2", side: "home", selection: "Arsenal", match: "Arsenal vs Chelsea", status: "scheduled", kickoff: now + 3_600_000, modelProbability: 0.5, marketProbability: 0.5, bestOdds: 2, ...o }) as MarketRow;
 const news = (o: Partial<TeamNews>): TeamNews => ({ provider: "t", syncedAt: now, lineups: [], lineupsAt: null, injuries: [], injuriesAt: now, xg: null, form: { home: null, away: null }, ...o });
 const ctx = (n: TeamNews | null) => ({ expectedGoals: { home: 1.6, away: 1.1 }, news: n });
 
@@ -80,5 +80,25 @@ describe("team news and form", () => {
     expect(strong.probability).toBeGreaterThan(base.probability);
     const few = analysePick(row({}), ctx(news({ form: { home: { ...form.home, n: 2 }, away: form.away } })))!;
     expect(few.probability).toBeCloseTo(base.probability);
+  });
+});
+
+describe("match facts", () => {
+  const m = (home: string, away: string, hg: number, ag: number, d: number) => ({ league: "x", season: "s", date: d, home, away, hg, ag });
+  const history = [m("Arsenal", "Chelsea", 2, 0, 1), m("Chelsea", "Arsenal", 1, 1, 2), m("Arsenal", "Spurs", 0, 1, 3), m("Leeds", "Chelsea", 0, 3, 4)];
+
+  it("lists a team's latest results newest first", () => {
+    expect(recentForm("Arsenal", history).map((g) => `${g.result}${g.score}`)).toEqual(["T0-1", "U1-1", "V2-0"]);
+  });
+
+  it("counts head-to-head from today's home team", () => {
+    expect(headToHead("Chelsea", "Arsenal", history)).toMatchObject({ home: 0, draw: 1, away: 1 });
+    expect(headToHead("Leeds", "Spurs", history)).toBeNull();
+  });
+
+  it("only picks football and names the strength", () => {
+    expect(dailyPicks([row({ sportId: "tennis" })], now, 5)).toEqual([]);
+    expect(strengthOf(0.8)).toBe("Meget stærk");
+    expect(strengthOf(0.5)).toBe("Middel");
   });
 });

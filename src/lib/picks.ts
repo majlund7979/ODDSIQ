@@ -11,6 +11,7 @@
 // a Poisson goals model; their size is a heuristic, not a fitted parameter.
 
 import type { MarketRow } from "@/lib/demo/store";
+import type { HistMatch } from "@/lib/model/openfootball";
 import { teamKey } from "@/lib/model/teams";
 import type { TeamNews } from "@/lib/stats/news";
 
@@ -30,6 +31,56 @@ export const MAX_ABSENCES = 6;
 export interface PickContext {
   expectedGoals: { home: number; away: number };
   news: TeamNews | null;
+  /** The results data behind the model, when the teams are matched to it. */
+  teams?: { home: string; away: string; homeElo: number; awayElo: number; history: HistMatch[] };
+}
+
+export interface FormGame {
+  result: "V" | "U" | "T";
+  score: string;
+  opponent: string;
+  home: boolean;
+}
+
+/** Background facts shown with a pick; they do not move its probability. */
+export interface PickInsights {
+  expectedGoals: { home: number; away: number } | null;
+  elo: { home: number; away: number } | null;
+  form: { home: FormGame[]; away: FormGame[] } | null;
+  h2h: { home: number; draw: number; away: number; games: { date: number; score: string }[] } | null;
+  /** Change in the best odds since the market opened; negative means the price shortened. */
+  movement: number;
+  lineupsConfirmed: boolean;
+}
+
+export const FORM_GAMES = 5;
+export const H2H_GAMES = 6;
+
+/** A team's last results, newest first, from its own point of view. */
+export function recentForm(team: string, history: HistMatch[], n = FORM_GAMES): FormGame[] {
+  const out: FormGame[] = [];
+  for (let i = history.length - 1; i >= 0 && out.length < n; i--) {
+    const m = history[i];
+    const home = m.home === team;
+    if (!home && m.away !== team) continue;
+    const gf = home ? m.hg : m.ag;
+    const ga = home ? m.ag : m.hg;
+    out.push({ result: gf > ga ? "V" : gf === ga ? "U" : "T", score: `${gf}-${ga}`, opponent: home ? m.away : m.home, home });
+  }
+  return out;
+}
+
+/** Recent meetings, counted from the point of view of today's home team. */
+export function headToHead(home: string, away: string, history: HistMatch[], n = H2H_GAMES): PickInsights["h2h"] {
+  const games = history.filter((m) => (m.home === home && m.away === away) || (m.home === away && m.away === home)).slice(-n).reverse();
+  if (!games.length) return null;
+  const forHome = (m: HistMatch) => (m.home === home ? m.hg - m.ag : m.ag - m.hg);
+  return {
+    home: games.filter((m) => forHome(m) > 0).length,
+    draw: games.filter((m) => forHome(m) === 0).length,
+    away: games.filter((m) => forHome(m) < 0).length,
+    games: games.map((m) => ({ date: m.date, score: m.home === home ? `${m.hg}-${m.ag}` : `${m.ag}-${m.hg}` })),
+  };
 }
 
 export interface PickFactor {
@@ -51,6 +102,13 @@ export interface Pick {
   value: boolean;
   lineupsConfirmed: boolean;
   factors: PickFactor[];
+  insights: PickInsights;
+  /** Plain-language strength of the pick, from its probability. */
+  strength: "Meget stærk" | "Stærk" | "God" | "Middel";
+}
+
+export function strengthOf(p: number): Pick["strength"] {
+  return p >= 0.75 ? "Meget stærk" : p >= 0.65 ? "Stærk" : p >= 0.55 ? "God" : "Middel";
 }
 
 export function outcomeLabel(r: MarketRow): string {
@@ -100,7 +158,7 @@ export function absences(news: TeamNews | null) {
 
 const signedPp = (pp: number) => `${pp >= 0 ? "+" : "−"}${Math.abs(pp).toFixed(1).replace(".", ",")} pp`;
 
-export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick, "fairOdds" | "value" | "outcome"> | null {
+export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick, "fairOdds" | "value" | "outcome" | "strength"> | null {
   const model = row.modelProbability;
   if (model == null) return null;
   const factors: PickFactor[] = [{ label: "Resultatmodel", pp: null, detail: `${pct(model)} ud fra kampresultater og Elo` }];
@@ -153,13 +211,22 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
   const market = row.marketProbability;
   const final = clamp((1 - MARKET_WEIGHT) * p + MARKET_WEIGHT * market);
   factors.push({ label: "Bookmakerne", pp: (final - p) * 100, detail: `${pct(market)}, inkl. nyheder og rygter markedet har læst` });
-  return { row, probability: final, lineupsConfirmed, factors };
+  const t = ctx?.teams;
+  const insights: PickInsights = {
+    expectedGoals: ctx?.expectedGoals ?? null,
+    elo: t ? { home: Math.round(t.homeElo), away: Math.round(t.awayElo) } : null,
+    form: t ? { home: recentForm(t.home, t.history), away: recentForm(t.away, t.history) } : null,
+    h2h: t ? headToHead(t.home, t.away, t.history) : null,
+    movement: row.movement,
+    lineupsConfirmed,
+  };
+  return { row, probability: final, lineupsConfirmed, factors, insights };
 }
 
 export function dailyPicks(rows: MarketRow[], now: number, count: number, context: (eventId: string) => PickContext | null = () => null): Pick[] {
   const best = new Map<string, NonNullable<ReturnType<typeof analysePick>>>();
   for (const r of rows) {
-    if (r.status !== "scheduled" || r.kickoff <= now || r.kickoff > now + PICK_WINDOW_MS) continue;
+    if (r.sportId !== "football" || r.status !== "scheduled" || r.kickoff <= now || r.kickoff > now + PICK_WINDOW_MS) continue;
     const a = analysePick(r, context(r.eventId));
     if (!a) continue;
     const cur = best.get(r.eventId);
@@ -168,7 +235,13 @@ export function dailyPicks(rows: MarketRow[], now: number, count: number, contex
   return [...best.values()]
     .sort((a, b) => b.probability - a.probability || a.row.kickoff - b.row.kickoff)
     .slice(0, count)
-    .map((a) => ({ ...a, outcome: outcomeLabel(a.row), fairOdds: 1 / a.probability, value: a.row.bestOdds * a.probability > 1 }));
+    .map((a) => ({ ...a, outcome: outcomeLabel(a.row), fairOdds: 1 / a.probability, value: a.row.bestOdds * a.probability > 1, strength: strengthOf(a.probability) }));
+}
+
+/** Football matches in the pick window that the model has analysed. */
+export function analysedMatches(rows: MarketRow[], now: number) {
+  const ev = rows.filter((r) => r.sportId === "football" && r.status === "scheduled" && r.modelProbability != null && r.kickoff > now && r.kickoff <= now + PICK_WINDOW_MS);
+  return { matches: new Set(ev.map((r) => r.eventId)).size, leagues: new Set(ev.map((r) => r.league)).size };
 }
 
 export { signedPp };
