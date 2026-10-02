@@ -1,8 +1,19 @@
 // Feed settings from the environment. Nothing is fetched unless ODDS_API_KEY is set.
 
+import { DEFAULT_ODDS_PLAN, type OddsPlan } from "./ingest";
 import { TheOddsApiFeed } from "./the-odds-api";
 
-export const FEED_DEFAULTS = { sports: "soccer_epl", regions: "eu", markets: "h2h" };
+/** Top 5 leagues, the Danish Superliga and the Champions League (Mads, 2026-10-02). */
+export const DEFAULT_SPORTS = [
+  "soccer_epl",
+  "soccer_spain_la_liga",
+  "soccer_germany_bundesliga",
+  "soccer_italy_serie_a",
+  "soccer_france_ligue_one",
+  "soccer_denmark_superliga",
+  "soccer_uefa_champs_league",
+];
+export const FEED_DEFAULTS = { sports: DEFAULT_SPORTS.join(","), regions: "eu", markets: "h2h" };
 
 export function feedConfig(env: Record<string, string | undefined> = process.env) {
   const list = (v: string | undefined, d: string) =>
@@ -20,7 +31,15 @@ export function feedConfig(env: Record<string, string | undefined> = process.env
     markets: (markets.length ? markets : ["h2h"]).join(","),
     /** Credits one run spends on odds (results are extra, only when games need settling). */
     creditsPerRun: sports.length * regions.length * (markets.length || 1),
+    /** Credits one odds call costs. */
+    oddsCost: regions.length * (markets.length || 1),
   };
+}
+
+/** How scheduled runs spend credits; ODDS_MIN_HOURS sets the minimum hours between two odds calls for one league. */
+export function oddsPlan(env: Record<string, string | undefined> = process.env): OddsPlan {
+  const h = Number(env.ODDS_MIN_HOURS);
+  return { ...DEFAULT_ODDS_PLAN, ...(env.ODDS_MIN_HOURS && Number.isFinite(h) && h >= 0 ? { minIntervalMs: h * 3_600_000 } : {}), oddsCost: feedConfig(env).oddsCost };
 }
 
 export function configuredFeed(env: Record<string, string | undefined> = process.env): TheOddsApiFeed | null {

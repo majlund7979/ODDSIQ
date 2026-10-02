@@ -58,5 +58,7 @@ export interface OddsFeed {
   readonly providerName: string;
   competitions(): Promise<FeedResponse<FeedCompetition[]>>;
   odds(competitionKey: string): Promise<FeedResponse<FeedEvent[]>>;
+  /** Kickoff times of upcoming events, without prices. Free on The Odds API, so runs can skip competitions with nothing on soon. */
+  upcoming(competitionKey: string): Promise<FeedResponse<number[]>>;
   results(competitionKey: string, daysFrom: number): Promise<FeedResponse<FeedResult[]>>;
 }

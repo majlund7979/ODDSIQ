@@ -63,8 +63,61 @@ export function bookMargins(events: FeedEvent[]): Map<string, number> {
   return new Map([...acc].map(([b, xs]) => [b, xs.reduce((a, c) => a + c, 0) / xs.length]));
 }
 
+/**
+ * Credit plan for scheduled runs on a small monthly allowance. Odds for a
+ * competition are bought only when it has a match kicking off inside the
+ * picks window, at most once per minimum interval, soonest kickoff first, and
+ * within the run's share of the credits left this month.
+ */
+export interface OddsPlan {
+  /** Only buy odds for competitions with a kickoff this soon. */
+  windowMs: number;
+  /** Minimum time between two paid odds calls for one competition. */
+  minIntervalMs: number;
+  /** Credits one odds call costs (markets × regions). */
+  oddsCost: number;
+  /** Scheduled runs per day, to spread the remaining credits over the month. */
+  runsPerDay: number;
+}
+
+export const DEFAULT_ODDS_PLAN: Omit<OddsPlan, "oddsCost"> = { windowMs: 30 * 3_600_000, minIntervalMs: 11 * 3_600_000, runsPerDay: 4 };
+/** /scores with daysFrom costs 2 credits. */
+export const RESULTS_COST = 2;
+/** A match that kicked off this long ago is almost always over, so one results call settles it. */
+export const SETTLE_AFTER_MS = 2 * 3_600_000;
+
+/**
+ * Credits this run may spend: three times an even share of what is left until
+ * the end of the month (the free plan's allowance is monthly), so busy
+ * weekends can spend what quiet weekdays saved. Null when the feed reports no
+ * quota.
+ */
+export function runBudget(remaining: number | null, now: number, runsPerDay: number): number | null {
+  if (remaining === null) return null;
+  const d = new Date(now);
+  const monthEnd = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1);
+  const runsLeft = Math.max(1, Math.ceil(((monthEnd - now) / DAY) * runsPerDay));
+  return Math.max(0, Math.min(remaining, Math.floor((3 * remaining) / runsLeft)));
+}
+
+/** Competitions whose odds this run should buy, soonest kickoff first. Pure. */
+export function planOdds(
+  keys: string[],
+  s: { now: number; kickoffs: Map<string, number[]>; lastFetched: Map<string, number | null>; budget: number | null },
+  plan: OddsPlan,
+): string[] {
+  const due = keys
+    .map((k) => ({ k, next: Math.min(...(s.kickoffs.get(k) ?? []).filter((t) => t > s.now && t <= s.now + plan.windowMs)) }))
+    .filter(({ k, next }) => Number.isFinite(next) && s.now - (s.lastFetched.get(k) ?? -Infinity) >= plan.minIntervalMs)
+    .sort((a, b) => a.next - b.next);
+  const affordable = s.budget === null ? due.length : Math.floor(s.budget / Math.max(1, plan.oddsCost));
+  return due.slice(0, affordable).map((d) => d.k);
+}
+
 export interface IngestOptions {
   competitionKeys: string[];
+  /** Spend credits by plan (scheduled runs). Without it every competition's odds are bought. */
+  plan?: OddsPlan;
   now?: number;
   /** Id prefix for everything this feed creates. */
   prefix?: string;
@@ -80,6 +133,10 @@ export interface IngestSummary {
   inPlay: number;
   scores: number;
   results: number;
+  /** Competitions whose odds were bought this run (all of them without a plan). */
+  oddsFetched: string[];
+  /** Competitions the credit plan skipped this run. */
+  oddsSkipped: string[];
   quota: FeedQuota | null;
   error: string | null;
 }
@@ -95,6 +152,10 @@ export async function ingest(prisma: PrismaClient, feed: OddsFeed, opts: IngestO
   let scores = 0;
   let results = 0;
   let error: string | null = null;
+  let fetchKeys = opts.competitionKeys;
+  const leagueIds = opts.competitionKeys.map((k) => `${prefix}-${k}`);
+  // Under a plan, results are asked for once a match is likely over, so one call settles it.
+  const settleBefore = opts.plan ? now - SETTLE_AFTER_MS : now;
 
   try {
     const comps = await feed.competitions();
@@ -103,6 +164,17 @@ export async function ingest(prisma: PrismaClient, feed: OddsFeed, opts: IngestO
     const unknown = opts.competitionKeys.filter((k) => !byKey.has(k));
     if (unknown.length) throw new Error(`Unknown competition key(s): ${unknown.join(", ")}. See the provider's sports list.`);
 
+    if (opts.plan) {
+      const kickoffs = new Map<string, number[]>();
+      for (const key of opts.competitionKeys) kickoffs.set(key, (await feed.upcoming(key)).data);
+      const leagues = await prisma.league.findMany({ where: { id: { in: leagueIds } }, select: { id: true, oddsFetchedAt: true } });
+      const lastFetched = new Map(leagues.map((l) => [l.id.slice(prefix.length + 1), l.oddsFetchedAt?.getTime() ?? null]));
+      // Settling comes first: the results board depends on it.
+      const settling = await prisma.event.findMany({ where: { leagueId: { in: leagueIds }, status: { not: "finished" }, kickoff: { lt: new Date(settleBefore), gt: new Date(now - 3 * DAY) } }, select: { leagueId: true }, distinct: ["leagueId"] });
+      const budget = runBudget(quota?.remaining ?? null, now, opts.plan.runsPerDay);
+      fetchKeys = planOdds(opts.competitionKeys, { now, kickoffs, lastFetched, budget: budget === null ? null : Math.max(0, budget - settling.length * RESULTS_COST) }, opts.plan);
+    }
+
     for (const key of opts.competitionKeys) {
       const comp = byKey.get(key)!;
       const sportId = comp.sportId;
@@ -110,51 +182,54 @@ export async function ingest(prisma: PrismaClient, feed: OddsFeed, opts: IngestO
       await prisma.sport.upsert({ where: { id: sportId }, create: { id: sportId, name: SPORT_NAMES[sportId] ?? comp.group }, update: {} });
       await prisma.league.upsert({ where: { id: leagueId }, create: { id: leagueId, sportId, name: comp.name, country: "" }, update: { name: comp.name } });
 
-      const odds = await feed.odds(key);
-      quota = odds.quota;
-      const margins = bookMargins(odds.data);
-      for (const [book, margin] of margins) {
-        const name = odds.data.flatMap((e) => e.prices).find((p) => p.bookmakerKey === book)!.bookmakerName;
-        // Reliability is not measured for feed bookmakers yet; 0 marks it as unknown.
-        await prisma.bookmaker.upsert({ where: { id: `${prefix}-${book}` }, create: { id: `${prefix}-${book}`, name, margin, reliability: 0 }, update: { name, margin } });
-      }
-
-      for (const e of odds.data) {
-        const ids = feedIds(prefix, e);
-        for (const [teamId, name] of [[ids.homeTeamId, e.home], [ids.awayTeamId, e.away]] as const) {
-          await prisma.team.upsert({ where: { id: teamId }, create: { id: teamId, leagueId, name, shortName: name.slice(0, 3).toUpperCase() }, update: {} });
+      if (fetchKeys.includes(key)) {
+        const odds = await feed.odds(key);
+        quota = odds.quota;
+        if (opts.plan) await prisma.league.update({ where: { id: leagueId }, data: { oddsFetchedAt: new Date(now) } });
+        const margins = bookMargins(odds.data);
+        for (const [book, margin] of margins) {
+          const name = odds.data.flatMap((e) => e.prices).find((p) => p.bookmakerKey === book)!.bookmakerName;
+          // Reliability is not measured for feed bookmakers yet; 0 marks it as unknown.
+          await prisma.bookmaker.upsert({ where: { id: `${prefix}-${book}` }, create: { id: `${prefix}-${book}`, name, margin, reliability: 0 }, update: { name, margin } });
         }
-        const existing = await prisma.event.findUnique({ where: { id: ids.eventId }, select: { status: true } });
-        if (existing?.status === "finished") continue;
-        const status = now >= e.kickoff ? "live" : "scheduled";
-        await prisma.event.upsert({
-          where: { id: ids.eventId },
-          create: { id: ids.eventId, externalId: `${prefix}:${e.externalId}`, sportId, leagueId, homeTeamId: ids.homeTeamId, awayTeamId: ids.awayTeamId, kickoff: new Date(e.kickoff), status },
-          // Kickoff times can move.
-          update: { kickoff: new Date(e.kickoff), status },
-        });
-        events++;
 
-        const marketTypes = [...new Set(e.prices.map((p) => p.market))];
-        for (const m of marketTypes) {
-          await prisma.market.upsert({ where: { id: ids.marketId(m) }, create: { id: ids.marketId(m), eventId: ids.eventId, type: m, name: MARKET_NAMES[m] }, update: {} });
-          for (const sel of MARKET_SELECTIONS[m]) {
-            await prisma.selection.upsert({ where: { id: ids.selectionId(m, sel) }, create: { id: ids.selectionId(m, sel), marketId: ids.marketId(m), eventId: ids.eventId, name: selectionName(m, sel, e) }, update: {} });
+        for (const e of odds.data) {
+          const ids = feedIds(prefix, e);
+          for (const [teamId, name] of [[ids.homeTeamId, e.home], [ids.awayTeamId, e.away]] as const) {
+            await prisma.team.upsert({ where: { id: teamId }, create: { id: teamId, leagueId, name, shortName: name.slice(0, 3).toUpperCase() }, update: {} });
           }
-        }
-        const rows = e.prices.map((p) => ({ selectionId: ids.selectionId(p.market, p.selection), bookmakerId: `${prefix}-${p.bookmakerKey}`, observedAt: new Date(now), odds: p.odds, sourceId: feed.provider }));
-        if (!rows.length) continue;
-        if (now >= e.kickoff) {
-          await prisma.inPlayOdds.createMany({ data: rows });
-          inPlay += rows.length;
-        } else {
-          await prisma.oddsSnapshot.createMany({ data: rows });
-          snapshots += rows.length;
+          const existing = await prisma.event.findUnique({ where: { id: ids.eventId }, select: { status: true } });
+          if (existing?.status === "finished") continue;
+          const status = now >= e.kickoff ? "live" : "scheduled";
+          await prisma.event.upsert({
+            where: { id: ids.eventId },
+            create: { id: ids.eventId, externalId: `${prefix}:${e.externalId}`, sportId, leagueId, homeTeamId: ids.homeTeamId, awayTeamId: ids.awayTeamId, kickoff: new Date(e.kickoff), status },
+            // Kickoff times can move.
+            update: { kickoff: new Date(e.kickoff), status },
+          });
+          events++;
+
+          const marketTypes = [...new Set(e.prices.map((p) => p.market))];
+          for (const m of marketTypes) {
+            await prisma.market.upsert({ where: { id: ids.marketId(m) }, create: { id: ids.marketId(m), eventId: ids.eventId, type: m, name: MARKET_NAMES[m] }, update: {} });
+            for (const sel of MARKET_SELECTIONS[m]) {
+              await prisma.selection.upsert({ where: { id: ids.selectionId(m, sel) }, create: { id: ids.selectionId(m, sel), marketId: ids.marketId(m), eventId: ids.eventId, name: selectionName(m, sel, e) }, update: {} });
+            }
+          }
+          const rows = e.prices.map((p) => ({ selectionId: ids.selectionId(p.market, p.selection), bookmakerId: `${prefix}-${p.bookmakerKey}`, observedAt: new Date(now), odds: p.odds, sourceId: feed.provider }));
+          if (!rows.length) continue;
+          if (now >= e.kickoff) {
+            await prisma.inPlayOdds.createMany({ data: rows });
+            inPlay += rows.length;
+          } else {
+            await prisma.oddsSnapshot.createMany({ data: rows });
+            snapshots += rows.length;
+          }
         }
       }
 
       // Results cost credits, so only ask when a stored event has kicked off and is unsettled.
-      const pending = await prisma.event.count({ where: { leagueId, status: { not: "finished" }, kickoff: { lt: new Date(now), gt: new Date(now - 3 * DAY) } } });
+      const pending = await prisma.event.count({ where: { leagueId, status: { not: "finished" }, kickoff: { lt: new Date(settleBefore), gt: new Date(now - 3 * DAY) } } });
       if (pending > 0) {
         const res = await feed.results(key, 3);
         quota = res.quota;
@@ -191,7 +266,7 @@ export async function ingest(prisma: PrismaClient, feed: OddsFeed, opts: IngestO
     create: { id: feed.provider, name: `${feed.providerName} odds`, kind: "odds", provider: feed.providerName, status: error ? "degraded" : "ok", lastSyncAt: finishedAt },
     update: { status: error ? "degraded" : "ok", ...(error ? {} : { lastSyncAt: finishedAt }) },
   });
-  return { runId: run.id.toString(), competitions: opts.competitionKeys, events, snapshots, inPlay, scores, results, quota, error };
+  return { runId: run.id.toString(), competitions: opts.competitionKeys, events, snapshots, inPlay, scores, results, oddsFetched: fetchKeys, oddsSkipped: opts.competitionKeys.filter((k) => !fetchKeys.includes(k)), quota, error };
 }
 
 /** A football match, half-time and stoppage included, is over well within this. */

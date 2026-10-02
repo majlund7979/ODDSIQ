@@ -24,9 +24,17 @@ describe("dailyPicks", () => {
     expect(picks.map((p) => p.row.selectionId)).toEqual(["c", "b"]);
   });
 
-  it("skips matches without a forecast, already started, or beyond 24 hours", () => {
+  it("falls back to the bookmakers' price alone where the league has no results history", () => {
+    const [p] = dailyPicks([row({ modelProbability: null, marketProbability: 0.6, bestOdds: 1.8 })], now, 5);
+    expect(p.marketOnly).toBe(true);
+    expect(p.probability).toBeCloseTo(0.6);
+    expect(p.value).toBe(false);
+    expect(p.factors.map((f) => f.label)).toEqual(["Bookmakerne"]);
+  });
+
+  it("skips matches without any price, already started, or beyond 24 hours", () => {
     const picks = dailyPicks(
-      [row({ eventId: "e1", modelProbability: null }), row({ eventId: "e2", status: "live" }), row({ eventId: "e3", kickoff: now + 25 * 3_600_000 }), row({ eventId: "e4", kickoff: now - 1 })],
+      [row({ eventId: "e1", modelProbability: null, marketProbability: Number.NaN }), row({ eventId: "e2", status: "live" }), row({ eventId: "e3", kickoff: now + 25 * 3_600_000 }), row({ eventId: "e4", kickoff: now - 1 })],
       now,
       10,
     );

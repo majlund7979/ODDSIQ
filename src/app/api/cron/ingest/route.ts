@@ -5,7 +5,7 @@
 
 import { timingSafeEqual } from "node:crypto";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
-import { configuredFeed, feedConfig } from "@/lib/providers/config";
+import { configuredFeed, feedConfig, oddsPlan } from "@/lib/providers/config";
 import { runModel } from "@/lib/model/pipeline";
 import { ingest } from "@/lib/providers/ingest";
 import { configuredStatsFeed, statsConfig } from "@/lib/stats/config";
@@ -27,7 +27,7 @@ export async function GET(req: Request): Promise<Response> {
   if (!authorized(req)) return new Response("Unauthorized.", { status: 401 });
   const feed = configuredFeed();
   if (!feed || !DATABASE_CONFIGURED) return Response.json({ ok: false, error: "Set ODDS_API_KEY and DATABASE_URL to ingest odds." }, { status: 503 });
-  const summary = await ingest(db(), feed, { competitionKeys: feedConfig().sports });
+  const summary = await ingest(db(), feed, { competitionKeys: feedConfig().sports, plan: oddsPlan() });
   const statsFeed = configuredStatsFeed();
   const stats = statsFeed ? await ingestStats(db(), statsFeed, { oddsKeys: feedConfig().sports, budget: statsConfig().budget }) : null;
   let model: Awaited<ReturnType<typeof runModel>> | { error: string };

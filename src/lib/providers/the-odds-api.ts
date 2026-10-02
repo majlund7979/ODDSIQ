@@ -1,6 +1,7 @@
 // Adapter for The Odds API v4 (https://the-odds-api.com). Prices are decimal.
 // Credit cost per odds call is (markets × regions); /sports is free; /scores
-// costs 1, or 2 with daysFrom. Remaining credits come back in response headers.
+// costs 1, or 2 with daysFrom; /events (fixtures without prices) is free.
+// Remaining credits come back in response headers.
 
 import type { FeedCompetition, FeedEvent, FeedMarketType, FeedPrice, FeedQuota, FeedResponse, FeedResult, OddsFeed } from "./types";
 
@@ -150,6 +151,11 @@ export class TheOddsApiFeed implements OddsFeed {
   async odds(competitionKey: string) {
     const r = await this.get<RawEvent[]>(`/sports/${encodeURIComponent(competitionKey)}/odds`, { regions: this.opts.regions, markets: this.opts.markets, oddsFormat: "decimal", dateFormat: "iso" });
     return { data: normalizeOdds(r.data), quota: r.quota };
+  }
+
+  async upcoming(competitionKey: string) {
+    const r = await this.get<{ commence_time: string }[]>(`/sports/${encodeURIComponent(competitionKey)}/events`, { dateFormat: "iso" });
+    return { data: r.data.map((e) => Date.parse(e.commence_time)).filter((t) => !Number.isNaN(t)), quota: r.quota };
   }
 
   async results(competitionKey: string, daysFrom: number) {

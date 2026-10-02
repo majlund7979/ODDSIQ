@@ -27,6 +27,9 @@ export class FixtureFeed implements OddsFeed {
     const events = key === "soccer_epl" ? normalizeOdds(odds) : [];
     return { data: events.map((e) => ({ ...e, kickoff: e.kickoff + this.shiftMs, prices: e.prices.map((p) => ({ ...p, odds: Math.round(p.odds * this.priceFactor * 100) / 100 })) })), quota };
   }
+  async upcoming(key: string) {
+    return { data: (await this.odds(key)).data.map((e) => e.kickoff), quota };
+  }
   async results(key: string) {
     const rows = key === "soccer_epl" ? normalizeScores(scores).map((r) => ({ ...r, kickoff: r.kickoff + this.shiftMs })) : [];
     const live = this.inPlayScore;

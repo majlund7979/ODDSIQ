@@ -110,6 +110,8 @@ export interface Pick {
   insights: PickInsights;
   /** Plain-language strength of the pick, from its probability. */
   strength: "Meget stærk" | "Stærk" | "God" | "Middel";
+  /** True when the league has no results history, so the pick rests on the bookmakers' prices alone. */
+  marketOnly: boolean;
 }
 
 export function strengthOf(p: number): Pick["strength"] {
@@ -165,7 +167,13 @@ const signedPp = (pp: number) => `${pp >= 0 ? "+" : "−"}${Math.abs(pp).toFixed
 
 export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick, "fairOdds" | "value" | "outcome" | "strength"> | null {
   const model = row.modelProbability;
-  if (model == null) return null;
+  if (model == null) {
+    // No results history for this league (e.g. Superliga, Champions League): the margin-free market price is all there is.
+    if (!(row.marketProbability > 0 && row.marketProbability < 1)) return null;
+    const insights: PickInsights = { expectedGoals: null, elo: null, form: null, h2h: null, movement: row.movement, lineupsConfirmed: false };
+    const factors: PickFactor[] = [{ label: "Bookmakerne", pp: null, detail: `${pct(row.marketProbability)} uden bookmakernes avance. Vi har ingen kampresultater for ligaen endnu, så procenten er kun markedets.` }];
+    return { row, probability: row.marketProbability, lineupsConfirmed: false, factors, insights, marketOnly: true };
+  }
   const factors: PickFactor[] = [{ label: "Resultatmodel", pp: null, detail: `${pct(model)} ud fra kampresultater og Elo` }];
   let p = model;
   let lineupsConfirmed = false;
@@ -225,7 +233,7 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
     movement: row.movement,
     lineupsConfirmed,
   };
-  return { row, probability: final, lineupsConfirmed, factors, insights };
+  return { row, probability: final, lineupsConfirmed, factors, insights, marketOnly: false };
 }
 
 export function dailyPicks(rows: MarketRow[], now: number, count: number, context: (eventId: string) => PickContext | null = () => null): Pick[] {
@@ -240,12 +248,12 @@ export function dailyPicks(rows: MarketRow[], now: number, count: number, contex
   return [...best.values()]
     .sort((a, b) => b.probability - a.probability || a.row.kickoff - b.row.kickoff)
     .slice(0, count)
-    .map((a) => ({ ...a, outcome: outcomeLabel(a.row), fairOdds: 1 / a.probability, value: a.row.bestOdds * a.probability > 1, strength: strengthOf(a.probability) }));
+    .map((a) => ({ ...a, outcome: outcomeLabel(a.row), fairOdds: 1 / a.probability, value: !a.marketOnly && a.row.bestOdds * a.probability > 1, strength: strengthOf(a.probability) }));
 }
 
 /** Football matches in the pick window that the model has analysed. */
 export function analysedMatches(rows: MarketRow[], now: number) {
-  const ev = rows.filter((r) => r.sportId === "football" && r.status === "scheduled" && r.modelProbability != null && r.kickoff > now && r.kickoff <= now + PICK_WINDOW_MS);
+  const ev = rows.filter((r) => r.sportId === "football" && r.status === "scheduled" && r.kickoff > now && r.kickoff <= now + PICK_WINDOW_MS);
   return { matches: new Set(ev.map((r) => r.eventId)).size, leagues: new Set(ev.map((r) => r.league)).size };
 }
 

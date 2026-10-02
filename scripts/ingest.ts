@@ -19,7 +19,7 @@ import { closeAndSettle, runModel, storeResults } from "../src/lib/model/pipelin
 import { closingLine } from "../src/lib/providers/closing";
 import { configuredFeed, feedConfig } from "../src/lib/providers/config";
 import { FIXTURE_KICKOFF, FixtureFeed } from "../src/lib/providers/fixture-feed";
-import { inPlayCompetitions, ingest } from "../src/lib/providers/ingest";
+import { DEFAULT_ODDS_PLAN, inPlayCompetitions, ingest } from "../src/lib/providers/ingest";
 import { realLiveBoard, realLiveView, realReplayData } from "../src/lib/real/live";
 import { findByNameOf, positionViewOf, teamRecordOf } from "../src/lib/demo/personal";
 import { realAlerts } from "../src/lib/real/alerts";
@@ -84,6 +84,19 @@ async function fixture() {
   for (const r of statsRuns) console.log(r);
   assert(runs.every((r) => !r.error), "a run reported an error");
   assert(runs[2].results === 1, "expected one settled event");
+
+  // Scheduled runs on a credit plan: odds once per interval, results once the match is over.
+  const planPrefix = `${prefix}p`;
+  const plan = { ...DEFAULT_ODDS_PLAN, oddsCost: 1 };
+  const planned = [];
+  for (const at of [FIXTURE_KICKOFF - 5 * HOUR, FIXTURE_KICKOFF - 1 * HOUR, FIXTURE_KICKOFF + 3 * HOUR]) {
+    planned.push(await ingest(prisma, new FixtureFeed(), { competitionKeys: ["soccer_epl"], now: at, prefix: planPrefix, plan }));
+  }
+  console.log(planned);
+  assert(planned.every((r) => !r.error), "a planned run reported an error");
+  assert(planned[0].oddsFetched.length === 1 && planned[0].snapshots > 0, "the first planned run should buy odds");
+  assert(planned[1].oddsSkipped.length === 1 && planned[1].snapshots === 0, "a second run within the interval should skip odds");
+  assert(planned[2].results === 1, "the planned run after full time should settle the match");
 
   const eventId = `${prefix}-fx0001arsche`;
   const ids = ["home", "draw", "away"].map((s) => `${eventId}-1x2-${s}`);
