@@ -33,8 +33,8 @@ export default async function LandingPage() {
           <p className="mt-5 max-w-2xl text-lg text-ink-2">Track market movement. Compare probabilities. Understand model disagreement. Measure performance.</p>
           <p className="mt-2 text-sm text-muted">An AI-powered sports market intelligence platform.</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/dashboard" className="rounded bg-accent px-4 py-2.5 text-sm font-medium text-page">
-              Open the terminal
+            <Link href="/picks" className="rounded bg-accent px-4 py-2.5 text-sm font-medium text-page">
+              Se dagens bedste bets
             </Link>
             {ACCOUNTS_ENABLED && (
               <Link href="/signup" className="rounded border border-line-strong px-4 py-2.5 text-sm hover:bg-surface-2">
@@ -116,7 +116,7 @@ export default async function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link href={p.id === "free" ? "/dashboard" : ACCOUNTS_ENABLED ? "/signup?next=/account" : "/dashboard"} className="mt-6 inline-block rounded border border-line-strong px-3 py-1.5 text-sm hover:bg-surface-2">
+                <Link href={p.id === "free" ? "/picks" : ACCOUNTS_ENABLED ? "/signup?next=/account" : "/picks"} className="mt-6 inline-block rounded border border-line-strong px-3 py-1.5 text-sm hover:bg-surface-2">
                   {p.id === "free" ? "Open the terminal" : ACCOUNTS_ENABLED ? "Create account" : "Coming soon"}
                 </Link>
               </div>

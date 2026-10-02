@@ -6,7 +6,7 @@ import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 export const metadata = { title: "Create account · ODDSIQ" };
 
 export default async function SignupPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const { next = "/dashboard" } = await searchParams;
+  const { next = "/picks" } = await searchParams;
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
       <h1 className="text-xl font-semibold">Create an account</h1>

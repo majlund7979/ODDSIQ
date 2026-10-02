@@ -32,8 +32,8 @@ export default async function SiteLayout({ children }: Readonly<{ children: Reac
                   Sign in
                 </Link>
               ))}
-            <Link href="/dashboard" className="rounded border border-line-strong px-3 py-1.5 hover:bg-surface-2">
-              Open terminal
+            <Link href="/picks" className="rounded border border-line-strong px-3 py-1.5 hover:bg-surface-2">
+              Dagens bets
             </Link>
           </div>
         </div>

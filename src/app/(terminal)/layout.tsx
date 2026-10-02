@@ -11,7 +11,7 @@ export default function TerminalLayout({ children }: Readonly<{ children: React.
     <>
       <div className="flex min-h-screen">
           <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-line bg-surface md:flex">
-            <Link href="/dashboard" className="flex items-baseline gap-2 border-b border-line px-4 py-3.5">
+            <Link href="/picks" className="flex items-baseline gap-2 border-b border-line px-4 py-3.5">
               <span className="text-[15px] font-bold tracking-[0.18em]">ODDSIQ</span>
               <span className="text-[10px] uppercase tracking-widest text-muted">Terminal</span>
             </Link>
@@ -24,7 +24,7 @@ export default function TerminalLayout({ children }: Readonly<{ children: React.
           </aside>
           <div className="flex min-w-0 flex-1 flex-col">
             <header className="sticky top-0 z-30 flex h-11 items-center gap-3 border-b border-line bg-page/90 px-4 backdrop-blur">
-              <Link href="/dashboard" className="text-sm font-bold tracking-[0.18em] md:hidden">
+              <Link href="/picks" className="text-sm font-bold tracking-[0.18em] md:hidden">
                 ODDSIQ
               </Link>
               {DEMO_MODE && (
@@ -42,7 +42,7 @@ export default function TerminalLayout({ children }: Readonly<{ children: React.
               </div>
             </header>
             <nav aria-label="Main (mobile)" className="flex gap-3 overflow-x-auto border-b border-line px-4 py-2 text-xs text-ink-2 md:hidden">
-              <Link href="/dashboard">Dashboard</Link>
+              <Link href="/picks">Dashboard</Link>
               <Link href="/markets">Markets</Link>
               <Link href="/model-lab/ledger">Ledger</Link>
               <Link href="/model-lab/audit">Audit</Link>

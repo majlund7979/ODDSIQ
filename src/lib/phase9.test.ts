@@ -39,10 +39,10 @@ describe("passwords", () => {
 describe("safeNext", () => {
   it("only allows same-site paths", () => {
     expect(safeNext("/watchlist")).toBe("/watchlist");
-    expect(safeNext("//evil.example")).toBe("/dashboard");
-    expect(safeNext("/\\evil.example")).toBe("/dashboard");
-    expect(safeNext("https://evil.example")).toBe("/dashboard");
-    expect(safeNext(null)).toBe("/dashboard");
+    expect(safeNext("//evil.example")).toBe("/picks");
+    expect(safeNext("/\\evil.example")).toBe("/picks");
+    expect(safeNext("https://evil.example")).toBe("/picks");
+    expect(safeNext(null)).toBe("/picks");
   });
 });
 

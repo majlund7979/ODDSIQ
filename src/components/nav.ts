@@ -7,6 +7,13 @@ export interface NavItem {
   children?: NavItem[];
 }
 
+/** The everyday menu. Everything in NAV sits behind "Avancerede værktøjer". */
+export const SIMPLE_NAV: NavItem[] = [
+  { href: "/picks", label: "Dagens bedste bets" },
+  { href: "/matches", label: "Kampe" },
+  { href: "/my-bets", label: "Mine bets" },
+];
+
 export const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard" },
   {
@@ -20,7 +27,6 @@ export const NAV: NavItem[] = [
       { href: "/markets/alerts", label: "Alerts" },
     ],
   },
-  { href: "/matches", label: "Matches" },
   { href: "/value-scanner", label: "Value Scanner", shortcut: "V" },
   { href: "/live", label: "Live Markets", shortcut: "L" },
   { href: "/market-replay", label: "Market Replay", shortcut: "R" },
@@ -40,7 +46,6 @@ export const NAV: NavItem[] = [
   },
   { href: "/performance", label: "Performance", shortcut: "P", children: [{ href: "/performance/clv", label: "Closing Line Value" }] },
   { href: "/watchlist", label: "Watchlist", shortcut: "W" },
-  { href: "/my-bets", label: "My Bets" },
   { href: "/data-feed", label: "Data Feed" },
 ];
 

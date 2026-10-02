@@ -18,7 +18,7 @@ const NOTICE: Record<string, string> = {
 
 export default async function AccountPage({ searchParams }: { searchParams: Promise<{ billing?: string }> }) {
   await connection();
-  if (!ACCOUNTS_ENABLED) redirect("/dashboard");
+  if (!ACCOUNTS_ENABLED) redirect("/picks");
   const user = await currentUser();
   if (!user) redirect("/login?next=/account");
   const { billing } = await searchParams;

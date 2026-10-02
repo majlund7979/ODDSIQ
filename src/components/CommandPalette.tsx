@@ -52,6 +52,7 @@ export function CommandPalette() {
       });
     };
     return [
+      { id: "/picks", label: "Dagens bedste bets", hint: "Top 5 eller 10 udfald med højest vinderchance", run: go("/picks") },
       { id: "/markets", label: "Markets", hint: "Market Terminal", run: go("/markets") },
       { id: "/value", label: "Value Scanner", hint: "Scan markets by edge, EV and confidence", run: go("/value-scanner") },
       { id: "/live", label: "Live Markets", hint: "Three-pane live terminal", run: go("/live") },
