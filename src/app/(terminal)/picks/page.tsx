@@ -26,6 +26,10 @@ import { openBetKeys } from "@/lib/real/friend-bets";
 import { AdviceRow, OddsMoveTag, RiskBadge, type SaveTarget } from "@/components/picks/Advice";
 import { BankrollInput } from "@/components/picks/BankrollInput";
 import { HitRates } from "@/components/picks/HitRates";
+import { DEMO_MODE } from "@/lib/data";
+import { demoShotBoard } from "@/lib/demo/player-shots";
+import { POSITION_LABEL, SHOTS_MODEL_VERSION, topShotPicks, TYPICAL_TEAM_GOALS, type ShotPick } from "@/lib/player-shots";
+import { realShotBoard, type ShotBoard } from "@/lib/real/player-shots";
 
 export const metadata = { title: "Dagens bedste bets · Oddsanalyse" };
 
@@ -508,6 +512,59 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
   );
 }
 
+function ShotCard({ p, rank, now }: { p: ShotPick; rank: number; now: number }) {
+  const start =
+    p.start === "confirmed" ? (
+      <span className="rounded-full bg-good/15 px-2.5 py-1 text-xs font-semibold text-good">Starter, opstilling bekræftet</span>
+    ) : p.start === "bench" ? (
+      <span className="rounded-full bg-warning/15 px-2.5 py-1 text-xs font-semibold text-warning">På bænken</span>
+    ) : (
+      <span className="rounded-full bg-surface-3 px-2.5 py-1 text-xs text-ink-2">
+        Startet {p.season.lineups} af {p.season.appearances} kampe
+      </span>
+    );
+  return (
+    <article className="overflow-hidden rounded-2xl border border-line bg-surface">
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1 space-y-3">
+          <CardTop rank={rank} league={p.league} kickoff={p.kickoff} probability={p.probability} now={now} />
+          <div>
+            <h2 className="text-lg font-semibold leading-tight sm:text-xl">{p.player}</h2>
+            <div className="mt-1 text-sm text-ink-2">
+              {p.team} mod {p.opponent}
+              {p.position && <span className="text-muted"> · {POSITION_LABEL[p.position] ?? p.position}</span>}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-lg bg-accent/15 px-3 py-1.5 text-[15px] font-semibold text-accent">Mindst 1 skud på mål</span>
+            {start}
+          </div>
+        </div>
+        <div className="flex items-center gap-5">
+          <Gauge p={p.probability} />
+          <div className="min-w-[96px] rounded-lg border border-line bg-surface-2 px-3 py-2 text-center">
+            <div className="text-[10px] uppercase tracking-wider text-muted">Fair odds</div>
+            <div className="num text-2xl font-semibold">{dec(p.fairOdds)}</div>
+            <div className="text-[11px] text-ink-2">tag kun højere</div>
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-x-6 gap-y-2 border-t border-line px-5 py-3 text-sm text-ink-2 sm:grid-cols-3">
+        <div>
+          <span className="num font-semibold text-ink">{dec(p.per90)}</span> skud på mål pr. 90 min
+        </div>
+        <div>
+          <span className="num font-semibold text-ink">{p.season.shotsOn}</span> på mål i {p.season.appearances} kampe ({p.season.minutes} min)
+        </div>
+        <div>
+          Holdet ventes at score <span className="num font-semibold text-ink">{dec(p.matchFactor * TYPICAL_TEAM_GOALS, 1)}</span> mål
+        </div>
+      </div>
+      <AdviceRow p={p.probability} odds={null} eventId={p.eventId} save={null} />
+    </article>
+  );
+}
+
 const EXTRA: Record<string, (rows: Parameters<typeof doubleChancePicks>[0], now: number, n: number, ctx: Parameters<typeof doubleChancePicks>[3]) => ExtraPick[]> = {
   dobbelt: doubleChancePicks,
   resultat: correctScorePicks,
@@ -522,6 +579,7 @@ const TABS = [
   { id: "btts", label: "Begge hold scorer" },
   { id: "resultat", label: "Korrekt resultat" },
   { id: "halvleg", label: "1. halvleg" },
+  { id: "skud", label: "Skud på mål" },
   ...COUNT_CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
   { id: "straffe", label: "Straffespark" },
 ];
@@ -530,6 +588,7 @@ const TABS = [
 const TAB_GROUPS = [
   { title: "Kampen", ids: ["bedste", "vinder", "dobbelt", "resultat"] },
   { title: "Mål", ids: ["maal", "btts", "halvleg"] },
+  { title: "Spillere", ids: ["skud"] },
   { title: "Statistik", ids: [...COUNT_CATEGORIES.map((c) => c.id), "straffe"] },
 ].map((g) => ({ ...g, tabs: g.ids.map((id) => TABS.find((x) => x.id === id)!).filter(Boolean) }));
 
@@ -564,13 +623,16 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   const couponPool = tab === "bedste" ? applyLearningToPicks(dailyPicks(rows, t.now, 15, t.pickContext), allLearning.get("bedste")) : [];
   const cPicks = applyLearning(countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [], learned);
   const xPicks = applyLearning(EXTRA[tab] ? EXTRA[tab](rows, t.now, count, t.pickContext) : [], learned);
+  const shots: ShotBoard | null =
+    tab !== "skud" ? null : DEMO_MODE ? demoShotBoard(rows, t.now, t.pickContext) : await realShotBoard(db(), rows, t.now, t.pickContext);
+  const sPicks = shots ? topShotPicks(shots.picks, count) : [];
   const recent = tab === "bedste" ? summarise(history.filter((p) => p.category === "bedste" && p.kickoff >= t.now - 7 * 86_400_000)) : null;
   const href = (type: string, n: number) => `/picks?${new URLSearchParams({ ...(type !== "bedste" ? { type } : {}), ...(n !== 10 ? { antal: String(n) } : {}) })}`;
   const scope = analysedMatches(rows, t.now);
   const savedKeys = user ? await openBetKeys(db(), user.id, t.now) : new Set<string>();
   const back = href(tab, count);
   const saveFor = (eventId: string): SaveTarget | null =>
-    tab === "straffe" ? null : { category: tab, back, saved: savedKeys.has(`${eventId}|${tab}`), signedIn: !!user, accounts: ACCOUNTS_ENABLED };
+    tab === "straffe" || tab === "skud" ? null : { category: tab, back, saved: savedKeys.has(`${eventId}|${tab}`), signedIn: !!user, accounts: ACCOUNTS_ENABLED };
   const today = new Date(t.now).toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: TZ });
 
   const tabLabel = TABS.find((x) => x.id === tab)!.label;
@@ -691,6 +753,33 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
               </li>
             ))}
           </ol>
+        )
+      ) : shots ? (
+        sPicks.length === 0 ? (
+          <Empty
+            title="Ingen spillere at vise lige nu"
+            text={
+              shots.matches === 0
+                ? "Der er ingen fodboldkampe de næste 24 timer. Kig forbi igen senere."
+                : "Spillerstatistikken hentes automatisk fra API-Football op til to dage før kampstart. Kig forbi igen om lidt."
+            }
+          />
+        ) : (
+          <>
+            <ol className="space-y-4">
+              {sPicks.map((p, i) => (
+                <li key={`${p.eventId}|${p.player}`}>
+                  <ShotCard p={p} rank={i + 1} now={t.now} />
+                </li>
+              ))}
+            </ol>
+            <p className="px-1 text-xs text-muted">
+              Estimeret, model {SHOTS_MODEL_VERSION}: spillerens skud på mål pr. 90 minutter i sæsonen {shots.season}/{String((shots.season + 1) % 100).padStart(2, "0")}, trukket mod det
+              typiske for positionen, gange forventede minutter og holdets forventede mål i kampen. Højst tre spillere pr. hold. {shots.covered} af {shots.matches} kampe de næste 24 timer har
+              spillerdata · kilde: {DEMO_MODE ? "DEMO DATA" : `API-Football${shots.fetchedAt ? `, hentet ${kickoffLabel(shots.fetchedAt, t.now).toLowerCase()}` : ""}`}. Bookmakerne har ikke
+              odds på spillere i vores feed, så sammenlign selv med fair odds.
+            </p>
+          </>
         )
       ) : tab === "straffe" ? (
         <Empty
