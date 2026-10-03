@@ -21,7 +21,7 @@ import { COUPON_MIN_ODDS, correctScorePicks, coupons, isValue, doubleChancePicks
 import { terminal } from "@/lib/terminal";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { oddsMove, STAKE_VERSION } from "@/lib/picks-advice";
+import { compareBooks, oddsMove, STAKE_VERSION } from "@/lib/picks-advice";
 import { openBetKeys } from "@/lib/real/friend-bets";
 import { AdviceRow, OddsMoveTag, RiskBadge, type SaveTarget } from "@/components/picks/Advice";
 import { BankrollInput } from "@/components/picks/BankrollInput";
@@ -105,6 +105,32 @@ function FormRow({ team, games }: { team: string; games: FormGame[] }) {
         ))}
       </span>
     </div>
+  );
+}
+
+/** Every bookmaker's price for the bet, best first. */
+function BookTable({ quotes, fairOdds, marketOnly }: { quotes: Pick["row"]["quotes"]; fairOdds: number; marketOnly: boolean }) {
+  const c = compareBooks(quotes, fairOdds);
+  if (!c) return null;
+  const pctDiff = Math.round(c.bestOverMedian * 1000) / 10;
+  return (
+    <Fact label="Odds hos bookmakerne">
+      <ul className="divide-y divide-line rounded-lg border border-line">
+        {c.rows.map((r) => (
+          <li key={r.book} className={`flex items-center justify-between gap-3 px-3 py-1.5 ${r.best ? "bg-accent/10" : ""}`}>
+            <span className="truncate">{r.book}</span>
+            <span className="flex shrink-0 items-center gap-2">
+              {r.best && <span className="text-[11px] font-semibold text-accent">Bedst</span>}
+              {r.value && !marketOnly && <span className="rounded-full border border-good/40 bg-good/10 px-1.5 text-[10px] font-semibold text-good">Værdi</span>}
+              <span className={`num ${r.best ? "font-semibold" : ""}`}>{dec(r.odds)}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className="text-xs text-muted">
+        Den bedste odds er {String(pctDiff).replace(".", ",")} % over snittet ({dec(c.median)}). Over mange bets betyder den forskel meget.{marketOnly ? "" : ` Værdi: oddsen er højere end vores fair odds ${dec(fairOdds)}.`}
+      </div>
+    </Fact>
   );
 }
 
@@ -238,6 +264,7 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
             {p.row.booksQuoting} bookmakere · fair odds efter vores procent: {dec(p.fairOdds)}
           </div>
         </Fact>
+        <BookTable quotes={p.row.quotes} fairOdds={p.fairOdds} marketOnly={p.marketOnly} />
         <Fact label="Startopstilling">{i.lineupsConfirmed ? "Bekræftet for begge hold." : "Ikke meldt endnu. Den kommer typisk en time før kampstart, og så bliver procenten mere præcis."}</Fact>
       </div>
       <NewsBlock home={home} away={away} />

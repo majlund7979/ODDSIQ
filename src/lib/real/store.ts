@@ -192,6 +192,7 @@ function buildRow(e: EventData, m: MarketData, i: number, now: number, books: Ma
     bestOdds,
     bestBook: books.get(bestBookId) ?? bestBookId,
     bestBookId: bestBookId || null,
+    quotes: [...quotes].map(([b, odds]) => ({ book: books.get(b) ?? b, odds })).sort((a, b) => b.odds - a.odds),
     openingOdds,
     currentOdds,
     openingFavourite: openingOdds <= Math.min(...opening.selections.map((s) => s.medianOdds)),

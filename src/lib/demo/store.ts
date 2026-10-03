@@ -256,6 +256,8 @@ export interface MarketRow {
   bestOdds: number;
   bestBook: string;
   bestBookId: string | null;
+  /** Each bookmaker's latest price for this selection, highest first. */
+  quotes?: { book: string; odds: number }[];
   openingOdds: number;
   currentOdds: number;
   /** True if this selection had the shortest consensus price in its market at opening. */
@@ -376,6 +378,9 @@ function preMatchRow(ev: EventSim, m: MarketSim, i: number, t: number, predictio
     bestOdds: best.odds,
     bestBook: BOOKMAKERS.find((b) => b.id === best.bookmakerId)?.name ?? "",
     bestBookId: best.bookmakerId || null,
+    quotes: BOOKMAKERS.map((b, j) => ({ book: b.name, odds: bookPrice(ev, m, i, j, t) }))
+      .filter((q) => !Number.isNaN(q.odds))
+      .sort((a, b) => b.odds - a.odds),
     openingOdds,
     currentOdds,
     openingFavourite: openingOdds <= Math.min(...openings),
