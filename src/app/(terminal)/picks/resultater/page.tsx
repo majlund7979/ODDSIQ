@@ -2,12 +2,14 @@ import Link from "next/link";
 import { requireFriend } from "@/lib/auth/friends";
 import { summarise, type RecordedPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
+import { CLV_VERSION } from "@/lib/real/clv";
 import { CATEGORY_LABEL } from "@/lib/pick-categories";
 import { LEARN_DAYS, LEARN_MIN, LEARNING_VERSION, learn, type CategoryLearning } from "@/lib/picks-learning";
 
 export const metadata = { title: "Resultater · Oddsanalyse" };
 
 const pct = (x: number) => (Number.isFinite(x) ? `${Math.round(x * 100)} %` : "—");
+const signedPct = (x: number) => `${x >= 0 ? "+" : "−"}${(Math.abs(x) * 100).toFixed(1).replace(".", ",")} %`;
 const kr = (units: number) => `${units >= 0 ? "+" : "−"}${Math.round(Math.abs(units) * 100)} kr`;
 
 function dayLabel(day: string) {
@@ -63,6 +65,23 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
         ))}
       </div>
 
+      <section className="rounded-2xl border border-line bg-surface px-5 py-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold">Slog vi lukkeoddsen? <span className="font-normal text-muted">{CATEGORY_LABEL[type]}</span></h2>
+          <span className={`num text-xl font-semibold ${total.withClose ? (total.clv >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{total.withClose ? signedPct(total.clv) : "—"}</span>
+        </div>
+        <p className="mt-1 text-sm text-ink-2">
+          {total.withClose
+            ? `${total.beatClose} af ${total.withClose} bets havde bedre odds, da vi viste dem, end markedet gav lige før kampstart.`
+            : "Ingen bets med lukkeodds endnu. Tallet kommer, når kampe med bookmakerodds er spillet."}
+        </p>
+        <p className="mt-2 text-xs text-muted">
+          CLV (closing line value) sammenligner oddsen, vi viste, med bookmakernes sidste odds før kampstart uden deres margin. Over 0 betyder, at vi fik en bedre pris end
+          markedet endte på. Det er det bedste tegn på, om bets er gode på lang sigt, også når de taber. Historisk, {total.withClose} bets, sidste 7 dage, kilde {t.dataLabel},{" "}
+          {CLV_VERSION}.
+        </p>
+      </section>
+
       <section className="overflow-hidden rounded-2xl border border-line bg-surface">
         <div className="border-b border-line px-5 py-3 text-sm font-semibold">Alle bet-typer</div>
         <table className="w-full text-sm">
@@ -73,6 +92,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
               <th className="px-3 py-2 text-right font-normal">Ramte</th>
               <th className="hidden px-3 py-2 text-right font-normal sm:table-cell">Forventet</th>
               <th className="px-3 py-2 text-right font-normal">100 kr pr. bet</th>
+              <th className="hidden px-3 py-2 text-right font-normal sm:table-cell" title="Gennemsnitlig CLV mod lukkeoddsen">CLV</th>
               <th className="px-5 py-2 text-right font-normal" title="Hvor meget modellen har justeret procenterne ud fra resultaterne">Justering</th>
             </tr>
           </thead>
@@ -88,6 +108,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
                 <td className="px-3 py-2 text-right">{s.settled ? pct(s.won / s.settled) : "—"}</td>
                 <td className="hidden px-3 py-2 text-right text-muted sm:table-cell">{pct(s.expectedRate)}</td>
                 <td className={`px-3 py-2 text-right ${s.withOdds ? (s.profit >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{s.withOdds ? kr(s.profit) : "ingen odds"}</td>
+                <td className={`hidden px-3 py-2 text-right sm:table-cell ${s.withClose ? (s.clv >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{s.withClose ? signedPct(s.clv) : "—"}</td>
                 <td className="px-5 py-2 text-right text-ink-2">{adjustment(learning.get(id))}</td>
               </tr>
             ))}
@@ -126,6 +147,11 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
                     </span>
                     <span className="num shrink-0 text-right text-sm">
                       {Math.round(p.probability * 100)}%{p.odds ? <span className="block text-xs text-muted">odds {p.odds.toFixed(2).replace(".", ",")}</span> : null}
+                      {p.close ? (
+                        <span className={`block text-xs ${p.close.clv >= 0 ? "text-good" : "text-serious"}`}>
+                          {p.close.odds ? `luk ${p.close.odds.toFixed(2).replace(".", ",")} · ` : ""}CLV {signedPct(p.close.clv)}
+                        </span>
+                      ) : null}
                     </span>
                   </li>
                 ))}

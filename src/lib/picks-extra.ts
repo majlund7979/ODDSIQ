@@ -292,6 +292,8 @@ export interface RecordedPick {
   probability: number;
   odds: number | null;
   result: "won" | "lost" | null;
+  /** The market's closing line for this bet; null when it closed without a stored market, absent in demo data. */
+  close?: { odds: number | null; probability: number; books: number; clv: number } | null;
 }
 
 export interface ResultsSummary {
@@ -302,17 +304,26 @@ export interface ResultsSummary {
   profit: number;
   /** Average stated probability of the settled picks. */
   expectedRate: number;
+  /** Bets with a closing line, and how many of them beat it. */
+  withClose: number;
+  beatClose: number;
+  /** Average closing line value (shown odds × closing probability − 1). */
+  clv: number;
 }
 
 export function summarise(picks: RecordedPick[]): ResultsSummary {
   const settled = picks.filter((p) => p.result);
   const odds = settled.filter((p) => p.odds);
+  const closed = picks.filter((p) => p.close);
   return {
     settled: settled.length,
     won: settled.filter((p) => p.result === "won").length,
     withOdds: odds.length,
     profit: odds.reduce((s, p) => s + (p.result === "won" ? p.odds! - 1 : -1), 0),
     expectedRate: settled.length ? settled.reduce((s, p) => s + p.probability, 0) / settled.length : NaN,
+    withClose: closed.length,
+    beatClose: closed.filter((p) => p.close!.clv > 0).length,
+    clv: closed.length ? closed.reduce((s, p) => s + p.close!.clv, 0) / closed.length : NaN,
   };
 }
 
@@ -330,7 +341,7 @@ export interface PickDraft {
 
 export function allPickDrafts(rows: MarketRow[], now: number, count: number, context: Ctx): PickDraft[] {
   const goal = (category: string, picks: Pick[]) => picks.map((p) => ({ row: p.row, category, outcome: p.outcome, spec: goalSpec(p.row), probability: p.probability, odds: p.row.bestOdds }));
-  const extra = (picks: ExtraPick[]) => picks.map((p) => ({ row: p.row, category: p.category, outcome: p.outcome, spec: p.spec, probability: p.probability, odds: null }));
+  const extra = (picks: ExtraPick[]) => picks.map((p) => ({ row: p.row, category: p.category, outcome: p.outcome, spec: p.spec, probability: p.probability, odds: p.best?.odds ?? null }));
   return [
     ...goal("bedste", dailyPicks(rows, now, count, context)),
     ...GOAL_CATEGORIES.flatMap((c) => goal(c.id, marketPicks(rows, now, count, c.market, context))),
