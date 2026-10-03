@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { BottomNav, TopNav } from "@/components/MainNav";
-import { ACCOUNT_NAV, FRIENDS_NAV, SIMPLE_NAV } from "@/components/nav";
+import { ACCOUNT_NAV, ADMIN_NAV, FRIENDS_NAV, SIMPLE_NAV } from "@/components/nav";
 import { Badge } from "@/components/ui";
 import { inviteOnly, isOwner, requireFriend } from "@/lib/auth/friends";
 import { DEMO_MODE } from "@/lib/data";
@@ -9,7 +9,8 @@ import { DEMO_MODE } from "@/lib/data";
 export default async function TerminalLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   // Every page checks again itself; this keeps the menu from rendering for strangers.
   const user = await requireFriend();
-  const items = [...SIMPLE_NAV, ...(user && inviteOnly() && isOwner(user.email) ? [FRIENDS_NAV] : []), ...(user ? [ACCOUNT_NAV] : [])];
+  const owner = Boolean(user && isOwner(user.email));
+  const items = [...SIMPLE_NAV, ...(owner && inviteOnly() ? [FRIENDS_NAV] : []), ...(owner ? [ADMIN_NAV] : []), ...(user ? [ACCOUNT_NAV] : [])];
   const initial = user?.email.charAt(0).toUpperCase();
   return (
     <div className="flex min-h-screen flex-col">
