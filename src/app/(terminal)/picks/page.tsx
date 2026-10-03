@@ -17,7 +17,7 @@ import {
 import { requireFriend } from "@/lib/auth/friends";
 import { explainPick } from "@/lib/picks-explain";
 import { applyLearning, applyLearningToPicks, LEARN_DAYS, LEARN_MIN, learn, type CategoryLearning } from "@/lib/picks-learning";
-import { COUPON_MIN_ODDS, correctScorePicks, coupons, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
+import { COUPON_MIN_ODDS, correctScorePicks, coupons, isValue, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { db } from "@/lib/db";
@@ -467,12 +467,10 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
     <section className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-xl font-semibold">Dagens kuponer</h2>
-        <span className="text-xs text-muted">Samlet odds mindst {dec(COUPON_MIN_ODDS, 1)} · alle bets skal gå hjem</span>
+        <span className="text-xs text-muted">Alle bets på en kupon skal gå hjem</span>
       </div>
       {coupons.length === 0 ? (
-        <p className="rounded-2xl border border-line bg-surface px-5 py-6 text-sm text-ink-2">
-          Der er ikke nok kampe i dag til en kupon med odds på mindst {dec(COUPON_MIN_ODDS, 1)}. Kig forbi igen senere.
-        </p>
+        <p className="rounded-2xl border border-line bg-surface px-5 py-6 text-sm text-ink-2">Der er ikke nok kampe i dag til en kupon. Kig forbi igen senere.</p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {coupons.map((c) => (
@@ -480,6 +478,7 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
               <div className="flex items-end justify-between gap-3 px-5 pt-5">
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-accent">{c.picks.length} bets</div>
+                  <div className="text-xs text-muted">{c.kind === "odds" ? `Samlet odds mindst ${dec(COUPON_MIN_ODDS, 1)}` : "Valgt efter værdi og sandsynlighed"}</div>
                   <div className="num mt-1 text-3xl font-semibold">{dec(c.odds)}</div>
                   <div className="text-xs text-muted">samlet odds</div>
                 </div>
@@ -492,7 +491,10 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
                 {c.picks.map((p) => (
                   <li key={p.row.selectionId} className="flex items-center justify-between gap-3 px-5 py-2.5">
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">{p.outcome}</span>
+                      <span className="block truncate text-sm font-medium">
+                        {p.outcome}
+                        {isValue(p) && <span className="ml-2 rounded-full bg-good/15 px-2 py-0.5 text-[10px] font-semibold text-good">Værdi</span>}
+                      </span>
                       <span className="block truncate text-xs text-muted">{p.row.match.replace(" vs ", " – ")}</span>
                     </span>
                     <span className="num shrink-0 text-sm">
@@ -503,6 +505,13 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
               </ul>
               <div className="border-t border-line bg-surface-2/60 px-5 py-2.5 text-sm text-ink-2">
                 100 kr giver <span className="num font-semibold text-ink">{Math.round(c.odds * 100)} kr</span>, hvis alle går hjem
+                {c.kind === "value" && (
+                  <span className="mt-1 block text-xs text-muted">
+                    Værdi i {c.valueLegs} af {c.picks.length} bets
+                    {c.valueLegs === 0 ? " (ingen af dagens bets har værdi, så kuponen tager de mest sandsynlige)" : c.valueLegs < c.picks.length ? ", resten er dagens mest sandsynlige" : ""}. Estimeret tilbagebetaling i snit:{" "}
+                    <span className="num">{Math.round(c.expectedReturn * 100)} kr</span> pr. 100 kr (vores sandsynlighed × odds, ikke en garanti).
+                  </span>
+                )}
               </div>
             </article>
           ))}

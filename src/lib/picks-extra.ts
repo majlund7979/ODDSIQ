@@ -169,37 +169,72 @@ export interface Coupon {
   picks: Pick[];
   probability: number;
   odds: number;
+  /** "odds": likeliest combination reaching COUPON_MIN_ODDS. "value": value bets first, then the likeliest (Mads, 2026-10-03). */
+  kind: "odds" | "value";
+  /** Legs whose best odds pay more than our fair odds. */
+  valueLegs: number;
+  /** What 1 kr staked returns on average: chance × combined odds. */
+  expectedReturn: number;
 }
 
 export const COUPON_MIN_ODDS = 2;
 
+/** A pick is a value bet when the model (not only the market) rates it and the best price beats the fair odds. */
+export const isValue = (p: Pick) => !p.marketOnly && p.row.bestOdds * p.probability > 1;
+
+function coupon(picks: Pick[], kind: Coupon["kind"]): Coupon {
+  const sorted = [...picks].sort((a, b) => b.probability - a.probability);
+  const odds = sorted.reduce((o, x) => o * x.row.bestOdds, 1);
+  const probability = sorted.reduce((q, x) => q * x.probability, 1);
+  return { picks: sorted, probability, odds, kind, valueLegs: sorted.filter(isValue).length, expectedReturn: probability * odds };
+}
+
 /**
- * Today's coupons: for 2 and 3 bets, the combination of picks (one per match)
- * with the highest chance that all go home while the combined odds are at
- * least `minOdds`. Assumes the matches are independent. A size is left out
- * when no combination reaches the odds.
+ * The 2-bet coupon: the combination of picks (one per match) with the highest
+ * chance that both go home while the combined odds are at least `minOdds`.
+ * Assumes the matches are independent; left out when no pair reaches the odds.
  */
-export function coupons(pool: Pick[], minOdds = COUPON_MIN_ODDS, sizes = [2, 3]): Coupon[] {
+export function oddsCoupon(pool: Pick[], n = 2, minOdds = COUPON_MIN_ODDS): Coupon | null {
   const cands = pool.filter((p) => p.row.bestOdds > 1).slice(0, 15);
-  const out: Coupon[] = [];
-  for (const n of sizes) {
-    let best: Coupon | null = null;
-    const walk = (start: number, chosen: Pick[]) => {
-      if (chosen.length === n) {
-        const odds = chosen.reduce((o, x) => o * x.row.bestOdds, 1);
-        const probability = chosen.reduce((q, x) => q * x.probability, 1);
-        if (odds >= minOdds && (!best || probability > best.probability)) best = { picks: [...chosen], probability, odds };
-        return;
+  let best: Pick[] | null = null;
+  let bestP = -1;
+  const walk = (start: number, chosen: Pick[]) => {
+    if (chosen.length === n) {
+      const odds = chosen.reduce((o, x) => o * x.row.bestOdds, 1);
+      const probability = chosen.reduce((q, x) => q * x.probability, 1);
+      if (odds >= minOdds && probability > bestP) {
+        best = [...chosen];
+        bestP = probability;
       }
-      for (let i = start; i < cands.length; i++) {
-        if (chosen.some((c) => c.row.eventId === cands[i].row.eventId)) continue;
-        walk(i + 1, [...chosen, cands[i]]);
-      }
-    };
-    walk(0, []);
-    if (best) out.push({ ...(best as Coupon), picks: (best as Coupon).picks.sort((a, b) => b.probability - a.probability) });
+      return;
+    }
+    for (let i = start; i < cands.length; i++) {
+      if (chosen.some((c) => c.row.eventId === cands[i].row.eventId)) continue;
+      walk(i + 1, [...chosen, cands[i]]);
+    }
+  };
+  walk(0, []);
+  return best ? coupon(best, "odds") : null;
+}
+
+/**
+ * The 3-bet coupon, with no odds minimum: the likeliest value bets (best odds
+ * above our fair odds), one per match, topped up with the likeliest other
+ * picks when fewer than three are value bets.
+ */
+export function valueCoupon(pool: Pick[], n = 3): Coupon | null {
+  const byChance = pool.filter((p) => p.row.bestOdds > 1).sort((a, b) => b.probability - a.probability);
+  const chosen: Pick[] = [];
+  for (const p of [...byChance.filter(isValue), ...byChance.filter((x) => !isValue(x))]) {
+    if (chosen.length === n) break;
+    if (!chosen.some((c) => c.row.eventId === p.row.eventId)) chosen.push(p);
   }
-  return out;
+  return chosen.length === n ? coupon(chosen, "value") : null;
+}
+
+/** Today's coupons: 2 bets with combined odds of at least 2.0, and 3 bets by value and chance. */
+export function coupons(pool: Pick[]): Coupon[] {
+  return [oddsCoupon(pool), valueCoupon(pool)].filter((c): c is Coupon => c !== null);
 }
 
 // ---------------------------------------------------------------------------
