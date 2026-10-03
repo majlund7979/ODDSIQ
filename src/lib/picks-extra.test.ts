@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MarketRow } from "@/lib/demo/store";
-import { coupons, doubleChancePicks, halfTime, scoreGrid, settle, summarise } from "./picks-extra";
+import { coupons, doubleChancePicks, oddsCoupon, valueCoupon, halfTime, scoreGrid, settle, summarise } from "./picks-extra";
 import type { Pick } from "./picks";
 
 const none = { goals: null, ht: null, corners: null, cards: null, fouls: null };
@@ -54,19 +54,33 @@ describe("goal markets from expected goals", () => {
     expect(p.table.at(-1)!.probability).toBeCloseTo(0.5 / 0.7);
   });
 
-  it("builds 2- and 3-bet coupons with combined odds of at least 2.0", () => {
+  it("builds the 2-bet coupon with combined odds of at least 2.0", () => {
     const pk = (id: string, p: number, o: number) => ({ probability: p, row: { bestOdds: o, eventId: id } }) as Pick;
     const pool = [pk("a", 0.85, 1.2), pk("b", 0.8, 1.25), pk("c", 0.7, 1.5), pk("d", 0.62, 1.7), pk("e", 0.5, 2.1)];
-    const [two, three] = coupons(pool);
+    const two = oddsCoupon(pool)!;
     // a + b (1.2 × 1.25 = 1.5) is too low; the likeliest pair reaching 2.0 is a + d (1.2 × 1.7 = 2.04, 0.527).
     expect(two.picks.map((p) => p.row.eventId)).toEqual(["a", "d"]);
     expect(two.odds).toBeCloseTo(2.04);
     expect(two.probability).toBeCloseTo(0.527);
-    expect(three.odds).toBeGreaterThanOrEqual(2);
-    expect(three.picks.map((p) => p.row.eventId)).toEqual(["a", "b", "c"]);
+    expect(two.kind).toBe("odds");
   });
 
-  it("leaves out a coupon size no combination can reach, and never repeats a match", () => {
+  it("builds the 3-bet coupon from value bets first, with no odds minimum", () => {
+    const pk = (id: string, p: number, o: number, marketOnly = false) => ({ probability: p, marketOnly, row: { bestOdds: o, eventId: id } }) as Pick;
+    // a and b are likely but priced below fair odds; c, d and e are value bets (odds × chance > 1); f is value by the market only.
+    const pool = [pk("a", 0.85, 1.1), pk("b", 0.8, 1.2), pk("c", 0.7, 1.5), pk("d", 0.6, 1.8), pk("e", 0.45, 2.4), pk("f", 0.75, 1.5, true)];
+    const three = valueCoupon(pool)!;
+    expect(three.picks.map((p) => p.row.eventId)).toEqual(["c", "d", "e"]);
+    expect(three.valueLegs).toBe(3);
+    expect(three.expectedReturn).toBeCloseTo(0.7 * 0.6 * 0.45 * 1.5 * 1.8 * 2.4);
+    // With one value bet, the likeliest other picks fill the coupon, and no match appears twice.
+    const one = valueCoupon([pk("a", 0.85, 1.1), pk("a", 0.84, 1.1), pk("b", 0.8, 1.2), pk("c", 0.7, 1.5)])!;
+    expect(one.picks.map((p) => p.row.eventId)).toEqual(["a", "b", "c"]);
+    expect(one.valueLegs).toBe(1);
+    expect(one.odds).toBeLessThan(2);
+  });
+
+  it("leaves out a coupon nothing can fill, and never repeats a match", () => {
     const pk = (id: string, p: number, o: number) => ({ probability: p, row: { bestOdds: o, eventId: id } }) as Pick;
     expect(coupons([pk("a", 0.9, 1.1), pk("b", 0.9, 1.1)])).toEqual([]);
     expect(coupons([pk("a", 0.6, 1.6), pk("a", 0.5, 1.9)])).toEqual([]);
