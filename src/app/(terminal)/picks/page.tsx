@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { TeamNews } from "@/components/News";
 import {
   analysedMatches,
   COUNT_CATEGORIES,
@@ -60,6 +62,17 @@ function CardTop({ rank, league, kickoff, strength, now }: { rank: number; leagu
       <span aria-hidden>·</span>
       <span>{kickoffLabel(kickoff, now)}</span>
       <span className={`ml-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:ml-2 ${STRENGTH_TONE[strength]}`}>{strength}</span>
+    </div>
+  );
+}
+
+function NewsBlock({ home, away, now }: { home: string; away: string; now: number }) {
+  return (
+    <div className="space-y-2.5 border-t border-line pt-5 md:col-span-2">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">Nyheder om holdene</div>
+      <Suspense fallback={<p className="text-sm text-muted">Henter nyheder…</p>}>
+        <TeamNews home={home} away={away} now={now} />
+      </Suspense>
     </div>
   );
 }
@@ -132,7 +145,7 @@ function LearningNote({ l }: { l: CategoryLearning }) {
   );
 }
 
-function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
+function Analysis({ p, home, away, now }: { p: Pick; home: string; away: string; now: number }) {
   const i = p.insights;
   const maxPp = Math.max(4, ...p.factors.map((f) => Math.abs(f.pp ?? 0)));
   return (
@@ -217,6 +230,7 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
         </Fact>
         <Fact label="Startopstilling">{i.lineupsConfirmed ? "Bekræftet for begge hold." : "Ikke meldt endnu. Kommer typisk en time før kampstart."}</Fact>
       </div>
+      <NewsBlock home={home} away={away} now={now} />
     </div>
   );
 }
@@ -250,7 +264,7 @@ function PickCard({ p, rank, now }: { p: Pick; rank: number; now: number }) {
       </div>
       <details className="group">
         <MoreToggle />
-        <Analysis p={p} home={home} away={away} />
+        <Analysis p={p} home={home} away={away} now={now} />
       </details>
     </article>
   );
@@ -374,6 +388,7 @@ function CountCard({ p, rank, now }: { p: CountPick; rank: number; now: number }
               linje.
             </p>
           </Fact>
+          <NewsBlock home={home} away={away} now={now} />
         </div>
       </details>
     </article>
@@ -420,6 +435,7 @@ function ExtraCard({ p, rank, now }: { p: ExtraPick; rank: number; now: number }
             ))}
           </ul>
           <p className="text-xs text-ink-2">{p.note}</p>
+          <NewsBlock home={home} away={away} now={now} />
         </div>
       </details>
     </article>
