@@ -6,6 +6,12 @@ import type { NavItem } from "./nav";
 
 const ICONS: Record<NavItem["icon"], React.ReactNode> = {
   bets: <path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7L12 3z" />,
+  tips: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <path d="M7.5 12.5l3 3 6-6.5" />
+    </>
+  ),
   results: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   news: <path d="M4 5h13v14H6a2 2 0 01-2-2V5zM17 9h3v8a2 2 0 01-2 2M8 9h5M8 13h5" />,
   league: <path d="M7 4h10v4a5 5 0 01-10 0V4zM7 6H4v1a3 3 0 003 3M17 6h3v1a3 3 0 01-3 3M12 13v4M8 21h8M9 17h6v4H9z" />,
@@ -13,6 +19,12 @@ const ICONS: Record<NavItem["icon"], React.ReactNode> = {
     <>
       <circle cx="9" cy="8" r="3.5" />
       <path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.8a3.3 3.3 0 010 6.4M18 14.8c1.9.7 3.1 2.4 3.5 5.2" />
+    </>
+  ),
+  admin: (
+    <>
+      <path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z" />
+      <path d="M9 12l2 2 4-4" />
     </>
   ),
   account: (
@@ -60,7 +72,7 @@ export function BottomNav({ items }: { items: NavItem[] }) {
   return (
     <nav aria-label="Menu" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-page/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
       <div className="mx-auto flex max-w-md">
-        {items.map((i) => (
+        {items.filter((i) => i.mobile !== false).map((i) => (
           <Link
             key={i.href}
             href={i.href}
