@@ -54,7 +54,7 @@ export function effectiveBudget(budget: number, quota: StatsQuota): number {
 export async function ingestStats(
   prisma: PrismaClient,
   feed: StatsFeed,
-  opts: { oddsKeys: string[]; now?: number; budget: number; prefix?: string },
+  opts: { oddsKeys: string[]; now?: number; budget: number; prefix?: string; seasons?: Map<string, number> },
 ): Promise<StatsIngestSummary> {
   const now = opts.now ?? Date.now();
   const prefix = opts.prefix ?? "toa";
@@ -70,11 +70,13 @@ export async function ingestStats(
   const left = () => s.requests < effectiveBudget(opts.budget, quota) && (quota.remaining === null || quota.remaining > 0);
 
   try {
-    const work: { f: StatsFixture; id: string; eventId: string }[] = [];
+    const work: { f: StatsFixture; id: string; eventId: string; season: number }[] = [];
     for (const key of opts.oddsKeys) {
       const leagueId = STATS_LEAGUES[key];
       if (leagueId === undefined || !left()) continue;
-      const fixtures = spend(await feed.fixtures(leagueId, seasonFor(now), isoDay(now - DAY), isoDay(now + 3 * DAY)));
+      // Internationals and calendar-year leagues name their seasons differently; the odds feed knows the current one.
+      const season = opts.seasons?.get(key) ?? seasonFor(now);
+      const fixtures = spend(await feed.fixtures(leagueId, season, isoDay(now - DAY), isoDay(now + 3 * DAY)));
       s.fixtures += fixtures.length;
       const events = await prisma.event.findMany({
         where: { leagueId: `${prefix}-${key}`, kickoff: { gte: new Date(now - 2 * DAY), lte: new Date(now + 4 * DAY) } },
@@ -87,7 +89,7 @@ export async function ingestStats(
         await prisma.statsFixture.upsert({ where: { id }, create: { id, provider: feed.provider, leagueId, ...fields }, update: fields });
         if (ev) {
           s.matched++;
-          work.push({ f, id, eventId: ev.id });
+          work.push({ f, id, eventId: ev.id, season });
         }
       }
     }
@@ -134,12 +136,11 @@ export async function ingestStats(
 
     // Squad statistics: each team once a day while it has a match coming up.
     if (feed.players) {
-      const season = seasonFor(now);
-      const teams = new Map<string, { teamId: number; leagueId: number; kickoff: number }>();
+      const teams = new Map<string, { teamId: number; leagueId: number; season: number; kickoff: number }>();
       for (const w of work)
         if (w.f.status === "scheduled" && until(w) > 0 && until(w) <= PLAYER_WINDOW_MS)
           for (const teamId of [w.f.homeId, w.f.awayId])
-            if (teamId) teams.set(`${feed.provider}:${w.f.leagueId}:${season}:${teamId}`, { teamId, leagueId: w.f.leagueId, kickoff: w.f.kickoff });
+            if (teamId) teams.set(`${feed.provider}:${w.f.leagueId}:${w.season}:${teamId}`, { teamId, leagueId: w.f.leagueId, season: w.season, kickoff: w.f.kickoff });
       const synced = new Map((await prisma.playerStatsSync.findMany({ where: { id: { in: [...teams.keys()] } } })).map((r) => [r.id, r.fetchedAt.getTime()]));
       let pages = 0;
       for (const [id, team] of [...teams.entries()].filter(([id]) => now - (synced.get(id) ?? 0) >= PLAYER_REFRESH_MS).sort((a, b) => a[1].kickoff - b[1].kickoff)) {
@@ -148,7 +149,7 @@ export async function ingestStats(
         let page = 1;
         for (; page <= Math.min(total, MAX_SQUAD_PAGES); page++) {
           if (!left() || pages >= PLAYER_PAGES_PER_RUN) break;
-          const r = await feed.players(team.teamId, team.leagueId, season, page);
+          const r = await feed.players(team.teamId, team.leagueId, team.season, page);
           spend(r);
           pages++;
           total = r.pages;
@@ -156,7 +157,7 @@ export async function ingestStats(
         }
         // Out of budget halfway through a squad: keep the old totals and try again next run.
         if (page <= Math.min(total, MAX_SQUAD_PAGES)) break;
-        const key = { provider: feed.provider, leagueId: team.leagueId, season, teamId: team.teamId };
+        const key = { provider: feed.provider, leagueId: team.leagueId, season: team.season, teamId: team.teamId };
         await prisma.$transaction([
           prisma.playerSeasonStat.deleteMany({ where: key }),
           prisma.playerSeasonStat.createMany({ data: squad.map((p) => ({ ...key, ...p, fetchedAt: new Date(now) })), skipDuplicates: true }),

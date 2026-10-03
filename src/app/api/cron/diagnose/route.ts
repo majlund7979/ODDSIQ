@@ -8,7 +8,7 @@ import { timingSafeEqual } from "node:crypto";
 import { DEMO_MODE } from "@/lib/data";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { PICK_WINDOW_MS } from "@/lib/picks";
-import { configuredFeed, feedConfig, oddsPlan } from "@/lib/providers/config";
+import { AF_ODDS_PLAN, configuredAfOddsFeed, configuredFeed, feedConfig, oddsPlan } from "@/lib/providers/config";
 import { realSnapshot } from "@/lib/real/store";
 import { seasonFor } from "@/lib/stats/api-football";
 import { configuredStatsFeed } from "@/lib/stats/config";
@@ -91,6 +91,26 @@ export async function GET(req: Request): Promise<Response> {
         }
       }),
     );
+  }
+
+  // The same for the API-Football odds competitions: which have a current season, and their next kickoff.
+  const afFeed = configuredAfOddsFeed();
+  if (afFeed) {
+    try {
+      const comps = (await afFeed.competitions()).data;
+      out.afOddsUpcoming = await Promise.all(
+        comps.map(async (c) => {
+          try {
+            const t = (await afFeed.upcoming(c.key)).data.sort((a, b) => a - b);
+            return `${c.key} (season ${afFeed.seasons.get(c.key)}): ${t.length} in 3 days, ${t.filter((x) => x <= now + AF_ODDS_PLAN.windowMs).length} inside 48 h, next ${t[0] ? new Date(t[0]).toISOString().slice(0, 16) : "none"}`;
+          } catch (e) {
+            return `${c.key}: error ${message(e)}`;
+          }
+        }),
+      );
+    } catch (e) {
+      out.afOddsUpcoming = `error ${message(e)}`;
+    }
   }
 
   // One fixtures call for the first covered league this season and the season before, to see what the plan returns.
