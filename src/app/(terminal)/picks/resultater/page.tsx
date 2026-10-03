@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { summarise, type RecordedPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
+import { LEARN_DAYS, LEARN_MIN, LEARNING_VERSION, learn, type CategoryLearning } from "@/lib/picks-learning";
 
 export const metadata = { title: "Resultater · ODDSIQ" };
 
@@ -31,6 +32,12 @@ function Mark({ r }: { r: RecordedPick["result"] }) {
   return <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-3 text-xs text-muted">…</span>;
 }
 
+function adjustment(l: CategoryLearning | undefined): string {
+  if (!l) return "—";
+  if (!l.learning) return `lærer (${l.hitRate.n}/${LEARN_MIN})`;
+  return `${l.adjustmentPp >= 0 ? "+" : "−"}${Math.abs(l.adjustmentPp).toFixed(1).replace(".", ",")} point`;
+}
+
 export default async function ResultsPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
   const t = await terminal();
   const q = await searchParams;
@@ -40,6 +47,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   const total = summarise(picks);
   const byCat = Object.keys(CATEGORY_LABEL).map((c) => ({ id: c, s: summarise(all.filter((p) => p.category === c)) }));
   const days = [...new Set(picks.map((p) => p.day))];
+  const learning = learn(await t.recordedPicks(LEARN_DAYS), t.dataLabel);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-10">
@@ -74,7 +82,8 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
               <th className="px-3 py-2 text-right font-normal">Gik hjem</th>
               <th className="px-3 py-2 text-right font-normal">Ramte</th>
               <th className="hidden px-3 py-2 text-right font-normal sm:table-cell">Forventet</th>
-              <th className="px-5 py-2 text-right font-normal">100 kr pr. bet</th>
+              <th className="px-3 py-2 text-right font-normal">100 kr pr. bet</th>
+              <th className="px-5 py-2 text-right font-normal" title="Hvor meget modellen har justeret procenterne ud fra resultaterne">Justering</th>
             </tr>
           </thead>
           <tbody className="num">
@@ -88,11 +97,16 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
                 <td className="px-3 py-2 text-right">{s.settled ? `${s.won}/${s.settled}` : "—"}</td>
                 <td className="px-3 py-2 text-right">{s.settled ? pct(s.won / s.settled) : "—"}</td>
                 <td className="hidden px-3 py-2 text-right text-muted sm:table-cell">{pct(s.expectedRate)}</td>
-                <td className={`px-5 py-2 text-right ${s.withOdds ? (s.profit >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{s.withOdds ? kr(s.profit) : "ingen odds"}</td>
+                <td className={`px-3 py-2 text-right ${s.withOdds ? (s.profit >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{s.withOdds ? kr(s.profit) : "ingen odds"}</td>
+                <td className="px-5 py-2 text-right text-ink-2">{adjustment(learning.get(id))}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        <p className="border-t border-line px-5 py-3 text-xs text-muted">
+          Justering: modellen sammenligner, hvor ofte hver bet-type har ramt, med hvad den regnede med, og retter procenterne lidt til. Den lærer først, når en type
+          har {LEARN_MIN} afgjorte bets, og jo flere bets, jo mere stoler den på dem. Bygger på de sidste {LEARN_DAYS} dage (historisk, {t.dataLabel}, {LEARNING_VERSION}).
+        </p>
       </section>
 
       <h2 className="text-lg font-semibold">{CATEGORY_LABEL[type]}, dag for dag</h2>
