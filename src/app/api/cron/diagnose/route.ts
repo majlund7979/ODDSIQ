@@ -98,16 +98,17 @@ export async function GET(req: Request): Promise<Response> {
   if (afFeed) {
     try {
       const comps = (await afFeed.competitions()).data;
-      out.afOddsUpcoming = await Promise.all(
-        comps.map(async (c) => {
-          try {
-            const t = (await afFeed.upcoming(c.key)).data.sort((a, b) => a - b);
-            return `${c.key} (season ${afFeed.seasons.get(c.key)}): ${t.length} in 3 days, ${t.filter((x) => x <= now + AF_ODDS_PLAN.windowMs).length} inside 48 h, next ${t[0] ? new Date(t[0]).toISOString().slice(0, 16) : "none"}`;
-          } catch (e) {
-            return `${c.key}: error ${message(e)}`;
-          }
-        }),
-      );
+      // One at a time: API-Football limits requests per minute.
+      const lines: string[] = [];
+      for (const c of comps) {
+        try {
+          const t = (await afFeed.upcoming(c.key)).data.sort((a, b) => a - b);
+          lines.push(`${c.key} (season ${afFeed.seasons.get(c.key)}): ${t.length} in 3 days, ${t.filter((x) => x <= now + AF_ODDS_PLAN.windowMs).length} inside 48 h, next ${t[0] ? new Date(t[0]).toISOString().slice(0, 16) : "none"}`);
+        } catch (e) {
+          lines.push(`${c.key}: error ${message(e)}`);
+        }
+      }
+      out.afOddsUpcoming = lines;
     } catch (e) {
       out.afOddsUpcoming = `error ${message(e)}`;
     }
