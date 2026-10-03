@@ -387,6 +387,9 @@ model StatsFixture {
   homeGoals  Int?
   awayGoals  Int?
   referee    String?
+  /// The provider's team ids, for the squad statistics.
+  homeTeamId Int?
+  awayTeamId Int?
   homeXg     Float?
   awayXg     Float?
   /// Per-side shots, shots on target and possession.
@@ -501,4 +504,34 @@ model TipPick {
   @@unique([userId, eventId])
   @@index([week])
   @@index([eventId])
+}
+
+/// A player's season totals for one team in one league, from the statistics
+/// feed's squad endpoint. Replaced on each refresh, for the shots-on-target picks.
+model PlayerSeasonStat {
+  provider    String
+  leagueId    Int
+  season      Int
+  teamId      Int
+  playerId    Int
+  name        String
+  position    String?
+  appearances Int
+  lineups     Int
+  minutes     Int
+  shotsOn     Int
+  shotsTotal  Int
+  goals       Int
+  injured     Boolean  @default(false)
+  fetchedAt   DateTime
+
+  @@id([provider, leagueId, season, teamId, playerId])
+  @@index([provider, teamId, season])
+}
+
+/// When a team's squad statistics were last fetched in full.
+model PlayerStatsSync {
+  /// "<provider>:<league>:<season>:<team>"
+  id        String   @id
+  fetchedAt DateTime
 }

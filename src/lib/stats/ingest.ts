@@ -1,13 +1,14 @@
 // Statistics ingestion: refreshes each covered league's fixture list, matches
 // fixtures to odds-feed events, then spends a capped number of requests on
 // what matters soonest: lineups near kickoff, injury lists for the next two
-// days, and team statistics (including xG) for finished matches.
+// days, team statistics (including xG) for finished matches, and squad
+// statistics (shots on target per player) for teams playing in the next two days.
 
 import type { PrismaClient } from "@/generated/prisma/client";
 import { matchTeam } from "@/lib/model/teams";
 import { seasonFor } from "./api-football";
 import { STATS_LEAGUES } from "./leagues";
-import type { StatsFeed, StatsFixture, StatsQuota } from "./types";
+import type { PlayerSeason, StatsFeed, StatsFixture, StatsQuota } from "./types";
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -17,6 +18,11 @@ export const LINEUP_WINDOW_MS = 90 * MIN;
 export const INJURY_WINDOW_MS = 2 * DAY;
 export const INJURY_REFRESH_MS = 6 * HOUR;
 export const STATS_LOOKBACK_MS = 3 * DAY;
+export const PLAYER_WINDOW_MS = 2 * DAY;
+export const PLAYER_REFRESH_MS = 20 * HOUR;
+/** Squad pages a run may fetch, so player statistics never crowd out lineups and injuries. */
+export const PLAYER_PAGES_PER_RUN = 60;
+const MAX_SQUAD_PAGES = 5;
 /** A feed event and a statistics fixture are the same match when teams match and kickoffs are this close. */
 const KICKOFF_TOLERANCE_MS = 3 * HOUR;
 
@@ -27,6 +33,8 @@ export interface StatsIngestSummary {
   lineups: number;
   injuries: number;
   stats: number;
+  /** Teams whose squad statistics were refreshed. */
+  players: number;
   requests: number;
   quota: StatsQuota;
   error: string | null;
@@ -51,7 +59,7 @@ export async function ingestStats(
   const now = opts.now ?? Date.now();
   const prefix = opts.prefix ?? "toa";
   const run = await prisma.ingestRun.create({ data: { provider: feed.provider, startedAt: new Date(now), sportKeys: opts.oddsKeys } });
-  const s = { fixtures: 0, matched: 0, lineups: 0, injuries: 0, stats: 0, requests: 0 };
+  const s = { fixtures: 0, matched: 0, lineups: 0, injuries: 0, stats: 0, players: 0, requests: 0 };
   let quota: StatsQuota = { remaining: null, limit: null };
   let error: string | null = null;
   const spend = <T>(r: { data: T; quota: StatsQuota }) => {
@@ -75,7 +83,7 @@ export async function ingestStats(
       for (const f of fixtures) {
         const ev = events.find((e) => Math.abs(e.kickoff.getTime() - f.kickoff) <= KICKOFF_TOLERANCE_MS && matchTeam(f.home, [e.homeTeam.name]) && matchTeam(f.away, [e.awayTeam.name]));
         const id = `${feed.provider}:${f.id}`;
-        const fields = { kickoff: new Date(f.kickoff), home: f.home, away: f.away, status: f.status, homeGoals: f.homeGoals, awayGoals: f.awayGoals, referee: f.referee ?? null, eventId: ev?.id ?? null, syncedAt: new Date(now) };
+        const fields = { kickoff: new Date(f.kickoff), home: f.home, away: f.away, status: f.status, homeGoals: f.homeGoals, awayGoals: f.awayGoals, referee: f.referee ?? null, homeTeamId: f.homeId ?? null, awayTeamId: f.awayId ?? null, eventId: ev?.id ?? null, syncedAt: new Date(now) };
         await prisma.statsFixture.upsert({ where: { id }, create: { id, provider: feed.provider, leagueId, ...fields }, update: fields });
         if (ev) {
           s.matched++;
@@ -123,6 +131,40 @@ export async function ingestStats(
       await prisma.statsFixture.update({ where: { id: w.id }, data: { homeXg: home.xg, awayXg: away.xg, stats, statsAt: new Date(now) } });
       s.stats++;
     }
+
+    // Squad statistics: each team once a day while it has a match coming up.
+    if (feed.players) {
+      const season = seasonFor(now);
+      const teams = new Map<string, { teamId: number; leagueId: number; kickoff: number }>();
+      for (const w of work)
+        if (w.f.status === "scheduled" && until(w) > 0 && until(w) <= PLAYER_WINDOW_MS)
+          for (const teamId of [w.f.homeId, w.f.awayId])
+            if (teamId) teams.set(`${feed.provider}:${w.f.leagueId}:${season}:${teamId}`, { teamId, leagueId: w.f.leagueId, kickoff: w.f.kickoff });
+      const synced = new Map((await prisma.playerStatsSync.findMany({ where: { id: { in: [...teams.keys()] } } })).map((r) => [r.id, r.fetchedAt.getTime()]));
+      let pages = 0;
+      for (const [id, team] of [...teams.entries()].filter(([id]) => now - (synced.get(id) ?? 0) >= PLAYER_REFRESH_MS).sort((a, b) => a[1].kickoff - b[1].kickoff)) {
+        const squad: PlayerSeason[] = [];
+        let total = 1;
+        let page = 1;
+        for (; page <= Math.min(total, MAX_SQUAD_PAGES); page++) {
+          if (!left() || pages >= PLAYER_PAGES_PER_RUN) break;
+          const r = await feed.players(team.teamId, team.leagueId, season, page);
+          spend(r);
+          pages++;
+          total = r.pages;
+          squad.push(...r.data);
+        }
+        // Out of budget halfway through a squad: keep the old totals and try again next run.
+        if (page <= Math.min(total, MAX_SQUAD_PAGES)) break;
+        const key = { provider: feed.provider, leagueId: team.leagueId, season, teamId: team.teamId };
+        await prisma.$transaction([
+          prisma.playerSeasonStat.deleteMany({ where: key }),
+          prisma.playerSeasonStat.createMany({ data: squad.map((p) => ({ ...key, ...p, fetchedAt: new Date(now) })), skipDuplicates: true }),
+          prisma.playerStatsSync.upsert({ where: { id }, create: { id, fetchedAt: new Date(now) }, update: { fetchedAt: new Date(now) } }),
+        ]);
+        s.players++;
+      }
+    }
   } catch (e) {
     error = e instanceof Error ? e.message.trim().split("\n").at(-1)! : String(e);
   }
@@ -130,9 +172,9 @@ export async function ingestStats(
   const finishedAt = new Date(now);
   await prisma.ingestRun.update({
     where: { id: run.id },
-    data: { finishedAt, events: s.matched, snapshots: s.lineups + s.injuries + s.stats, results: s.stats, creditsUsed: s.requests, creditsRemaining: quota.remaining, error },
+    data: { finishedAt, events: s.matched, snapshots: s.lineups + s.injuries + s.stats + s.players, results: s.stats, creditsUsed: s.requests, creditsRemaining: quota.remaining, error },
   });
-  for (const [kind, label] of [["lineups", "lineups"], ["injuries", "injuries and suspensions"], ["stats", "match statistics and xG"]] as const) {
+  for (const [kind, label] of [["lineups", "lineups"], ["injuries", "injuries and suspensions"], ["stats", "match statistics and xG"], ["players", "player statistics"]] as const) {
     const id = `${feed.provider}-${kind}`;
     await prisma.dataSource.upsert({
       where: { id },

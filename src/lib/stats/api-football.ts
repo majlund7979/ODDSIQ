@@ -3,7 +3,7 @@
 // the x-ratelimit-requests-* headers. Errors come back with HTTP 200 and a
 // non-empty `errors` field (for example a plan that does not cover a season).
 
-import type { InjuryItem, LineupPlayer, Side, StatsFeed, StatsFixture, StatsQuota, StatsResponse, TeamLineup, TeamStats } from "./types";
+import type { InjuryItem, LineupPlayer, PlayerSeason, Side, StatsFeed, StatsFixture, StatsQuota, StatsResponse, TeamLineup, TeamStats } from "./types";
 
 export const API_FOOTBALL = "api-football";
 const BASE = "https://v3.football.api-sports.io";
@@ -12,6 +12,7 @@ interface Envelope<T> {
   errors: unknown[] | Record<string, string>;
   results: number;
   response: T[];
+  paging?: { current: number; total: number };
 }
 interface RawTeam {
   id: number;
@@ -43,6 +44,17 @@ export interface RawStatistics {
   statistics: { type: string; value: number | string | null }[];
 }
 
+export interface RawPlayerStats {
+  player: { id: number; name: string; injured?: boolean | null };
+  statistics: {
+    team: { id: number };
+    league: { id: number | null };
+    games: { appearences: number | null; lineups: number | null; minutes: number | null; position: string | null };
+    shots: { total: number | null; on: number | null };
+    goals: { total: number | null };
+  }[];
+}
+
 const FINISHED = new Set(["FT", "AET", "PEN"]);
 const LIVE = new Set(["1H", "HT", "2H", "ET", "BT", "P", "LIVE", "INT", "SUSP"]);
 const SCHEDULED = new Set(["TBD", "NS"]);
@@ -60,6 +72,8 @@ export function normalizeFixtures(raw: RawFixture[]): StatsFixture[] {
       homeGoals: f.goals.home,
       awayGoals: f.goals.away,
       referee: f.fixture.referee ?? null,
+      homeId: f.teams.home.id ?? null,
+      awayId: f.teams.away.id ?? null,
     };
   });
 }
@@ -107,6 +121,28 @@ export function normalizeStatistics(raw: RawStatistics[], fixture: StatsFixture)
   });
 }
 
+/** Season totals for this team in this league; players without a minute are left out. */
+export function normalizePlayers(raw: RawPlayerStats[], teamId: number, leagueId: number): PlayerSeason[] {
+  return raw.flatMap((p) => {
+    const s = p.statistics.find((x) => x.team.id === teamId && x.league.id === leagueId);
+    if (!s || !s.games.minutes) return [];
+    return [
+      {
+        playerId: p.player.id,
+        name: p.player.name,
+        position: s.games.position ?? null,
+        appearances: s.games.appearences ?? 0,
+        lineups: s.games.lineups ?? 0,
+        minutes: s.games.minutes,
+        shotsOn: s.shots.on ?? 0,
+        shotsTotal: s.shots.total ?? 0,
+        goals: s.goals.total ?? 0,
+        injured: Boolean(p.player.injured),
+      },
+    ];
+  });
+}
+
 /** API-Football seasons are named by their starting year; European leagues start in July or August. */
 export function seasonFor(at: number): number {
   const d = new Date(at);
@@ -120,7 +156,7 @@ export class ApiFootballFeed implements StatsFeed {
     private readonly opts: { apiKey: string; fetchImpl?: typeof fetch },
   ) {}
 
-  private async get<T>(path: string, params: Record<string, string | number>): Promise<StatsResponse<T[]>> {
+  private async get<T>(path: string, params: Record<string, string | number>): Promise<StatsResponse<T[]> & { pages: number }> {
     const url = `${BASE}${path}?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]))}`;
     const res = await (this.opts.fetchImpl ?? fetch)(url, { headers: { "x-apisports-key": this.opts.apiKey }, cache: "no-store" });
     const header = (k: string) => {
@@ -132,7 +168,7 @@ export class ApiFootballFeed implements StatsFeed {
     const body = (await res.json()) as Envelope<T>;
     const errors = Array.isArray(body.errors) ? body.errors.map(String) : Object.values(body.errors ?? {});
     if (errors.length) throw new Error(`API-Football ${path}: ${errors.join("; ")}`);
-    return { data: body.response ?? [], quota };
+    return { data: body.response ?? [], quota, pages: body.paging?.total ?? 1 };
   }
 
   async fixtures(leagueId: number, season: number, from: string, to: string) {
@@ -150,5 +186,9 @@ export class ApiFootballFeed implements StatsFeed {
   async statistics(f: StatsFixture) {
     const r = await this.get<RawStatistics>("/fixtures/statistics", { fixture: f.id });
     return { data: normalizeStatistics(r.data, f), quota: r.quota };
+  }
+  async players(teamId: number, leagueId: number, season: number, page: number) {
+    const r = await this.get<RawPlayerStats>("/players", { team: teamId, league: leagueId, season, page });
+    return { data: normalizePlayers(r.data, teamId, leagueId), quota: r.quota, pages: r.pages };
   }
 }

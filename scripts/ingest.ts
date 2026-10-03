@@ -83,6 +83,11 @@ async function fixture() {
   for (const m of models) console.log(m);
   for (const r of statsRuns) console.log(r);
   assert(runs.every((r) => !r.error), "a run reported an error");
+  assert(statsRuns.some((r) => r.players > 0), "a statistics run before kickoff should store squad statistics");
+  const arsenalFixture = await prisma.statsFixture.findFirst({ where: { eventId: `${prefix}-fx0001arsche` } });
+  assert(arsenalFixture?.homeTeamId === 42 && arsenalFixture.awayTeamId === 49, `the fixture should carry the provider's team ids, got ${arsenalFixture?.homeTeamId}/${arsenalFixture?.awayTeamId}`);
+  const squad = await prisma.playerSeasonStat.findMany({ where: { teamId: 42 } });
+  assert(squad.length === 3 && squad.some((p) => p.name === "Striker 42" && p.shotsOn === 9), `expected Arsenal's three made-up players, got ${squad.length}`);
   assert(runs[2].results === 1, "expected one settled event");
 
   // Scheduled runs on a credit plan: odds once per interval, results once the match is over.

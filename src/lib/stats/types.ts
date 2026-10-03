@@ -26,6 +26,25 @@ export interface StatsFixture {
   awayGoals: number | null;
   /** As the provider writes it, e.g. "Anthony Taylor, England"; often set a few days before kickoff. */
   referee?: string | null;
+  /** The provider's team ids, for the squad statistics. */
+  homeId?: number | null;
+  awayId?: number | null;
+}
+
+/** One player's season totals for one team in one league. */
+export interface PlayerSeason {
+  playerId: number;
+  name: string;
+  /** Goalkeeper, Defender, Midfielder or Attacker. */
+  position: string | null;
+  appearances: number;
+  /** Matches started. */
+  lineups: number;
+  minutes: number;
+  shotsOn: number;
+  shotsTotal: number;
+  goals: number;
+  injured: boolean;
 }
 
 export interface LineupPlayer {
@@ -71,4 +90,6 @@ export interface StatsFeed {
   lineups(fixture: StatsFixture): Promise<StatsResponse<TeamLineup[]>>;
   injuries(fixture: StatsFixture): Promise<StatsResponse<InjuryItem[]>>;
   statistics(fixture: StatsFixture): Promise<StatsResponse<TeamStats[]>>;
+  /** One page of a team's squad with season totals in this league; `pages` is the page count. */
+  players?(teamId: number, leagueId: number, season: number, page: number): Promise<StatsResponse<PlayerSeason[]> & { pages: number }>;
 }
