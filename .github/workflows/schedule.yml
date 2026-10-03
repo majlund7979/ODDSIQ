@@ -6,6 +6,7 @@
 #   variable SITE_URL     e.g. https://oddsiq.vercel.app
 #   secret   CRON_SECRET  the same value as CRON_SECRET on Vercel
 #   variable ODDS_LIVE    "on" to also poll in-play odds (costs odds credits)
+# The morning e-mail goes out once RESEND_API_KEY is set on Vercel; until then that job only logs "skipped".
 # Nothing runs until SITE_URL is set. "Run workflow" starts an odds run by hand.
 
 name: Scheduled data runs
@@ -14,6 +15,8 @@ on:
   schedule:
     - cron: "15 */6 * * *"
     - cron: "*/10 * * * *"
+    # 08:30 Danish summer time, 07:30 winter time.
+    - cron: "30 6 * * *"
   workflow_dispatch:
 
 jobs:
@@ -44,3 +47,17 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           curl -fsS --max-time 130 -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/live"
+
+  morning:
+    if: vars.SITE_URL != '' && github.event.schedule == '30 6 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Morning e-mail with today's top 5 (sends once a day)
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -sS --max-time 90 -o out.json -w '%{http_code}' -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/morning" || echo 000)
+          summary=$(head -c 400 out.json | tr '\n' ' ')
+          if [ "$code" = 200 ]; then echo "::notice title=Morning e-mail::$summary"; else echo "::error title=Morning e-mail failed (HTTP $code)::$summary"; exit 1; fi

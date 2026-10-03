@@ -8,6 +8,7 @@ const ICONS: Record<NavItem["icon"], React.ReactNode> = {
   bets: <path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7L12 3z" />,
   results: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   news: <path d="M4 5h13v14H6a2 2 0 01-2-2V5zM17 9h3v8a2 2 0 01-2 2M8 9h5M8 13h5" />,
+  league: <path d="M7 4h10v4a5 5 0 01-10 0V4zM7 6H4v1a3 3 0 003 3M17 6h3v1a3 3 0 01-3 3M12 13v4M8 21h8M9 17h6v4H9z" />,
   friends: (
     <>
       <circle cx="9" cy="8" r="3.5" />

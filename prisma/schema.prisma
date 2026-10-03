@@ -251,7 +251,12 @@ model User {
   watchlist        String    @default("")
   positions        String    @default("")
   thresholdPp      Int       @default(5)
+  /// Name shown in the friends' league; null shows the part of the e-mail before the @.
+  displayName      String?
+  /// Receives the morning e-mail with the day's top 5.
+  morningEmail     Boolean   @default(true)
   sessions         Session[]
+  friendBets       FriendBet[]
 }
 
 /// Signed-in sessions. The id is the SHA-256 of the cookie token, so a leaked
@@ -432,4 +437,38 @@ model Friend {
   email   String   @id
   name    String   @default("")
   addedAt DateTime @default(now())
+}
+
+/// A bet a friend saved from Dagens bedste bets, for the friends' league.
+/// The pick's details are copied from the page's own pick when saved; the
+/// result is settled when read, the same way as PickRecord.
+model FriendBet {
+  id          BigInt   @id @default(autoincrement())
+  userId      String
+  createdAt   DateTime @default(now())
+  eventId     String
+  kickoff     DateTime
+  leagueName  String
+  leagueCode  String?
+  home        String
+  away        String
+  category    String
+  outcome     String
+  spec        String
+  probability Float
+  /// The odds the friend got; null when not entered.
+  odds        Float?
+  /// Stake in kroner.
+  stake       Float
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId, spec])
+  @@index([kickoff])
+}
+
+/// One row per day the morning e-mail went out, so a re-run does not send it twice.
+model MorningMail {
+  day        String   @id
+  sentAt     DateTime @default(now())
+  recipients Int
 }
