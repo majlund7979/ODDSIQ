@@ -8,7 +8,7 @@ import { timingSafeEqual } from "node:crypto";
 import { DEMO_MODE } from "@/lib/data";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { PICK_WINDOW_MS } from "@/lib/picks";
-import { feedConfig } from "@/lib/providers/config";
+import { configuredFeed, feedConfig, oddsPlan } from "@/lib/providers/config";
 import { realSnapshot } from "@/lib/real/store";
 import { seasonFor } from "@/lib/stats/api-football";
 import { configuredStatsFeed } from "@/lib/stats/config";
@@ -74,6 +74,23 @@ export async function GET(req: Request): Promise<Response> {
     );
   } catch (e) {
     out.databaseError = message(e);
+  }
+
+  // Upcoming kickoffs per league from the odds feed (free on The Odds API): a scheduled run only buys odds for a
+  // league with a kickoff inside the plan window, so this shows why a run fetched nothing.
+  const oddsFeed = configuredFeed();
+  if (oddsFeed) {
+    const windowMs = oddsPlan().windowMs;
+    out.oddsUpcoming = await Promise.all(
+      feedConfig().sports.map(async (k) => {
+        try {
+          const t = (await oddsFeed.upcoming(k)).data.filter((x) => x > now).sort((a, b) => a - b);
+          return `${k}: ${t.length} upcoming, ${t.filter((x) => x <= now + windowMs).length} inside ${windowMs / 3_600_000} h, next ${t[0] ? new Date(t[0]).toISOString().slice(0, 16) : "none"}`;
+        } catch (e) {
+          return `${k}: error ${message(e)}`;
+        }
+      }),
+    );
   }
 
   // One fixtures call for the first covered league this season and the season before, to see what the plan returns.
