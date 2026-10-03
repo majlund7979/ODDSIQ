@@ -90,18 +90,28 @@ export function tidy(items: NewsItem[], now: number, limit: number): NewsItem[] 
 
 async function fetchFeed(url: string): Promise<NewsItem[]> {
   try {
-    const res = await fetch(url, { next: { revalidate: 1800 }, signal: AbortSignal.timeout(5000), headers: { "user-agent": "Mozilla/5.0 Oddsanalyse" } });
+    const res = await fetch(url, { next: { revalidate: 1800 }, signal: AbortSignal.timeout(3000), headers: { "user-agent": "Mozilla/5.0 Oddsanalyse" } });
     return res.ok ? parseRss(await res.text()) : [];
   } catch {
     return [];
   }
 }
 
+/** Per-instance cache, so repeat visits skip the network (and a failing feed is not retried on every view). */
+const memo = new Map<string, { at: number; items: NewsItem[] }>();
+const MEMO_MS = 30 * 60_000;
+const MEMO_EMPTY_MS = 10 * 60_000;
+
 async function search(query: string, now: number, limit: number, minDanish: number): Promise<NewsItem[]> {
   if (DEMO_MODE) return tidy(demoNews(query, now), now, limit);
-  const da = await fetchFeed(googleNewsUrl(query, "da"));
-  if (da.length >= minDanish) return tidy(da, now, limit);
-  return tidy([...da, ...(await fetchFeed(googleNewsUrl(query, "en")))], now, limit);
+  const hit = memo.get(query);
+  if (hit && now - hit.at < (hit.items.length ? MEMO_MS : MEMO_EMPTY_MS)) return tidy(hit.items, now, limit);
+  // Both languages at once: one round trip instead of two when Danish has too little.
+  const [da, en] = await Promise.all([fetchFeed(googleNewsUrl(query, "da")), fetchFeed(googleNewsUrl(query, "en"))]);
+  const items = da.length >= minDanish ? da : [...da, ...en];
+  if (memo.size > 500) memo.clear();
+  memo.set(query, { at: now, items });
+  return tidy(items, now, limit);
 }
 
 export const leagueNews = (league: NewsLeague, now: number, limit = 20) => search(league.query, now, limit, 8);

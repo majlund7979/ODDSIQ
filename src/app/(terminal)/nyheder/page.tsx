@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { NewsList } from "@/components/News";
+import { NewsList } from "@/components/NewsList";
 import { requireFriend } from "@/lib/auth/friends";
 import { wallClock } from "@/lib/data";
 import { leagueNews, NEWS_LEAGUES } from "@/lib/news/news";
