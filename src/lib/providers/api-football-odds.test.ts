@@ -85,3 +85,19 @@ describe("API-Football odds", () => {
     expect(new Set(AF_COMPETITIONS.map((c) => c.key)).size).toBe(AF_COMPETITIONS.length);
   });
 });
+
+describe("API-Football per-minute limit", () => {
+  it("waits and retries when the minute's requests are used up", async () => {
+    let calls = 0;
+    const waits: number[] = [];
+    const fake = (async () => {
+      calls++;
+      const body = calls < 3 ? { errors: { rateLimit: "Too many requests. You have exceeded the limit of requests per minute of your subscription." }, response: [] } : { errors: [], response: [{ league: { id: 3, name: "Europa League" }, seasons: [{ year: 2026, current: true }] }] };
+      return new Response(JSON.stringify(body));
+    }) as unknown as typeof fetch;
+    const feed = new ApiFootballOddsFeed({ apiKey: "k", keys: ["soccer_uefa_europa_league"], fetchImpl: fake, now: () => NOW, wait: async (ms) => void waits.push(ms) });
+    expect((await feed.competitions()).data.map((c) => c.key)).toEqual(["soccer_uefa_europa_league"]);
+    expect(calls).toBe(3);
+    expect(waits).toEqual([8_000, 16_000]);
+  });
+});

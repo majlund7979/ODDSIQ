@@ -7,10 +7,10 @@
 // Competition keys reuse The Odds API's names where one exists, so the
 // results model (keyed by those names) covers the leagues it has history for.
 
+import { apiFootballGet } from "@/lib/stats/api-football";
 import type { FeedCompetition, FeedEvent, FeedPrice, FeedQuota, FeedResponse, FeedResult, OddsFeed } from "./types";
 
 export const API_FOOTBALL_ODDS = "api-football-odds";
-const BASE = "https://v3.football.api-sports.io";
 const DAY = 86_400_000;
 
 /** Competition key → API-Football league id and the name the site shows. */
@@ -43,11 +43,6 @@ export const AF_COMPETITIONS: { key: string; leagueId: number; name: string }[] 
 /** Bookmakers kept (API-Football id → key), so the snapshot table grows by a handful of prices per match, not dozens. */
 export const AF_BOOKMAKERS: Record<number, string> = { 8: "bet365", 16: "unibet", 4: "pinnacle", 6: "bwin", 3: "betfair", 7: "williamhill" };
 
-interface Envelope<T> {
-  errors: unknown[] | Record<string, string>;
-  response: T[];
-  paging?: { current: number; total: number };
-}
 interface RawLeague {
   league: { id: number; name: string };
   seasons: { year: number; current: boolean }[];
@@ -106,6 +101,10 @@ export function normalizeAfResult(f: RawAfFixture, competitionKey: string): Feed
   };
 }
 
+/** Current seasons change once a year; one lookup per competition a day is plenty (kept while the server instance lives). */
+const SEASON_TTL_MS = DAY;
+const seasonCache = new Map<number, { season: number | null; at: number }>();
+
 const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
 
 export class ApiFootballOddsFeed implements OddsFeed {
@@ -115,27 +114,21 @@ export class ApiFootballOddsFeed implements OddsFeed {
   readonly seasons = new Map<string, number>();
   private readonly fixtures = new Map<string, RawAfFixture[]>();
 
-  constructor(private readonly opts: { apiKey: string; keys: string[]; fetchImpl?: typeof fetch; now?: () => number }) {}
+  constructor(private readonly opts: { apiKey: string; keys: string[]; fetchImpl?: typeof fetch; now?: () => number; wait?: (ms: number) => Promise<void> }) {}
 
   private now() {
     return this.opts.now?.() ?? Date.now();
   }
 
   private async get<T>(path: string, params: Record<string, string | number>): Promise<FeedResponse<T[]> & { pages: number }> {
-    const url = `${BASE}${path}?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]))}`;
-    const res = await (this.opts.fetchImpl ?? fetch)(url, { headers: { "x-apisports-key": this.opts.apiKey }, cache: "no-store" });
+    const { body, headers } = await apiFootballGet<T>(path, params, this.opts);
     const n = (k: string) => {
-      const v = res.headers.get(k);
+      const v = headers.get(k);
       return v === null || v === "" ? null : Number(v);
     };
     const remaining = n("x-ratelimit-requests-remaining");
     const limit = n("x-ratelimit-requests-limit");
-    const quota: FeedQuota = { used: remaining !== null && limit !== null ? limit - remaining : null, remaining, last: 1 };
-    if (!res.ok) throw new Error(`API-Football ${path} returned HTTP ${res.status}.`);
-    const body = (await res.json()) as Envelope<T>;
-    const errors = Array.isArray(body.errors) ? body.errors.map(String) : Object.values(body.errors ?? {});
-    if (errors.length) throw new Error(`API-Football ${path}: ${errors.join("; ")}`);
-    return { data: body.response ?? [], quota, pages: body.paging?.total ?? 1 };
+    return { data: body.response ?? [], quota: { used: remaining !== null && limit !== null ? limit - remaining : null, remaining, last: 1 }, pages: body.paging?.total ?? 1 };
   }
 
   private league(key: string) {
@@ -151,10 +144,15 @@ export class ApiFootballOddsFeed implements OddsFeed {
     for (const key of this.opts.keys) {
       const c = AF_COMPETITIONS.find((x) => x.key === key);
       if (!c) continue;
-      const r = await this.get<RawLeague>("/leagues", { id: c.leagueId, current: "true" });
-      quota = r.quota;
-      const season = r.data[0]?.seasons.find((s) => s.current)?.year;
-      if (season === undefined) continue;
+      const hit = seasonCache.get(c.leagueId);
+      let season: number | null | undefined = hit && this.now() - hit.at < SEASON_TTL_MS ? hit.season : undefined;
+      if (season === undefined) {
+        const r = await this.get<RawLeague>("/leagues", { id: c.leagueId, current: "true" });
+        quota = r.quota;
+        season = r.data[0]?.seasons.find((s) => s.current)?.year ?? null;
+        seasonCache.set(c.leagueId, { season, at: this.now() });
+      }
+      if (season === null) continue;
       this.seasons.set(key, season);
       out.push({ key, sportId: "football", name: c.name, group: "Soccer", active: true });
     }

@@ -8,7 +8,7 @@ import type { InjuryItem, LineupPlayer, PlayerSeason, Side, StatsFeed, StatsFixt
 export const API_FOOTBALL = "api-football";
 const BASE = "https://v3.football.api-sports.io";
 
-interface Envelope<T> {
+export interface Envelope<T> {
   errors: unknown[] | Record<string, string>;
   results: number;
   response: T[];
@@ -149,25 +149,51 @@ export function seasonFor(at: number): number {
   return d.getUTCMonth() >= 6 ? d.getUTCFullYear() : d.getUTCFullYear() - 1;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const RATE_LIMITED = /too many requests/i;
+
+/**
+ * GET with API-Football's per-minute limit in mind: when the minute's allowance is used up (HTTP 429, or an
+ * error body saying "Too many requests") it waits and tries again, up to five times.
+ */
+export async function apiFootballGet<T>(
+  path: string,
+  params: Record<string, string | number>,
+  opts: { apiKey: string; fetchImpl?: typeof fetch; wait?: (ms: number) => Promise<void> },
+): Promise<{ body: Envelope<T>; headers: Headers }> {
+  const url = `${BASE}${path}?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]))}`;
+  const wait = opts.wait ?? sleep;
+  for (let attempt = 1; ; attempt++) {
+    const res = await (opts.fetchImpl ?? fetch)(url, { headers: { "x-apisports-key": opts.apiKey }, cache: "no-store" });
+    const body = res.ok ? ((await res.json()) as Envelope<T>) : null;
+    const errors = body ? (Array.isArray(body.errors) ? body.errors.map(String) : Object.values(body.errors ?? {})) : [];
+    const limited = res.status === 429 || errors.some((e) => RATE_LIMITED.test(e));
+    if (limited && attempt < 5) {
+      await wait(attempt * 8_000);
+      continue;
+    }
+    if (!res.ok) throw new Error(`API-Football ${path} returned HTTP ${res.status}.`);
+    if (errors.length) throw new Error(`API-Football ${path}: ${errors.join("; ")}`);
+    // Close to the minute's limit: pause so the next call does not bounce.
+    if (Number(res.headers.get("x-ratelimit-remaining") ?? 99) <= 2) await wait(10_000);
+    return { body: body!, headers: res.headers };
+  }
+}
+
 export class ApiFootballFeed implements StatsFeed {
   readonly provider = API_FOOTBALL;
   readonly providerName = "API-Football";
   constructor(
-    private readonly opts: { apiKey: string; fetchImpl?: typeof fetch },
+    private readonly opts: { apiKey: string; fetchImpl?: typeof fetch; wait?: (ms: number) => Promise<void> },
   ) {}
 
   private async get<T>(path: string, params: Record<string, string | number>): Promise<StatsResponse<T[]> & { pages: number }> {
-    const url = `${BASE}${path}?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]))}`;
-    const res = await (this.opts.fetchImpl ?? fetch)(url, { headers: { "x-apisports-key": this.opts.apiKey }, cache: "no-store" });
+    const { body, headers } = await apiFootballGet<T>(path, params, this.opts);
     const header = (k: string) => {
-      const v = res.headers.get(k);
+      const v = headers.get(k);
       return v === null ? null : Number(v);
     };
     const quota: StatsQuota = { remaining: header("x-ratelimit-requests-remaining"), limit: header("x-ratelimit-requests-limit") };
-    if (!res.ok) throw new Error(`API-Football ${path} returned HTTP ${res.status}.`);
-    const body = (await res.json()) as Envelope<T>;
-    const errors = Array.isArray(body.errors) ? body.errors.map(String) : Object.values(body.errors ?? {});
-    if (errors.length) throw new Error(`API-Football ${path}: ${errors.join("; ")}`);
     return { data: body.response ?? [], quota, pages: body.paging?.total ?? 1 };
   }
 
