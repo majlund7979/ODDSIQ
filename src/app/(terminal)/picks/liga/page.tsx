@@ -39,7 +39,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
   const month = new Date(t.now).toLocaleDateString("da-DK", { month: "long", timeZone: TZ });
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-10">
+    <div className="mx-auto max-w-3xl space-y-5">
       <header className="space-y-3">
         <Link href="/picks" className="text-sm text-muted hover:text-ink">
           ← Dagens bedste bets
