@@ -36,6 +36,16 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         </div>
       </section>
 
+      {isOwner(user.email) && (
+        <Link href="/admin" className="flex items-center justify-between rounded-2xl border border-line bg-surface p-5 hover:bg-surface-2">
+          <span>
+            <span className="block font-medium">Admin</span>
+            <span className="text-sm text-ink-2">Se alle tilmeldte og deres e-mail.</span>
+          </span>
+          <span aria-hidden className="text-ink-2">→</span>
+        </Link>
+      )}
+
       {inviteOnly() && isOwner(user.email) && (
         <Link href="/venner" className="flex items-center justify-between rounded-2xl border border-line bg-surface p-5 hover:bg-surface-2">
           <span>

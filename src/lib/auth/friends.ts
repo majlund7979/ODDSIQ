@@ -38,8 +38,8 @@ export async function requireFriend(next = "/picks"): Promise<CurrentUser | null
   return user;
 }
 
-export async function requireOwner(): Promise<CurrentUser> {
-  const user = await requireFriend("/venner");
+export async function requireOwner(next = "/venner"): Promise<CurrentUser> {
+  const user = await requireFriend(next);
   if (!user || !isOwner(user.email)) redirect("/picks");
   return user;
 }
