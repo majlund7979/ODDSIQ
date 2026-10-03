@@ -45,6 +45,8 @@ export async function GET(req: Request): Promise<Response> {
       picksRecorded = { error: e instanceof Error ? e.message.trim().split("\n").at(-1)! : String(e) };
     }
   }
-  const ok = !summary.error && !stats?.error && !("error" in model);
+  // A statistics-feed problem (e.g. a plan that does not cover the season) is reported but does not fail the run:
+  // odds, the model and the picks still worked.
+  const ok = !summary.error && !("error" in model);
   return Response.json({ ok, ...summary, stats, model, picksRecorded }, { status: ok ? 200 : 502 });
 }
