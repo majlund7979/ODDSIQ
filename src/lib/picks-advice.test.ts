@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { leagueTable, monthStart, parseNumber, displayName, type FriendBet } from "./friends";
 import { morningHtml, recipients } from "./morning";
-import { kelly, oddsMove, riskOf, roundStake, stakeAdvice } from "./picks-advice";
+import { compareBooks, kelly, oddsMove, riskOf, roundStake, stakeAdvice } from "./picks-advice";
 
 describe("risk level", () => {
   it("is green from 70 %, yellow from 55 % and red below", () => {
@@ -106,5 +106,18 @@ describe("morning e-mail", () => {
   });
   it("escapes team names and says when there are no picks", () => {
     expect(morningHtml([], 0, "https://x", "src")).toContain("ingen fodboldkampe");
+  });
+});
+
+describe("bookmaker comparison", () => {
+  it("marks the best price and the ones above fair odds", () => {
+    const c = compareBooks([{ book: "A", odds: 1.9 }, { book: "B", odds: 2.1 }, { book: "C", odds: 2.0 }], 1.95)!;
+    expect(c.rows.map((r) => r.book)).toEqual(["B", "C", "A"]);
+    expect(c.rows.map((r) => r.best)).toEqual([true, false, false]);
+    expect(c.rows.map((r) => r.value)).toEqual([true, true, false]);
+    expect(c.median).toBe(2);
+    expect(c.bestOverMedian).toBeCloseTo(0.05);
+    expect(compareBooks([{ book: "A", odds: 2 }], 1.9)).toBeNull();
+    expect(compareBooks(undefined, 1.9)).toBeNull();
   });
 });

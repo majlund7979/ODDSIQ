@@ -115,3 +115,25 @@ export function oddsMove(movement: number, from: number, to: number): OddsMove |
     maybe: "Det kan skyldes, at der er satset på modstanderen, eller at bookmakerne har fået nye oplysninger. Vi ved ikke hvilket.",
   };
 }
+
+export interface BookComparison {
+  rows: { book: string; odds: number; best: boolean; value: boolean }[];
+  /** Median of the bookmakers' prices. */
+  median: number;
+  /** How much more the best price pays than the median, as a share of the median. */
+  bestOverMedian: number;
+}
+
+/** The bookmakers' prices for one bet side by side: the best one marked, and which pay more than our fair odds. */
+export function compareBooks(quotes: { book: string; odds: number }[] | undefined, fairOdds: number): BookComparison | null {
+  const list = (quotes ?? []).filter((q) => Number.isFinite(q.odds) && q.odds > 1).sort((a, b) => b.odds - a.odds);
+  if (list.length < 2) return null;
+  const sorted = list.map((q) => q.odds).sort((a, b) => a - b);
+  const m = sorted.length >> 1;
+  const median = sorted.length % 2 ? sorted[m] : (sorted[m - 1] + sorted[m]) / 2;
+  return {
+    rows: list.map((q, i) => ({ ...q, best: i === 0 || q.odds === list[0].odds, value: q.odds > fairOdds })),
+    median,
+    bestOverMedian: list[0].odds / median - 1,
+  };
+}
