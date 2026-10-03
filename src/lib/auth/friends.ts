@@ -1,6 +1,7 @@
-// Friends-only access. The owner (OWNER_EMAIL) invites friends by email on
-// /venner; ALLOWED_EMAILS is a fallback list set on the host. Nobody else can
-// create an account, and every page asks for a signed-in, invited user.
+// Login for the whole site. By default anyone can create an account
+// (Mads, 2026-10-03: "alle kan få et log in"). With INVITE_ONLY=true only the
+// owner (OWNER_EMAIL), ALLOWED_EMAILS and friends the owner invites on
+// /venner can. Every page asks for a signed-in user either way.
 
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -15,9 +16,11 @@ export function parseEmails(v: string | undefined): string[] {
 
 export const ownerEmails = () => parseEmails(process.env.OWNER_EMAIL);
 export const isOwner = (email: string) => ownerEmails().includes(normaliseEmail(email));
+export const inviteOnly = () => process.env.INVITE_ONLY === "true";
 
-/** True when the email may have an account: the owner, ALLOWED_EMAILS or an invited friend. */
+/** True when the email may have an account: anyone, or with INVITE_ONLY the owner, ALLOWED_EMAILS or an invited friend. */
 export async function isInvited(email: string): Promise<boolean> {
+  if (!inviteOnly()) return true;
   const e = normaliseEmail(email);
   if (isOwner(e) || parseEmails(process.env.ALLOWED_EMAILS).includes(e)) return true;
   return Boolean(await db().friend.findUnique({ where: { email: e } }));

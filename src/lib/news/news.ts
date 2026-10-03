@@ -90,7 +90,7 @@ export function tidy(items: NewsItem[], now: number, limit: number): NewsItem[] 
 
 async function fetchFeed(url: string): Promise<NewsItem[]> {
   try {
-    const res = await fetch(url, { next: { revalidate: 1800 }, signal: AbortSignal.timeout(5000), headers: { "user-agent": "Mozilla/5.0 ODDSIQ" } });
+    const res = await fetch(url, { next: { revalidate: 1800 }, signal: AbortSignal.timeout(5000), headers: { "user-agent": "Mozilla/5.0 Oddsanalyse" } });
     return res.ok ? parseRss(await res.text()) : [];
   } catch {
     return [];

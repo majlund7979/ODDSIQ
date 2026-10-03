@@ -4,7 +4,7 @@ import { summarise, type RecordedPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
 import { LEARN_DAYS, LEARN_MIN, LEARNING_VERSION, learn, type CategoryLearning } from "@/lib/picks-learning";
 
-export const metadata = { title: "Resultater · ODDSIQ" };
+export const metadata = { title: "Resultater · Oddsanalyse" };
 
 const CATEGORY_LABEL: Record<string, string> = {
   bedste: "Bedste bets",

@@ -15,3 +15,10 @@ describe("friends-only access", () => {
     expect(isOwner("jonas@example.com")).toBe(false);
   });
 });
+
+describe("open signup", () => {
+  it("lets anyone sign up unless INVITE_ONLY is set", async () => {
+    const { isInvited } = await import("./friends");
+    expect(await isInvited("hvemsomhelst@example.com")).toBe(true);
+  });
+});

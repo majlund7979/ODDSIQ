@@ -4,7 +4,7 @@ import { requireFriend } from "@/lib/auth/friends";
 import { wallClock } from "@/lib/data";
 import { leagueNews, NEWS_LEAGUES } from "@/lib/news/news";
 
-export const metadata = { title: "Nyheder · ODDSIQ" };
+export const metadata = { title: "Nyheder · Oddsanalyse" };
 
 export default async function NewsPage({ searchParams }: { searchParams: Promise<{ liga?: string }> }) {
   const now = await wallClock();

@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* ODDSIQ theme. Dark by design, slate-blue surfaces; chart colours follow the validated
+/* Oddsanalyse theme. Dark by design, slate-blue surfaces; chart colours follow the validated
    reference palette (dark steps), status colours are reserved for state. */
 :root {
   color-scheme: dark;

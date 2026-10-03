@@ -3,10 +3,10 @@ import { signIn } from "@/app/auth-actions";
 import { AuthCard } from "@/components/AuthCard";
 import { AuthForm } from "@/components/AuthForm";
 import { safeNext } from "@/lib/auth/redirect";
-import { isInvited } from "@/lib/auth/friends";
+import { inviteOnly, isInvited } from "@/lib/auth/friends";
 import { ACCOUNTS_ENABLED, currentUser } from "@/lib/auth/session";
 
-export const metadata = { title: "Log ind · ODDSIQ" };
+export const metadata = { title: "Log ind · Oddsanalyse" };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; adgang?: string }> }) {
   const q = await searchParams;
@@ -15,7 +15,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const user = await currentUser();
   if (user && (await isInvited(user.email))) redirect(next);
   return (
-    <AuthCard mode="login" next={next} notice={q.adgang === "fjernet" ? "Din adgang er fjernet. Spørg den, der inviterede dig." : undefined}>
+    <AuthCard mode="login" next={next} inviteOnly={inviteOnly()} notice={q.adgang === "fjernet" ? "Din adgang er fjernet. Spørg den, der inviterede dig." : undefined}>
       <AuthForm action={signIn} submitLabel="Log ind" next={next} />
     </AuthCard>
   );

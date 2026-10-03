@@ -2,10 +2,10 @@ import { headers } from "next/headers";
 import { connection } from "next/server";
 import { removeFriend } from "@/app/auth-actions";
 import { FriendForm } from "@/components/FriendForm";
-import { parseEmails, requireOwner } from "@/lib/auth/friends";
+import { inviteOnly, parseEmails, requireOwner } from "@/lib/auth/friends";
 import { db } from "@/lib/db";
 
-export const metadata = { title: "Venner · ODDSIQ" };
+export const metadata = { title: "Venner · Oddsanalyse" };
 
 export default async function FriendsPage() {
   await connection();
@@ -20,7 +20,11 @@ export default async function FriendsPage() {
     <div className="mx-auto max-w-xl space-y-5">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Venner</h1>
-        <p className="text-[15px] text-ink-2">Kun dem på listen kan oprette en konto og se bets. Skriv din vens email herunder, og send vedkommende linket.</p>
+        <p className="text-[15px] text-ink-2">
+          {inviteOnly()
+            ? "Kun dem på listen kan oprette en konto og se bets. Skriv din vens email herunder, og send vedkommende linket."
+            : "Lige nu kan alle oprette en konto, så listen bruges ikke. Sæt INVITE_ONLY=true på Vercel, hvis kun dem på listen skal kunne komme ind."}
+        </p>
       </header>
 
       <section className="space-y-4 rounded-2xl border border-line bg-surface p-5">

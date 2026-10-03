@@ -21,7 +21,7 @@ import { applyLearning, applyLearningToPicks, LEARN_DAYS, LEARN_MIN, learn, type
 import { correctScorePicks, coupons, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
 
-export const metadata = { title: "Dagens bedste bets · ODDSIQ" };
+export const metadata = { title: "Dagens bedste bets · Oddsanalyse" };
 
 const TZ = "Europe/Copenhagen";
 const dayKey = (t: number) => new Date(t).toLocaleDateString("en-CA", { timeZone: TZ });

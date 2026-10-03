@@ -11,8 +11,8 @@ const SESSION_DAYS = 30;
 
 /**
  * Accounts need a database, and switch on with ACCOUNTS_ENABLED=true or by
- * naming the site's owner in OWNER_EMAIL. With an owner set, the whole site
- * is for invited friends only (src/lib/auth/friends.ts).
+ * naming the site's owner in OWNER_EMAIL. Then every page asks for login
+ * (src/lib/auth/friends.ts).
  */
 export const ACCOUNTS_ENABLED = DATABASE_CONFIGURED && (process.env.ACCOUNTS_ENABLED === "true" || Boolean(process.env.OWNER_EMAIL?.trim()));
 

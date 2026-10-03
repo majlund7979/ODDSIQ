@@ -2,11 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { openBillingPortal, signOut, startCheckout } from "@/app/auth-actions";
-import { isOwner, requireFriend } from "@/lib/auth/friends";
+import { inviteOnly, isOwner, requireFriend } from "@/lib/auth/friends";
 import { BILLING_ENABLED, PLANS } from "@/lib/billing/plans";
 import { fmtDate } from "@/lib/format";
 
-export const metadata = { title: "Min konto · ODDSIQ" };
+export const metadata = { title: "Min konto · Oddsanalyse" };
 
 const NOTICE: Record<string, string> = {
   success: "Tak. Stripe bekræfter dit abonnement, og Pro slår til inden for et minut.",
@@ -32,11 +32,11 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent/15 text-lg font-semibold text-accent">{user.email.charAt(0).toUpperCase()}</span>
         <div className="min-w-0">
           <div className="truncate font-medium">{user.email}</div>
-          <div className="text-sm text-muted">{isOwner(user.email) ? "Ejer af siden" : "Inviteret ven"}</div>
+          <div className="text-sm text-muted">{isOwner(user.email) ? "Ejer af siden" : inviteOnly() ? "Inviteret ven" : "Medlem"}</div>
         </div>
       </section>
 
-      {isOwner(user.email) && (
+      {inviteOnly() && isOwner(user.email) && (
         <Link href="/venner" className="flex items-center justify-between rounded-2xl border border-line bg-surface p-5 hover:bg-surface-2">
           <span>
             <span className="block font-medium">Venner</span>
