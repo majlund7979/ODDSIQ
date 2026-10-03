@@ -1,27 +1,27 @@
 @import "tailwindcss";
 
-/* ODDSIQ terminal theme. Dark by design; chart colours follow the validated
+/* Oddsanalyse theme. Dark by design, slate-blue surfaces; chart colours follow the validated
    reference palette (dark steps), status colours are reserved for state. */
 :root {
   color-scheme: dark;
-  --page: #0b0b0a;
-  --surface: #131312;
-  --surface-2: #1a1a19;
-  --surface-3: #222220;
+  --page: #0b1016;
+  --surface: #121921;
+  --surface-2: #18212b;
+  --surface-3: #212c38;
   --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --text: #f4f4f1;
-  --text-2: #c3c2b7;
-  --muted: #898781;
-  --grid: #2c2c2a;
-  --axis: #383835;
-  --accent: #3987e5;
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --text: #f1f4f8;
+  --text-2: #b9c3ce;
+  --muted: #7f8b98;
+  --grid: #263240;
+  --axis: #344252;
+  --accent: #3b8cf0;
 
   --series-market: #3987e5; /* slot 1 blue */
   --series-model: #d95926; /* slot 2 orange */
   --series-3: #199e70; /* slot 3 aqua */
 
-  --good: #0ca30c;
+  --good: #2bb663;
   --warning: #fab219;
   --serious: #ec835a;
   --critical: #d03b3b;

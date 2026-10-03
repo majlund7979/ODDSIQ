@@ -1,64 +1,79 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { openBillingPortal, signOut, startCheckout } from "@/app/auth-actions";
-import { Badge, PageHeader, Panel } from "@/components/ui";
-import { ACCOUNTS_ENABLED, currentUser } from "@/lib/auth/session";
+import { inviteOnly, isOwner, requireFriend } from "@/lib/auth/friends";
 import { BILLING_ENABLED, PLANS } from "@/lib/billing/plans";
 import { fmtDate } from "@/lib/format";
 
-export const metadata = { title: "Account · ODDSIQ" };
+export const metadata = { title: "Min konto · Oddsanalyse" };
 
 const NOTICE: Record<string, string> = {
-  success: "Thanks. Your subscription is being confirmed by Stripe; Pro switches on within a minute.",
-  cancelled: "Checkout was cancelled. Nothing was charged.",
-  unavailable: "Billing is not switched on yet.",
+  success: "Tak. Stripe bekræfter dit abonnement, og Pro slår til inden for et minut.",
+  cancelled: "Betalingen blev annulleret. Der er ikke trukket noget.",
+  unavailable: "Betaling er ikke slået til.",
 };
 
 export default async function AccountPage({ searchParams }: { searchParams: Promise<{ billing?: string }> }) {
   await connection();
-  if (!ACCOUNTS_ENABLED) redirect("/picks");
-  const user = await currentUser();
-  if (!user) redirect("/login?next=/account");
+  const user = await requireFriend("/account");
+  if (!user) redirect("/picks");
   const { billing } = await searchParams;
   const plan = PLANS.find((p) => p.id === user.plan) ?? PLANS[0];
   const pro = PLANS.find((p) => p.id === "pro")!;
-  const btn = "rounded border border-line-strong px-3 py-1.5 text-sm hover:bg-surface-2";
+  const btn = "rounded-xl border border-line-strong px-4 py-2.5 text-sm font-medium hover:bg-surface-2";
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <PageHeader title="Account" subtitle={user.email} />
-      {billing && NOTICE[billing] && <p className="rounded border border-line bg-surface px-4 py-2 text-sm text-ink-2">{NOTICE[billing]}</p>}
+    <div className="mx-auto max-w-xl space-y-5">
+      <h1 className="text-3xl font-semibold tracking-tight">Min konto</h1>
+      {billing && NOTICE[billing] && <p className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink-2">{NOTICE[billing]}</p>}
 
-      <Panel title="Plan" right={<Badge tone={user.plan === "pro" ? "accent" : "neutral"}>{plan.name}</Badge>}>
-        <div className="space-y-3 px-4 py-3 text-sm">
-          <p className="text-ink-2">{plan.summary}</p>
+      <section className="flex items-center gap-4 rounded-2xl border border-line bg-surface p-5">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent/15 text-lg font-semibold text-accent">{user.email.charAt(0).toUpperCase()}</span>
+        <div className="min-w-0">
+          <div className="truncate font-medium">{user.email}</div>
+          <div className="text-sm text-muted">{isOwner(user.email) ? "Ejer af siden" : inviteOnly() ? "Inviteret ven" : "Medlem"}</div>
+        </div>
+      </section>
+
+      {inviteOnly() && isOwner(user.email) && (
+        <Link href="/venner" className="flex items-center justify-between rounded-2xl border border-line bg-surface p-5 hover:bg-surface-2">
+          <span>
+            <span className="block font-medium">Venner</span>
+            <span className="text-sm text-ink-2">Inviter venner eller fjern deres adgang.</span>
+          </span>
+          <span aria-hidden className="text-ink-2">→</span>
+        </Link>
+      )}
+
+      {BILLING_ENABLED && (
+        <section className="space-y-3 rounded-2xl border border-line bg-surface p-5 text-sm">
+          <div className="font-medium">Abonnement: {plan.name}</div>
           {user.plan === "pro" && (
             <p className="text-xs text-muted">
-              Status {user.planStatus ?? "active"}
-              {user.planRenewsAt ? ` · renews ${fmtDate(user.planRenewsAt.getTime())}` : ""}
+              Status {user.planStatus ?? "aktiv"}
+              {user.planRenewsAt ? ` · fornyes ${fmtDate(user.planRenewsAt.getTime())}` : ""}
             </p>
           )}
-          {!BILLING_ENABLED ? (
-            <p className="text-xs text-muted">Paid plans are not on sale yet. Everything in the terminal is available on the free plan for now.</p>
-          ) : user.plan === "pro" ? (
+          {user.plan === "pro" ? (
             <form action={openBillingPortal}>
               <button type="submit" className={btn}>
-                Manage billing
+                Administrer betaling
               </button>
             </form>
           ) : (
             <form action={startCheckout}>
               <button type="submit" className={btn}>
-                Upgrade to Pro · {pro.priceLabel}
+                Opgrader til Pro · {pro.priceLabel}
               </button>
             </form>
           )}
-        </div>
-      </Panel>
+        </section>
+      )}
 
       <form action={signOut}>
         <button type="submit" className={btn}>
-          Sign out
+          Log ud
         </button>
       </form>
     </div>

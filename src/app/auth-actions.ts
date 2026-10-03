@@ -1,7 +1,9 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isInvited, isOwner, normaliseEmail, requireOwner } from "@/lib/auth/friends";
 import { allowAttempt, hashPassword, validateCredentials, verifyPassword } from "@/lib/auth/password";
 import { safeNext } from "@/lib/auth/redirect";
 import { ACCOUNTS_ENABLED, createSession, currentUser, destroySession, newUserId } from "@/lib/auth/session";
@@ -17,7 +19,10 @@ export interface AuthState {
   email?: string;
 }
 
-const GENERIC = "Email or password is not correct.";
+const GENERIC = "Forkert email eller adgangskode.";
+const OFF = "Login er ikke slået til endnu.";
+const NOT_INVITED = "Den email er ikke inviteret. Bed den, der har sendt dig linket, om at tilføje dig.";
+const TOO_MANY = "For mange forsøg. Prøv igen om 15 minutter.";
 
 async function clientKey(email: string) {
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
@@ -36,18 +41,19 @@ async function adoptCookieState(userId: string) {
 }
 
 export async function signUp(_: AuthState, formData: FormData): Promise<AuthState> {
-  if (!ACCOUNTS_ENABLED) return { error: "Accounts are not switched on yet." };
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!ACCOUNTS_ENABLED) return { error: OFF };
+  const email = normaliseEmail(String(formData.get("email") ?? ""));
   const password = String(formData.get("password") ?? "");
   const invalid = validateCredentials(email, password);
   if (invalid) return { email, error: invalid };
-  if (!(await clientKey(email)).every((k) => allowAttempt(k))) return { email, error: "Too many attempts. Try again in 15 minutes." };
-  if (await db().user.findUnique({ where: { email } })) return { email, error: "An account with that email already exists. Sign in instead." };
+  if (!(await clientKey(email)).every((k) => allowAttempt(k))) return { email, error: TOO_MANY };
+  if (!(await isInvited(email))) return { email, error: NOT_INVITED };
+  if (await db().user.findUnique({ where: { email } })) return { email, error: "Der findes allerede en konto med den email. Log ind i stedet." };
   const id = newUserId();
   try {
     await db().user.create({ data: { id, email, passwordHash: await hashPassword(password) } });
   } catch {
-    return { email, error: "An account with that email already exists. Sign in instead." };
+    return { email, error: "Der findes allerede en konto med den email. Log ind i stedet." };
   }
   await createSession(id);
   await adoptCookieState(id);
@@ -55,14 +61,15 @@ export async function signUp(_: AuthState, formData: FormData): Promise<AuthStat
 }
 
 export async function signIn(_: AuthState, formData: FormData): Promise<AuthState> {
-  if (!ACCOUNTS_ENABLED) return { error: "Accounts are not switched on yet." };
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!ACCOUNTS_ENABLED) return { error: OFF };
+  const email = normaliseEmail(String(formData.get("email") ?? ""));
   const password = String(formData.get("password") ?? "");
-  if (!(await clientKey(email)).every((k) => allowAttempt(k))) return { email, error: "Too many attempts. Try again in 15 minutes." };
+  if (!(await clientKey(email)).every((k) => allowAttempt(k))) return { email, error: TOO_MANY };
   const user = await db().user.findUnique({ where: { email } });
   // Hash anyway when the user is missing, so response time does not reveal which emails exist.
   const ok = user ? await verifyPassword(password, user.passwordHash) : (await hashPassword(password), false);
   if (!user || !ok) return { email, error: GENERIC };
+  if (!(await isInvited(email))) return { email, error: NOT_INVITED };
   await createSession(user.id);
   await adoptCookieState(user.id);
   redirect(safeNext(formData.get("next")));
@@ -70,7 +77,7 @@ export async function signIn(_: AuthState, formData: FormData): Promise<AuthStat
 
 export async function signOut(): Promise<void> {
   await destroySession();
-  redirect("/");
+  redirect("/login");
 }
 
 function appUrl(h: Headers): string {
@@ -91,4 +98,30 @@ export async function openBillingPortal(): Promise<void> {
   if (!user) redirect("/login?next=/account");
   if (!BILLING_ENABLED || !user.stripeCustomerId) redirect("/account?billing=unavailable");
   redirect(await createPortalSession(user.stripeCustomerId, appUrl(await headers())));
+}
+
+export interface FriendState {
+  error?: string;
+  ok?: string;
+}
+
+/** Owner only: invite a friend by email. */
+export async function addFriend(_: FriendState, formData: FormData): Promise<FriendState> {
+  await requireOwner();
+  const email = normaliseEmail(String(formData.get("email") ?? ""));
+  const name = String(formData.get("name") ?? "").trim().slice(0, 60);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return { error: "Skriv en gyldig email." };
+  if (isOwner(email)) return { error: "Det er din egen email. Du har altid adgang." };
+  await db().friend.upsert({ where: { email }, create: { email, name }, update: { name } });
+  revalidatePath("/venner");
+  return { ok: `${name || email} er inviteret.` };
+}
+
+/** Owner only: take a friend's access away. Their sessions end at once. */
+export async function removeFriend(formData: FormData): Promise<void> {
+  await requireOwner();
+  const email = normaliseEmail(String(formData.get("email") ?? ""));
+  await db().friend.deleteMany({ where: { email } });
+  await db().session.deleteMany({ where: { user: { email } } });
+  revalidatePath("/venner");
 }

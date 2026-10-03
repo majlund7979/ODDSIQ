@@ -1,49 +1,41 @@
 import Link from "next/link";
-import { AccountMenu } from "@/components/AccountMenu";
-import { UtcClock } from "@/components/Clock";
-import { Sidebar } from "@/components/Sidebar";
+import { Logo } from "@/components/Logo";
+import { BottomNav, TopNav } from "@/components/MainNav";
+import { ACCOUNT_NAV, FRIENDS_NAV, SIMPLE_NAV } from "@/components/nav";
 import { Badge } from "@/components/ui";
+import { inviteOnly, isOwner, requireFriend } from "@/lib/auth/friends";
 import { DEMO_MODE } from "@/lib/data";
 
-export default function TerminalLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function TerminalLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  // Every page checks again itself; this keeps the menu from rendering for strangers.
+  const user = await requireFriend();
+  const items = [...SIMPLE_NAV, ...(user && inviteOnly() && isOwner(user.email) ? [FRIENDS_NAV] : []), ...(user ? [ACCOUNT_NAV] : [])];
+  const initial = user?.email.charAt(0).toUpperCase();
   return (
-    <>
-      <div className="flex min-h-screen">
-          <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-line bg-surface md:flex">
-            <Link href="/picks" className="flex items-baseline gap-2 border-b border-line px-4 py-3.5">
-              <span className="text-[15px] font-bold tracking-[0.18em]">ODDSIQ</span>
-              <span className="text-[10px] uppercase tracking-widest text-muted">Bets</span>
-            </Link>
-            <div className="flex-1 overflow-y-auto">
-              <Sidebar />
-            </div>
-            <div className="border-t border-line px-4 py-3 text-[10px] leading-relaxed text-muted">
-              Kun analyse. Vi formidler ikke spil. 18+. Spil indebærer risiko for tab.
-            </div>
-          </aside>
-          <div className="flex min-w-0 flex-1 flex-col">
-            <header className="sticky top-0 z-30 flex h-11 items-center gap-3 border-b border-line bg-page/90 px-4 backdrop-blur">
-              <Link href="/picks" className="text-sm font-bold tracking-[0.18em] md:hidden">
-                ODDSIQ
+    <div className="flex min-h-screen flex-col">
+      <header className="sticky top-0 z-30 border-b border-line bg-page/90 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-5xl items-center gap-6 px-4">
+          <Logo />
+          {DEMO_MODE && <Badge tone="warning">Demo data</Badge>}
+          <div className="ml-auto flex items-center gap-3">
+            <TopNav items={items.filter((i) => i !== ACCOUNT_NAV)} />
+            {user && (
+              <Link
+                href="/account"
+                title={user.email}
+                className="hidden h-9 w-9 items-center justify-center rounded-full border border-line-strong bg-surface-2 text-sm font-semibold text-ink hover:border-accent md:flex"
+              >
+                {initial}
               </Link>
-              {DEMO_MODE && (
-                <Badge tone="warning" className="tracking-[0.14em]">
-                  Demo data
-                </Badge>
-              )}
-              <span className="hidden text-xs text-muted sm:inline">Dagens bedste bets, analyseret.</span>
-              <div className="ml-auto flex items-center gap-4">
-                <UtcClock />
-                <AccountMenu />
-              </div>
-            </header>
-            <nav aria-label="Main (mobile)" className="flex gap-3 overflow-x-auto border-b border-line px-4 py-2 text-xs text-ink-2 md:hidden">
-              <Link href="/picks">Dagens bets</Link>
-              <Link href="/picks/resultater">Resultater</Link>
-            </nav>
-            <main className="min-w-0 flex-1 px-4 py-5 md:px-6">{children}</main>
+            )}
           </div>
         </div>
-    </>
+      </header>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-28 md:pb-12">{children}</main>
+      <footer className="mx-auto hidden w-full max-w-5xl px-4 pb-8 text-xs text-muted md:block">
+        Kun analyse, vi formidler ikke spil. 18+. Spil indebærer risiko for tab. Brug for hjælp? Kontakt StopSpillet.dk.
+      </footer>
+      <BottomNav items={items} />
+    </div>
   );
 }

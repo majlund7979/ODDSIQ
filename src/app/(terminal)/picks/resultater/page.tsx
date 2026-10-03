@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { requireFriend } from "@/lib/auth/friends";
 import { summarise, type RecordedPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
 import { LEARN_DAYS, LEARN_MIN, LEARNING_VERSION, learn, type CategoryLearning } from "@/lib/picks-learning";
 
-export const metadata = { title: "Resultater · ODDSIQ" };
+export const metadata = { title: "Resultater · Oddsanalyse" };
 
 const CATEGORY_LABEL: Record<string, string> = {
   bedste: "Bedste bets",
@@ -39,6 +40,7 @@ function adjustment(l: CategoryLearning | undefined): string {
 }
 
 export default async function ResultsPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
+  await requireFriend("/picks/resultater");
   const t = await terminal();
   const q = await searchParams;
   const all = await t.recordedPicks();
@@ -50,7 +52,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   const learning = learn(await t.recordedPicks(LEARN_DAYS), t.dataLabel);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-10">
+    <div className="mx-auto max-w-3xl space-y-5">
       <header className="space-y-2">
         <Link href="/picks" className="text-sm text-muted hover:text-ink">
           ← Dagens bedste bets
@@ -66,14 +68,14 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
           { v: pct(total.expectedRate), l: "vi regnede med" },
           { v: total.withOdds ? kr(total.profit) : "—", l: "ved 100 kr pr. bet", tone: total.withOdds ? (total.profit >= 0 ? "text-good" : "text-serious") : "" },
         ].map((x) => (
-          <div key={x.l} className="rounded-xl border border-line bg-surface px-4 py-3">
+          <div key={x.l} className="rounded-2xl border border-line bg-surface px-4 py-3">
             <div className={`num text-xl font-semibold ${x.tone ?? ""}`}>{x.v}</div>
             <div className="text-xs text-muted">{x.l}</div>
           </div>
         ))}
       </div>
 
-      <section className="overflow-hidden rounded-xl border border-line bg-surface">
+      <section className="overflow-hidden rounded-2xl border border-line bg-surface">
         <div className="border-b border-line px-5 py-3 text-sm font-semibold">Alle bet-typer</div>
         <table className="w-full text-sm">
           <thead>
@@ -111,7 +113,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
 
       <h2 className="text-lg font-semibold">{CATEGORY_LABEL[type]}, dag for dag</h2>
       {days.length === 0 ? (
-        <div className="rounded-xl border border-line bg-surface px-6 py-10 text-center text-sm text-ink-2">
+        <div className="rounded-2xl border border-line bg-surface px-6 py-10 text-center text-sm text-ink-2">
           Ingen afgjorte bets endnu. Resultaterne kommer, når de første kampe er spillet.
         </div>
       ) : (
@@ -119,7 +121,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
           const list = picks.filter((p) => p.day === day);
           const s = summarise(list);
           return (
-            <section key={day} className="overflow-hidden rounded-xl border border-line bg-surface">
+            <section key={day} className="overflow-hidden rounded-2xl border border-line bg-surface">
               <div className="flex items-baseline justify-between border-b border-line px-5 py-3">
                 <span className="font-semibold">{dayLabel(day)}</span>
                 <span className="text-sm text-ink-2">{s.settled ? `${s.won} af ${s.settled} gik hjem` : "afventer"}</span>

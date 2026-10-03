@@ -425,3 +425,11 @@ model InjuryReport {
 
   @@index([fixtureId])
 }
+
+/// Emails the owner (OWNER_EMAIL) has invited. Only these, the owner and
+/// ALLOWED_EMAILS can create an account or use the site.
+model Friend {
+  email   String   @id
+  name    String   @default("")
+  addedAt DateTime @default(now())
+}
