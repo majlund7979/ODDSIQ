@@ -17,7 +17,7 @@ import {
 import { requireFriend } from "@/lib/auth/friends";
 import { explainPick } from "@/lib/picks-explain";
 import { applyLearning, applyLearningToPicks, LEARN_DAYS, LEARN_MIN, learn, type CategoryLearning } from "@/lib/picks-learning";
-import { correctScorePicks, coupons, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
+import { COUPON_MIN_ODDS, correctScorePicks, coupons, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { db } from "@/lib/db";
@@ -459,36 +459,51 @@ function ExtraCard({ p, rank, now, save }: { p: ExtraPick; rank: number; now: nu
 }
 
 function CouponCard({ coupons }: { coupons: Coupon[] }) {
-  if (!coupons.length) return null;
   return (
-    <section className="rounded-2xl border border-accent/40 bg-accent/5 p-5">
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold">Dagens kupon</h2>
-        <span className="text-xs text-muted">De stærkeste bets lagt sammen. Alle skal gå hjem.</span>
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-xl font-semibold">Dagens kuponer</h2>
+        <span className="text-xs text-muted">Samlet odds mindst {dec(COUPON_MIN_ODDS, 1)} · alle bets skal gå hjem</span>
       </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        {coupons.map((c) => (
-          <div key={c.picks.length} className="rounded-lg border border-line bg-surface p-4">
-            <div className="mb-2 flex items-baseline justify-between">
-              <span className="font-semibold">{c.picks.length} bets</span>
-              <span className="num text-sm">
-                <span className="text-accent">{Math.round(c.probability * 100)}%</span> · odds {dec(c.odds)}
-              </span>
-            </div>
-            <ul className="space-y-1 text-sm">
-              {c.picks.map((p) => (
-                <li key={p.row.selectionId} className="flex justify-between gap-3">
-                  <span className="truncate">
-                    {p.outcome} <span className="text-muted">· {p.row.match.replace(" vs ", " – ")}</span>
-                  </span>
-                  <span className="num shrink-0 text-ink-2">{dec(p.row.bestOdds)}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-2 text-xs text-muted">100 kr giver {Math.round(c.odds * 100)} kr, hvis alle går hjem.</div>
-          </div>
-        ))}
-      </div>
+      {coupons.length === 0 ? (
+        <p className="rounded-2xl border border-line bg-surface px-5 py-6 text-sm text-ink-2">
+          Der er ikke nok kampe i dag til en kupon med odds på mindst {dec(COUPON_MIN_ODDS, 1)}. Kig forbi igen senere.
+        </p>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {coupons.map((c) => (
+            <article key={c.picks.length} className="flex flex-col overflow-hidden rounded-2xl border border-accent/40 bg-gradient-to-b from-accent/10 to-surface">
+              <div className="flex items-end justify-between gap-3 px-5 pt-5">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-accent">{c.picks.length} bets</div>
+                  <div className="num mt-1 text-3xl font-semibold">{dec(c.odds)}</div>
+                  <div className="text-xs text-muted">samlet odds</div>
+                </div>
+                <div className="text-right">
+                  <div className="num text-2xl font-semibold">{Math.round(c.probability * 100)}%</div>
+                  <div className="text-xs text-muted">chance for at alle går hjem</div>
+                </div>
+              </div>
+              <ul className="mt-4 flex-1 divide-y divide-line border-t border-line">
+                {c.picks.map((p) => (
+                  <li key={p.row.selectionId} className="flex items-center justify-between gap-3 px-5 py-2.5">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">{p.outcome}</span>
+                      <span className="block truncate text-xs text-muted">{p.row.match.replace(" vs ", " – ")}</span>
+                    </span>
+                    <span className="num shrink-0 text-sm">
+                      <span className="text-ink-2">{Math.round(p.probability * 100)}%</span> · {dec(p.row.bestOdds)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="border-t border-line bg-surface-2/60 px-5 py-2.5 text-sm text-ink-2">
+                100 kr giver <span className="num font-semibold text-ink">{Math.round(c.odds * 100)} kr</span>, hvis alle går hjem
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -511,11 +526,12 @@ const TABS = [
   { id: "straffe", label: "Straffespark" },
 ];
 
-const MAIN_IDS = ["bedste", "vinder", "maal", "btts", "dobbelt"];
-const MAIN_TABS = MAIN_IDS.map((id) => TABS.find((x) => x.id === id)!);
-const MORE_TABS = TABS.filter((x) => !MAIN_IDS.includes(x.id));
-const chip = (active: boolean) =>
-  `flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-4 py-2 text-sm ${active ? "border-accent bg-accent/15 font-medium text-accent" : "border-line bg-surface text-ink-2 hover:border-line-strong hover:text-ink"}`;
+/** The bet types, grouped so the menu reads like a list rather than a wall of buttons. */
+const TAB_GROUPS = [
+  { title: "Kampen", ids: ["bedste", "vinder", "dobbelt", "resultat"] },
+  { title: "Mål", ids: ["maal", "btts", "halvleg"] },
+  { title: "Statistik", ids: [...COUNT_CATEGORIES.map((c) => c.id), "straffe"] },
+].map((g) => ({ ...g, tabs: g.ids.map((id) => TABS.find((x) => x.id === id)!).filter(Boolean) }));
 
 function Empty({ title, text }: { title: string; text: string }) {
   return (
@@ -545,6 +561,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   const allLearning = learn(history, t.dataLabel);
   const learned = allLearning.get(tab);
   const picks = applyLearningToPicks(tab === "bedste" ? dailyPicks(rows, t.now, count, t.pickContext) : goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [], learned);
+  const couponPool = tab === "bedste" ? applyLearningToPicks(dailyPicks(rows, t.now, 15, t.pickContext), allLearning.get("bedste")) : [];
   const cPicks = applyLearning(countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [], learned);
   const xPicks = applyLearning(EXTRA[tab] ? EXTRA[tab](rows, t.now, count, t.pickContext) : [], learned);
   const recent = tab === "bedste" ? summarise(history.filter((p) => p.category === "bedste" && p.kickoff >= t.now - 7 * 86_400_000)) : null;
@@ -556,98 +573,113 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
     tab === "straffe" ? null : { category: tab, back, saved: savedKeys.has(`${eventId}|${tab}`), signedIn: !!user, accounts: ACCOUNTS_ENABLED };
   const today = new Date(t.now).toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: TZ });
 
+  const tabLabel = TABS.find((x) => x.id === tab)!.label;
+  const hit = (id: string) => {
+    const l = allLearning.get(id);
+    return l && l.hitRate.n > 0 ? l.hitRate : null;
+  };
+
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <header className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <div className="text-sm text-muted">{today.charAt(0).toUpperCase() + today.slice(1)}</div>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">Dagens bedste bets</h1>
-            <p className="mt-2 max-w-2xl text-[15px] text-ink-2">De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-          <BankrollInput />
-          <nav aria-label="Antal bets" className="flex rounded-xl border border-line bg-surface p-1">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[230px_minmax(0,1fr)]">
+      {/* Left: everything you choose. On phones it collapses to one row of buttons. */}
+      <aside className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
+        <nav aria-label="Bet-type" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:block lg:space-y-5 lg:overflow-visible lg:px-0">
+          {TAB_GROUPS.map((g) => (
+            <div key={g.title} className="contents lg:block">
+              <div className="mb-1.5 hidden px-3 text-[11px] font-semibold uppercase tracking-wider text-muted lg:block">{g.title}</div>
+              {g.tabs.map((x) => {
+                const h = hit(x.id);
+                const active = x.id === tab;
+                return (
+                  <Link
+                    key={x.id}
+                    href={href(x.id, count)}
+                    scroll={false}
+                    aria-current={active ? "page" : undefined}
+                    title={h ? `Træfprocent ${Math.round(h.value * 100)} % i ${h.n} afgjorte bets, sidste ${LEARN_DAYS} dage (historisk)` : undefined}
+                    className={`flex shrink-0 items-center justify-between gap-3 whitespace-nowrap rounded-full border px-4 py-2 text-sm lg:rounded-xl lg:border-0 lg:px-3 ${
+                      active ? "border-accent bg-accent/15 font-medium text-accent" : "border-line bg-surface text-ink-2 hover:text-ink lg:bg-transparent lg:hover:bg-surface-2"
+                    }`}
+                  >
+                    {x.label}
+                    {h && <span className={`num hidden text-xs lg:inline ${active ? "text-accent" : "text-muted"}`}>{Math.round(h.value * 100)}%</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+        <p className="hidden px-3 text-[11px] leading-relaxed text-muted lg:block">Tallet er træfprocenten de sidste {LEARN_DAYS} dage (historisk).</p>
+
+        <div className="flex flex-wrap items-center gap-3 lg:block lg:space-y-3 lg:rounded-2xl lg:border lg:border-line lg:bg-surface lg:p-4">
+          <nav aria-label="Antal bets" className="flex rounded-xl border border-line bg-surface p-1 lg:bg-surface-2">
             {PICK_COUNTS.map((n) => (
               <Link
                 key={n}
                 href={href(tab, n)}
                 scroll={false}
                 aria-current={n === count ? "page" : undefined}
-                className={`rounded-lg px-4 py-1.5 text-sm font-medium ${n === count ? "bg-accent text-page" : "text-ink-2 hover:text-ink"}`}
+                className={`flex-1 whitespace-nowrap rounded-lg px-4 py-1.5 text-center text-sm font-medium ${n === count ? "bg-accent text-page" : "text-ink-2 hover:text-ink"}`}
               >
                 Top {n}
               </Link>
             ))}
           </nav>
-          </div>
+          <BankrollInput />
         </div>
-        <p className="text-xs text-muted">
-          <span className="num">{scope.matches}</span> kampe i <span className="num">{scope.leagues}</span> {scope.leagues === 1 ? "liga" : "ligaer"} analyseret · odds opdateret kl.{" "}
-          <span className="num">{clock(t.feedTime)}</span>
-        </p>
-      </header>
+      </aside>
 
-      <nav aria-label="Bet-type" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-        {MAIN_TABS.map((x) => (
-          <Link key={x.id} href={href(x.id, count)} scroll={false} aria-current={x.id === tab ? "page" : undefined} className={chip(x.id === tab)}>
-            {x.label}
+      <div className="min-w-0 space-y-6">
+        <header className="space-y-2">
+          <div className="text-sm text-muted">{today.charAt(0).toUpperCase() + today.slice(1)}</div>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{tab === "bedste" ? "Dagens bedste bets" : tabLabel}</h1>
+          <p className="max-w-2xl text-[15px] text-ink-2">De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste.</p>
+          <p className="text-xs text-muted">
+            <span className="num">{scope.matches}</span> kampe i <span className="num">{scope.leagues}</span> {scope.leagues === 1 ? "liga" : "ligaer"} analyseret · odds opdateret kl.{" "}
+            <span className="num">{clock(t.feedTime)}</span>
+          </p>
+        </header>
+
+        {q.gemt && SAVED_FLASH[q.gemt] && (
+          <div role="status" className={`rounded-2xl border px-4 py-3 text-sm ${q.gemt === "ok" ? "border-good/40 bg-good/10 text-good" : "border-warning/40 bg-warning/10 text-warning"}`}>
+            {SAVED_FLASH[q.gemt]} {q.gemt === "ok" && <Link href="/picks/liga" className="underline">Se vennerligaen</Link>}
+          </div>
+        )}
+
+        {tab === "bedste" && <CouponCard coupons={coupons(couponPool)} />}
+
+        {tab === "bedste" && recent && recent.settled > 0 && (
+          <Link href="/picks/resultater" className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-good/30 bg-good/5 px-4 py-3 text-sm hover:bg-good/10">
+            <span>
+              Sidste 7 dage: <span className="font-semibold">{recent.won} af {recent.settled}</span> bets gik hjem ({Math.round((recent.won / recent.settled) * 100)} %)
+              {recent.withOdds > 0 && (
+                <>
+                  {" · "}
+                  <span className={recent.profit >= 0 ? "text-good" : "text-serious"}>
+                    {recent.profit >= 0 ? "+" : "−"}
+                    {Math.round(Math.abs(recent.profit) * 100)} kr
+                  </span>{" "}
+                  ved 100 kr pr. bet
+                </>
+              )}
+            </span>
+            <span className="text-ink-2">Se alle resultater →</span>
           </Link>
-        ))}
-        <details className="group relative shrink-0">
-          <summary className={`${chip(MORE_TABS.some((x) => x.id === tab))} cursor-pointer list-none`}>
-            {MORE_TABS.find((x) => x.id === tab)?.label ?? "Flere"} <span aria-hidden>▾</span>
-          </summary>
-          <div className="fixed inset-x-4 z-20 mt-2 grid gap-1 rounded-2xl border border-line-strong bg-surface-2 p-2 shadow-2xl shadow-black/40 sm:absolute sm:inset-x-auto sm:right-0 sm:w-56">
-            {MORE_TABS.map((x) => (
-              <Link
-                key={x.id}
-                href={href(x.id, count)}
-                scroll={false}
-                aria-current={x.id === tab ? "page" : undefined}
-                className={`rounded-xl px-3 py-2 text-sm ${x.id === tab ? "bg-accent/15 font-medium text-accent" : "text-ink-2 hover:bg-surface-3 hover:text-ink"}`}
-              >
-                {x.label}
-              </Link>
-            ))}
-          </div>
-        </details>
-      </nav>
+        )}
 
-      {q.gemt && SAVED_FLASH[q.gemt] && (
-        <div role="status" className={`rounded-2xl border px-4 py-3 text-sm ${q.gemt === "ok" ? "border-good/40 bg-good/10 text-good" : "border-warning/40 bg-warning/10 text-warning"}`}>
-          {SAVED_FLASH[q.gemt]} {q.gemt === "ok" && <Link href="/picks/liga" className="underline">Se vennerligaen</Link>}
-        </div>
-      )}
-      <p className="flex items-start gap-2.5 rounded-2xl border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-ink-2">
-        <span aria-hidden className="mt-px text-accent">ⓘ</span>
-        <span>
-          <span className="font-medium text-ink">Bets bliver mere præcise, når holdopstillingen er meldt.</span> Den kommer typisk en time før kampstart. Kig forbi igen tæt
-          på kampstart, eller hold øje med mærket &quot;Opstilling bekræftet&quot;.
-        </span>
-      </p>
-
-      {tab === "bedste" && recent && recent.settled > 0 && (
-        <Link href="/picks/resultater" className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-good/30 bg-good/5 px-4 py-3 text-sm hover:bg-good/10">
+        <p className="flex items-start gap-2.5 rounded-2xl border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-ink-2">
+          <span aria-hidden className="mt-px text-accent">ⓘ</span>
           <span>
-            Sidste 7 dage: <span className="font-semibold">{recent.won} af {recent.settled}</span> bets gik hjem ({Math.round((recent.won / recent.settled) * 100)} %)
-            {recent.withOdds > 0 && (
-              <>
-                {" · "}
-                <span className={recent.profit >= 0 ? "text-good" : "text-serious"}>
-                  {recent.profit >= 0 ? "+" : "−"}
-                  {Math.round(Math.abs(recent.profit) * 100)} kr
-                </span>{" "}
-                ved 100 kr pr. bet
-              </>
-            )}
+            <span className="font-medium text-ink">Bets bliver mere præcise, når holdopstillingen er meldt.</span> Den kommer typisk en time før kampstart. Kig forbi igen tæt
+            på kampstart, eller hold øje med mærket &quot;Opstilling bekræftet&quot;.
           </span>
-          <span className="text-ink-2">Se alle resultater →</span>
-        </Link>
-      )}
+        </p>
 
-      <HitRates learning={allLearning} labels={TABS.filter((x) => x.id !== "straffe")} current={tab} days={LEARN_DAYS} source={t.dataLabel} />
+        <div className="lg:hidden">
+          <HitRates learning={allLearning} labels={TABS.filter((x) => x.id !== "straffe")} current={tab} days={LEARN_DAYS} source={t.dataLabel} />
+        </div>
 
+        {tab === "bedste" && <h2 className="text-xl font-semibold">Top {count} enkeltbets</h2>}
       {EXTRA[tab] ? (
         xPicks.length === 0 ? (
           <Empty title="Ingen kampe at vise lige nu" text="Der er ingen fodboldkampe med en analyse de næste 24 timer. Kig forbi igen senere." />
@@ -695,7 +727,6 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         </ol>
       )}
 
-      {tab === "bedste" && <CouponCard coupons={coupons(picks)} />}
       {learned && tab !== "straffe" && <LearningNote l={learned} />}
 
       <section className="grid gap-4 rounded-2xl border border-line bg-surface p-5 text-sm text-ink-2 md:grid-cols-3">
@@ -718,6 +749,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
           football-data.co.uk sammenlignet med ligasnittet; tippet går i retning af, om kampen ventes over eller under snittet, én linje på den sikre side.
         </p>
       </section>
+      </div>
     </div>
   );
 }

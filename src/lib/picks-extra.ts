@@ -171,14 +171,35 @@ export interface Coupon {
   odds: number;
 }
 
-/** The two and three strongest picks combined (assumes the matches are independent). */
-export function coupons(best: Pick[]): Coupon[] {
-  return [2, 3]
-    .filter((n) => best.length >= n)
-    .map((n) => {
-      const picks = best.slice(0, n);
-      return { picks, probability: picks.reduce((p, x) => p * x.probability, 1), odds: picks.reduce((o, x) => o * x.row.bestOdds, 1) };
-    });
+export const COUPON_MIN_ODDS = 2;
+
+/**
+ * Today's coupons: for 2 and 3 bets, the combination of picks (one per match)
+ * with the highest chance that all go home while the combined odds are at
+ * least `minOdds`. Assumes the matches are independent. A size is left out
+ * when no combination reaches the odds.
+ */
+export function coupons(pool: Pick[], minOdds = COUPON_MIN_ODDS, sizes = [2, 3]): Coupon[] {
+  const cands = pool.filter((p) => p.row.bestOdds > 1).slice(0, 15);
+  const out: Coupon[] = [];
+  for (const n of sizes) {
+    let best: Coupon | null = null;
+    const walk = (start: number, chosen: Pick[]) => {
+      if (chosen.length === n) {
+        const odds = chosen.reduce((o, x) => o * x.row.bestOdds, 1);
+        const probability = chosen.reduce((q, x) => q * x.probability, 1);
+        if (odds >= minOdds && (!best || probability > best.probability)) best = { picks: [...chosen], probability, odds };
+        return;
+      }
+      for (let i = start; i < cands.length; i++) {
+        if (chosen.some((c) => c.row.eventId === cands[i].row.eventId)) continue;
+        walk(i + 1, [...chosen, cands[i]]);
+      }
+    };
+    walk(0, []);
+    if (best) out.push({ ...(best as Coupon), picks: (best as Coupon).picks.sort((a, b) => b.probability - a.probability) });
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------

@@ -54,11 +54,21 @@ describe("goal markets from expected goals", () => {
     expect(p.table.at(-1)!.probability).toBeCloseTo(0.5 / 0.7);
   });
 
-  it("multiplies coupon chances and odds", () => {
-    const pk = (p: number, o: number) => ({ probability: p, row: { bestOdds: o } }) as Pick;
-    const [two, three] = coupons([pk(0.8, 1.3), pk(0.7, 1.5), pk(0.6, 1.8)]);
-    expect(two.probability).toBeCloseTo(0.56);
-    expect(two.odds).toBeCloseTo(1.95);
-    expect(three.picks).toHaveLength(3);
+  it("builds 2- and 3-bet coupons with combined odds of at least 2.0", () => {
+    const pk = (id: string, p: number, o: number) => ({ probability: p, row: { bestOdds: o, eventId: id } }) as Pick;
+    const pool = [pk("a", 0.85, 1.2), pk("b", 0.8, 1.25), pk("c", 0.7, 1.5), pk("d", 0.62, 1.7), pk("e", 0.5, 2.1)];
+    const [two, three] = coupons(pool);
+    // a + b (1.2 × 1.25 = 1.5) is too low; the likeliest pair reaching 2.0 is a + d (1.2 × 1.7 = 2.04, 0.527).
+    expect(two.picks.map((p) => p.row.eventId)).toEqual(["a", "d"]);
+    expect(two.odds).toBeCloseTo(2.04);
+    expect(two.probability).toBeCloseTo(0.527);
+    expect(three.odds).toBeGreaterThanOrEqual(2);
+    expect(three.picks.map((p) => p.row.eventId)).toEqual(["a", "b", "c"]);
+  });
+
+  it("leaves out a coupon size no combination can reach, and never repeats a match", () => {
+    const pk = (id: string, p: number, o: number) => ({ probability: p, row: { bestOdds: o, eventId: id } }) as Pick;
+    expect(coupons([pk("a", 0.9, 1.1), pk("b", 0.9, 1.1)])).toEqual([]);
+    expect(coupons([pk("a", 0.6, 1.6), pk("a", 0.5, 1.9)])).toEqual([]);
   });
 });
