@@ -13,6 +13,8 @@ import {
   type FormGame,
   type Pick,
 } from "@/lib/picks";
+import { explainPick } from "@/lib/picks-explain";
+import { applyLearning, applyLearningToPicks, LEARN_DAYS, LEARN_MIN, learn, type CategoryLearning } from "@/lib/picks-learning";
 import { correctScorePicks, coupons, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
 
@@ -78,11 +80,49 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
+function LearningNote({ l }: { l: CategoryLearning }) {
+  const n = l.hitRate.n;
+  const pct = (x: number) => `${Math.round(x * 100)} %`;
+  return (
+    <div className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink-2">
+      <span className="font-semibold text-ink">Modellen lærer af sine resultater. </span>
+      {l.learning ? (
+        <>
+          {n} afgjorte bets af denne type har ramt {pct(l.hitRate.value)} mod forventet {pct(l.expected)}, så procenterne er justeret{" "}
+          <span className="num">
+            {l.adjustmentPp >= 0 ? "+" : "−"}
+            {Math.abs(l.adjustmentPp).toFixed(1).replace(".", ",")}
+          </span>{" "}
+          point.
+        </>
+      ) : (
+        <>
+          {n} af de {LEARN_MIN} afgjorte bets, der skal til, før denne type justeres. Indtil da vises modellens egne procenter.
+        </>
+      )}
+      <span className="text-xs text-muted">
+        {" "}
+        Historisk, {l.hitRate.periodFrom ? new Date(l.hitRate.periodFrom).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: TZ }) : ""}
+        {l.hitRate.periodTo ? `–${new Date(l.hitRate.periodTo).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: TZ })}` : ""} · {l.hitRate.source} ·{" "}
+        {l.hitRate.modelVersion}
+      </span>
+    </div>
+  );
+}
+
 function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
   const i = p.insights;
   const maxPp = Math.max(4, ...p.factors.map((f) => Math.abs(f.pp ?? 0)));
   return (
     <div className="grid gap-6 border-t border-line px-5 py-5 md:grid-cols-2">
+      <div className="space-y-2 md:col-span-2">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">Hvorfor dette bet</div>
+        {explainPick(p).map((s, k) => (
+          <p key={k} className="text-[15px] leading-relaxed text-ink-2">
+            {s}
+          </p>
+        ))}
+      </div>
       <div className="space-y-3">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">Sådan er procenten regnet ud</div>
         <ul className="space-y-3">
@@ -466,10 +506,12 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   const rows = t.marketRows();
   const goalCat = GOAL_CATEGORIES.find((c) => c.id === tab);
   const countCat = COUNT_CATEGORIES.find((c) => c.id === tab);
-  const picks = tab === "bedste" ? dailyPicks(rows, t.now, count, t.pickContext) : goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [];
-  const cPicks = countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [];
-  const xPicks = EXTRA[tab] ? EXTRA[tab](rows, t.now, count, t.pickContext) : [];
-  const recent = tab === "bedste" ? summarise((await t.recordedPicks()).filter((p) => p.category === "bedste")) : null;
+  const history = await t.recordedPicks(LEARN_DAYS);
+  const learned = learn(history, t.dataLabel).get(tab);
+  const picks = applyLearningToPicks(tab === "bedste" ? dailyPicks(rows, t.now, count, t.pickContext) : goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [], learned);
+  const cPicks = applyLearning(countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [], learned);
+  const xPicks = applyLearning(EXTRA[tab] ? EXTRA[tab](rows, t.now, count, t.pickContext) : [], learned);
+  const recent = tab === "bedste" ? summarise(history.filter((p) => p.category === "bedste" && p.kickoff >= t.now - 7 * 86_400_000)) : null;
   const href = (type: string, n: number) => `/picks?${new URLSearchParams({ ...(type !== "bedste" ? { type } : {}), ...(n !== 10 ? { antal: String(n) } : {}) })}`;
   const scope = analysedMatches(rows, t.now);
   const today = new Date(t.now).toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: TZ });
@@ -545,6 +587,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
           <span className="text-ink-2">Se alle resultater →</span>
         </Link>
       )}
+      {learned && tab !== "straffe" && <LearningNote l={learned} />}
       {tab === "bedste" && <CouponCard coupons={coupons(picks)} />}
 
       {EXTRA[tab] ? (

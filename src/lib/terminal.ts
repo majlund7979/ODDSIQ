@@ -56,7 +56,8 @@ export interface Terminal {
   /** Expected goals and team news behind a match's forecast, for the daily picks. */
   pickContext(eventId: string): PickContext | null;
   /** Picks shown on recent days, settled where the result is known. */
-  recordedPicks(): Promise<RecordedPick[]>;
+  /** Recorded picks with kickoff in the last `days` days (default 7). Demo mode always replays 7 days, to keep the page fast. */
+  recordedPicks(days?: number): Promise<RecordedPick[]>;
 }
 
 export async function terminal(): Promise<Terminal> {
@@ -122,7 +123,7 @@ export async function terminal(): Promise<Terminal> {
     liveView: (id) => realLiveView(snap, id),
     replayEvents: () => realReplayEvents(snap),
     replay: (id) => realReplayData(db(), snap, id),
-    recordedPicks: () => readRecordedPicks(db(), now),
+    recordedPicks: (days) => readRecordedPicks(db(), now, days),
     pickContext: (id) => {
       const e = snap.events.find((x) => x.view.id === id);
       if (!e?.forecast || !("f" in e.forecast)) return null;
