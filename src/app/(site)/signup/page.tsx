@@ -1,30 +1,20 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { signUp } from "@/app/auth-actions";
+import { AuthCard } from "@/components/AuthCard";
 import { AuthForm } from "@/components/AuthForm";
+import { safeNext } from "@/lib/auth/redirect";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 
-export const metadata = { title: "Create account · ODDSIQ" };
+export const metadata = { title: "Opret konto · ODDSIQ" };
 
 export default async function SignupPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const { next = "/picks" } = await searchParams;
+  const next = safeNext((await searchParams).next);
+  if (!ACCOUNTS_ENABLED) redirect(next);
   return (
-    <div className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="text-xl font-semibold">Create an account</h1>
-      {ACCOUNTS_ENABLED ? (
-        <>
-          <div className="mt-6">
-            <AuthForm action={signUp} submitLabel="Create account" passwordHint="At least 10 characters." next={next} />
-          </div>
-          <p className="mt-4 text-sm text-ink-2">
-            Already have one?{" "}
-            <Link href={`/login?next=${encodeURIComponent(next)}`} className="text-accent hover:underline">
-              Sign in
-            </Link>
-          </p>
-        </>
-      ) : (
-        <p className="mt-4 text-sm text-ink-2">Accounts are not switched on yet. The terminal works without one.</p>
-      )}
-    </div>
+    <AuthCard mode="signup" next={next}>
+      <p className="mb-4 text-sm text-ink-2">Brug den email, du er inviteret med.</p>
+      <AuthForm action={signUp} submitLabel="Opret konto" next={next} passwordHint={`Mindst ${MIN_PASSWORD_LENGTH} tegn.`} />
+    </AuthCard>
   );
 }

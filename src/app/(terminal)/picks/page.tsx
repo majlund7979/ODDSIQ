@@ -13,6 +13,7 @@ import {
   type FormGame,
   type Pick,
 } from "@/lib/picks";
+import { requireFriend } from "@/lib/auth/friends";
 import { explainPick } from "@/lib/picks-explain";
 import { applyLearning, applyLearningToPicks, LEARN_DAYS, LEARN_MIN, learn, type CategoryLearning } from "@/lib/picks-learning";
 import { correctScorePicks, coupons, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
@@ -38,19 +39,40 @@ const STRENGTH_TONE: Record<Pick["strength"], string> = {
 };
 
 function Gauge({ p }: { p: number }) {
-  const r = 34;
-  const c = 2 * Math.PI * r;
+  const pct = Math.round(p * 100);
   return (
-    <div className="relative h-24 w-24 shrink-0">
-      <svg viewBox="0 0 80 80" className="h-full w-full -rotate-90" aria-hidden>
-        <circle cx="40" cy="40" r={r} fill="none" stroke="var(--surface-3)" strokeWidth="7" />
-        <circle cx="40" cy="40" r={r} fill="none" stroke="var(--accent)" strokeWidth="7" strokeLinecap="round" strokeDasharray={`${c * p} ${c}`} />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="num text-2xl font-semibold leading-none">{Math.round(p * 100)}%</span>
-        <span className="mt-1 text-[10px] uppercase tracking-wider text-muted">chance</span>
+    <div className="w-24 shrink-0 text-center">
+      <div className="num text-3xl font-semibold leading-none text-ink">{pct}%</div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-3" aria-hidden>
+        <div className={`h-full rounded-full ${p >= 0.7 ? "bg-good" : "bg-accent"}`} style={{ width: `${pct}%` }} />
       </div>
+      <div className="mt-1.5 text-[11px] text-muted">chance</div>
     </div>
+  );
+}
+
+/** League, kickoff and strength above the team names on every card. */
+function CardTop({ rank, league, kickoff, strength, now }: { rank: number; league: string; kickoff: number; strength: Pick["strength"]; now: number }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+      <span className="num flex h-6 w-6 items-center justify-center rounded-full bg-surface-3 text-[12px] font-semibold text-ink">{rank}</span>
+      <span>{league}</span>
+      <span aria-hidden>·</span>
+      <span>{kickoffLabel(kickoff, now)}</span>
+      <span className={`ml-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:ml-2 ${STRENGTH_TONE[strength]}`}>{strength}</span>
+    </div>
+  );
+}
+
+function MoreToggle() {
+  return (
+    <summary className="flex cursor-pointer list-none items-center justify-center gap-2 border-t border-line px-5 py-3 text-sm font-medium text-ink-2 hover:bg-surface-2 hover:text-ink">
+      <span className="group-open:hidden">Hvorfor? Se analysen</span>
+      <span className="hidden group-open:inline">Skjul analysen</span>
+      <span className="transition-transform group-open:rotate-180" aria-hidden>
+        ▾
+      </span>
+    </summary>
   );
 }
 
@@ -84,7 +106,7 @@ function LearningNote({ l }: { l: CategoryLearning }) {
   const n = l.hitRate.n;
   const pct = (x: number) => `${Math.round(x * 100)} %`;
   return (
-    <div className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink-2">
+    <div className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink-2">
       <span className="font-semibold text-ink">Modellen lærer af sine resultater. </span>
       {l.learning ? (
         <>
@@ -202,20 +224,15 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
 function PickCard({ p, rank, now }: { p: Pick; rank: number; now: number }) {
   const [home, away] = p.row.match.split(" vs ");
   return (
-    <article className="overflow-hidden rounded-xl border border-line bg-surface shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
+    <article className="overflow-hidden rounded-2xl border border-line bg-surface">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-            <span className="num flex h-6 w-6 items-center justify-center rounded-full bg-surface-3 text-[12px] font-semibold text-ink">{rank}</span>
-            <span>{p.row.league}</span>
-            <span aria-hidden>·</span>
-            <span>{kickoffLabel(p.row.kickoff, now)}</span>
-            <span className={`ml-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:ml-2 ${STRENGTH_TONE[p.strength]}`}>{p.strength}</span>
-          </div>
+          <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} strength={p.strength} now={now} />
           <h2 className="text-lg font-semibold leading-tight sm:text-xl">
             {home} <span className="text-muted">–</span> {away}
           </h2>
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted">Vores bud</span>
             <span className="rounded-lg bg-accent/15 px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
             {p.value && <span className="rounded-full border border-good/40 bg-good/10 px-2 py-0.5 text-[11px] font-semibold text-good">Værdi</span>}
             {p.lineupsConfirmed && <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2">Opstilling bekræftet</span>}
@@ -231,13 +248,8 @@ function PickCard({ p, rank, now }: { p: Pick; rank: number; now: number }) {
           </div>
         </div>
       </div>
-      <details className="group" open={rank === 1}>
-        <summary className="flex cursor-pointer list-none items-center justify-between border-t border-line px-5 py-2.5 text-sm text-ink-2 hover:bg-surface-2 hover:text-ink">
-          <span>Se hele analysen</span>
-          <span className="transition-transform group-open:rotate-180" aria-hidden>
-            ▾
-          </span>
-        </summary>
+      <details className="group">
+        <MoreToggle />
         <Analysis p={p} home={home} away={away} />
       </details>
     </article>
@@ -250,16 +262,10 @@ function CountCard({ p, rank, now }: { p: CountPick; rank: number; now: number }
   const leagueAvg = f.league.homeMean + f.league.awayMean;
   const vs = Math.round(f.suggestion.vsLeague * 100);
   return (
-    <article className="overflow-hidden rounded-xl border border-line bg-surface">
+    <article className="overflow-hidden rounded-2xl border border-line bg-surface">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-            <span className="num flex h-6 w-6 items-center justify-center rounded-full bg-surface-3 text-[12px] font-semibold text-ink">{rank}</span>
-            <span>{p.row.league}</span>
-            <span aria-hidden>·</span>
-            <span>{kickoffLabel(p.row.kickoff, now)}</span>
-            <span className={`ml-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:ml-2 ${STRENGTH_TONE[p.strength]}`}>{p.strength}</span>
-          </div>
+          <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} strength={p.strength} now={now} />
           <h2 className="text-lg font-semibold leading-tight sm:text-xl">
             {home} <span className="text-muted">–</span> {away}
           </h2>
@@ -279,13 +285,8 @@ function CountCard({ p, rank, now }: { p: CountPick; rank: number; now: number }
           </div>
         </div>
       </div>
-      <details className="group" open={rank === 1}>
-        <summary className="flex cursor-pointer list-none items-center justify-between border-t border-line px-5 py-2.5 text-sm text-ink-2 hover:bg-surface-2 hover:text-ink">
-          <span>Se hele analysen</span>
-          <span className="transition-transform group-open:rotate-180" aria-hidden>
-            ▾
-          </span>
-        </summary>
+      <details className="group">
+        <MoreToggle />
         <div className="grid gap-6 border-t border-line px-5 py-5 md:grid-cols-2">
           <div className="space-y-5">
             <Fact label={`Forventede ${p.unit}`}>
@@ -382,16 +383,10 @@ function CountCard({ p, rank, now }: { p: CountPick; rank: number; now: number }
 function ExtraCard({ p, rank, now }: { p: ExtraPick; rank: number; now: number }) {
   const [home, away] = p.row.match.split(" vs ");
   return (
-    <article className="overflow-hidden rounded-xl border border-line bg-surface">
+    <article className="overflow-hidden rounded-2xl border border-line bg-surface">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-            <span className="num flex h-6 w-6 items-center justify-center rounded-full bg-surface-3 text-[12px] font-semibold text-ink">{rank}</span>
-            <span>{p.row.league}</span>
-            <span aria-hidden>·</span>
-            <span>{kickoffLabel(p.row.kickoff, now)}</span>
-            <span className={`ml-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:ml-2 ${STRENGTH_TONE[p.strength]}`}>{p.strength}</span>
-          </div>
+          <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} strength={p.strength} now={now} />
           <h2 className="text-lg font-semibold leading-tight sm:text-xl">
             {home} <span className="text-muted">–</span> {away}
           </h2>
@@ -406,13 +401,8 @@ function ExtraCard({ p, rank, now }: { p: ExtraPick; rank: number; now: number }
           </div>
         </div>
       </div>
-      <details className="group" open={rank === 1}>
-        <summary className="flex cursor-pointer list-none items-center justify-between border-t border-line px-5 py-2.5 text-sm text-ink-2 hover:bg-surface-2 hover:text-ink">
-          <span>Se hele analysen</span>
-          <span className="transition-transform group-open:rotate-180" aria-hidden>
-            ▾
-          </span>
-        </summary>
+      <details className="group">
+        <MoreToggle />
         <div className="space-y-4 border-t border-line px-5 py-5">
           <ul className="space-y-2.5">
             {p.table.map((x) => (
@@ -439,7 +429,7 @@ function ExtraCard({ p, rank, now }: { p: ExtraPick; rank: number; now: number }
 function CouponCard({ coupons }: { coupons: Coupon[] }) {
   if (!coupons.length) return null;
   return (
-    <section className="rounded-xl border border-accent/40 bg-accent/5 p-5">
+    <section className="rounded-2xl border border-accent/40 bg-accent/5 p-5">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold">Dagens kupon</h2>
         <span className="text-xs text-muted">De stærkeste bets lagt sammen. Alle skal gå hjem.</span>
@@ -489,9 +479,15 @@ const TABS = [
   { id: "straffe", label: "Straffespark" },
 ];
 
+const MAIN_IDS = ["bedste", "vinder", "maal", "btts", "dobbelt"];
+const MAIN_TABS = MAIN_IDS.map((id) => TABS.find((x) => x.id === id)!);
+const MORE_TABS = TABS.filter((x) => !MAIN_IDS.includes(x.id));
+const chip = (active: boolean) =>
+  `flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-4 py-2 text-sm ${active ? "border-accent bg-accent/15 font-medium text-accent" : "border-line bg-surface text-ink-2 hover:border-line-strong hover:text-ink"}`;
+
 function Empty({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-xl border border-line bg-surface px-6 py-10 text-center">
+    <div className="rounded-2xl border border-line bg-surface px-6 py-12 text-center">
       <div className="text-lg font-semibold">{title}</div>
       <p className="mx-auto mt-2 max-w-md text-sm text-ink-2">{text}</p>
     </div>
@@ -499,6 +495,7 @@ function Empty({ title, text }: { title: string; text: string }) {
 }
 
 export default async function PicksPage({ searchParams }: { searchParams: Promise<{ antal?: string; type?: string }> }) {
+  await requireFriend();
   const t = await terminal();
   const q = await searchParams;
   const count = PICK_COUNTS.find((n) => String(n) === q.antal) ?? 10;
@@ -517,60 +514,62 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   const today = new Date(t.now).toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: TZ });
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-10">
+    <div className="mx-auto max-w-3xl space-y-5">
       <header className="space-y-4">
-        <div className="text-sm text-muted">{today.charAt(0).toUpperCase() + today.slice(1)}</div>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Dagens bedste bets</h1>
-            <p className="mt-2 max-w-2xl text-[15px] text-ink-2">
-              Vi har gennemgået alle fodboldkampe de næste 24 timer og valgt det udfald i hver kamp, der har størst chance for at gå hjem.
-            </p>
+            <div className="text-sm text-muted">{today.charAt(0).toUpperCase() + today.slice(1)}</div>
+            <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">Dagens bedste bets</h1>
+            <p className="mt-2 max-w-2xl text-[15px] text-ink-2">De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste.</p>
           </div>
-          <nav aria-label="Antal bets" className="flex rounded-lg border border-line bg-surface p-1">
+          <nav aria-label="Antal bets" className="flex rounded-xl border border-line bg-surface p-1">
             {PICK_COUNTS.map((n) => (
               <Link
                 key={n}
                 href={href(tab, n)}
                 scroll={false}
                 aria-current={n === count ? "page" : undefined}
-                className={`rounded-md px-4 py-1.5 text-sm font-medium ${n === count ? "bg-accent text-page" : "text-ink-2 hover:text-ink"}`}
+                className={`rounded-lg px-4 py-1.5 text-sm font-medium ${n === count ? "bg-accent text-page" : "text-ink-2 hover:text-ink"}`}
               >
                 Top {n}
               </Link>
             ))}
           </nav>
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { v: scope.matches, l: "kampe analyseret" },
-            { v: scope.leagues, l: scope.leagues === 1 ? "liga" : "ligaer" },
-            { v: clock(t.feedTime), l: "odds opdateret" },
-          ].map((s) => (
-            <div key={s.l} className="rounded-xl border border-line bg-surface px-4 py-3">
-              <div className="num text-xl font-semibold">{s.v}</div>
-              <div className="text-xs text-muted">{s.l}</div>
-            </div>
-          ))}
-        </div>
+        <p className="text-xs text-muted">
+          <span className="num">{scope.matches}</span> kampe i <span className="num">{scope.leagues}</span> {scope.leagues === 1 ? "liga" : "ligaer"} analyseret · odds opdateret kl.{" "}
+          <span className="num">{clock(t.feedTime)}</span>
+        </p>
       </header>
 
-      <nav aria-label="Bet-type" className="flex flex-wrap gap-2">
-        {TABS.map((x) => (
-          <Link
-            key={x.id}
-            href={href(x.id, count)}
-            scroll={false}
-            aria-current={x.id === tab ? "page" : undefined}
-            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-sm ${x.id === tab ? "border-accent bg-accent/15 font-medium text-accent" : "border-line text-ink-2 hover:border-line-strong hover:text-ink"}`}
-          >
+      <nav aria-label="Bet-type" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+        {MAIN_TABS.map((x) => (
+          <Link key={x.id} href={href(x.id, count)} scroll={false} aria-current={x.id === tab ? "page" : undefined} className={chip(x.id === tab)}>
             {x.label}
           </Link>
         ))}
+        <details className="group relative shrink-0">
+          <summary className={`${chip(MORE_TABS.some((x) => x.id === tab))} cursor-pointer list-none`}>
+            {MORE_TABS.find((x) => x.id === tab)?.label ?? "Flere"} <span aria-hidden>▾</span>
+          </summary>
+          <div className="fixed inset-x-4 z-20 mt-2 grid gap-1 rounded-2xl border border-line-strong bg-surface-2 p-2 shadow-2xl shadow-black/40 sm:absolute sm:inset-x-auto sm:right-0 sm:w-56">
+            {MORE_TABS.map((x) => (
+              <Link
+                key={x.id}
+                href={href(x.id, count)}
+                scroll={false}
+                aria-current={x.id === tab ? "page" : undefined}
+                className={`rounded-xl px-3 py-2 text-sm ${x.id === tab ? "bg-accent/15 font-medium text-accent" : "text-ink-2 hover:bg-surface-3 hover:text-ink"}`}
+              >
+                {x.label}
+              </Link>
+            ))}
+          </div>
+        </details>
       </nav>
 
       {tab === "bedste" && recent && recent.settled > 0 && (
-        <Link href="/picks/resultater" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm hover:bg-surface-2">
+        <Link href="/picks/resultater" className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-good/30 bg-good/5 px-4 py-3 text-sm hover:bg-good/10">
           <span>
             Sidste 7 dage: <span className="font-semibold">{recent.won} af {recent.settled}</span> bets gik hjem ({Math.round((recent.won / recent.settled) * 100)} %)
             {recent.withOdds > 0 && (
@@ -587,8 +586,6 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
           <span className="text-ink-2">Se alle resultater →</span>
         </Link>
       )}
-      {learned && tab !== "straffe" && <LearningNote l={learned} />}
-      {tab === "bedste" && <CouponCard coupons={coupons(picks)} />}
 
       {EXTRA[tab] ? (
         xPicks.length === 0 ? (
@@ -637,7 +634,10 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         </ol>
       )}
 
-      <section className="grid gap-4 rounded-xl border border-line bg-surface p-5 text-sm text-ink-2 md:grid-cols-3">
+      {tab === "bedste" && <CouponCard coupons={coupons(picks)} />}
+      {learned && tab !== "straffe" && <LearningNote l={learned} />}
+
+      <section className="grid gap-4 rounded-2xl border border-line bg-surface p-5 text-sm text-ink-2 md:grid-cols-3">
         <div>
           <div className="mb-1 font-semibold text-ink">Hvad vi analyserer</div>
           Kampresultater og holdstyrke (Elo), forventede mål, xG-form, skader og karantæner, startopstillinger, form, indbyrdes opgør, bookmakernes odds,

@@ -1,0 +1,75 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { NavItem } from "./nav";
+
+const ICONS: Record<NavItem["icon"], React.ReactNode> = {
+  bets: <path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7L12 3z" />,
+  results: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
+  friends: (
+    <>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.8a3.3 3.3 0 010 6.4M18 14.8c1.9.7 3.1 2.4 3.5 5.2" />
+    </>
+  ),
+  account: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c1-4.2 4.1-6.5 8-6.5s7 2.3 8 6.5" />
+    </>
+  ),
+};
+
+function Icon({ name }: { name: NavItem["icon"] }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {ICONS[name]}
+    </svg>
+  );
+}
+
+/** The exact match wins, so "Resultater" is not also shown under "Dagens bets". */
+function activeHref(pathname: string, items: NavItem[]) {
+  return items.filter((i) => pathname === i.href || pathname.startsWith(`${i.href}/`)).sort((a, b) => b.href.length - a.href.length)[0]?.href;
+}
+
+export function TopNav({ items }: { items: NavItem[] }) {
+  const active = activeHref(usePathname(), items);
+  return (
+    <nav aria-label="Menu" className="hidden items-center gap-1 md:flex">
+      {items.map((i) => (
+        <Link
+          key={i.href}
+          href={i.href}
+          aria-current={i.href === active ? "page" : undefined}
+          className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${i.href === active ? "bg-surface-3 text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`}
+        >
+          {i.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/** App-style tab bar at the bottom of the screen on phones. */
+export function BottomNav({ items }: { items: NavItem[] }) {
+  const active = activeHref(usePathname(), items);
+  return (
+    <nav aria-label="Menu" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-page/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+      <div className="mx-auto flex max-w-md">
+        {items.map((i) => (
+          <Link
+            key={i.href}
+            href={i.href}
+            aria-current={i.href === active ? "page" : undefined}
+            className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium ${i.href === active ? "text-accent" : "text-muted"}`}
+          >
+            <Icon name={i.icon} />
+            {i.short}
+          </Link>
+        ))}
+      </div>
+    </nav>
+  );
+}

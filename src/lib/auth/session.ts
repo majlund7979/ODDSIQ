@@ -9,8 +9,12 @@ import { db, DATABASE_CONFIGURED } from "@/lib/db";
 export const SESSION_COOKIE = "oddsiq_session";
 const SESSION_DAYS = 30;
 
-/** Accounts switch on only when explicitly enabled and a database is configured. */
-export const ACCOUNTS_ENABLED = process.env.ACCOUNTS_ENABLED === "true" && DATABASE_CONFIGURED;
+/**
+ * Accounts need a database, and switch on with ACCOUNTS_ENABLED=true or by
+ * naming the site's owner in OWNER_EMAIL. With an owner set, the whole site
+ * is for invited friends only (src/lib/auth/friends.ts).
+ */
+export const ACCOUNTS_ENABLED = DATABASE_CONFIGURED && (process.env.ACCOUNTS_ENABLED === "true" || Boolean(process.env.OWNER_EMAIL?.trim()));
 
 export const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 export const newUserId = () => `usr_${randomUUID().replace(/-/g, "")}`;

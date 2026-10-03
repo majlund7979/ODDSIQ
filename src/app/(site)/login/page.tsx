@@ -1,30 +1,22 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { signIn } from "@/app/auth-actions";
+import { AuthCard } from "@/components/AuthCard";
 import { AuthForm } from "@/components/AuthForm";
-import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
+import { safeNext } from "@/lib/auth/redirect";
+import { isInvited } from "@/lib/auth/friends";
+import { ACCOUNTS_ENABLED, currentUser } from "@/lib/auth/session";
 
-export const metadata = { title: "Sign in · ODDSIQ" };
+export const metadata = { title: "Log ind · ODDSIQ" };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const { next = "/picks" } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; adgang?: string }> }) {
+  const q = await searchParams;
+  const next = safeNext(q.next);
+  if (!ACCOUNTS_ENABLED) redirect(next);
+  const user = await currentUser();
+  if (user && (await isInvited(user.email))) redirect(next);
   return (
-    <div className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="text-xl font-semibold">Sign in</h1>
-      {ACCOUNTS_ENABLED ? (
-        <>
-          <div className="mt-6">
-            <AuthForm action={signIn} submitLabel="Sign in" next={next} />
-          </div>
-          <p className="mt-4 text-sm text-ink-2">
-            New here?{" "}
-            <Link href={`/signup?next=${encodeURIComponent(next)}`} className="text-accent hover:underline">
-              Create an account
-            </Link>
-          </p>
-        </>
-      ) : (
-        <p className="mt-4 text-sm text-ink-2">Accounts are not switched on yet. The terminal works without one.</p>
-      )}
-    </div>
+    <AuthCard mode="login" next={next} notice={q.adgang === "fjernet" ? "Din adgang er fjernet. Spørg den, der inviterede dig." : undefined}>
+      <AuthForm action={signIn} submitLabel="Log ind" next={next} />
+    </AuthCard>
   );
 }
