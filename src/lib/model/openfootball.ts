@@ -16,6 +16,11 @@ export const RESULT_LEAGUES: { code: string; oddsKey: string; name: string }[] =
   { code: "pt.1", oddsKey: "soccer_portugal_primeira_liga", name: "Primeira Liga" },
   { code: "be.1", oddsKey: "soccer_belgium_first_div", name: "Belgian First Division" },
   { code: "at.1", oddsKey: "soccer_austria_bundesliga", name: "Austrian Bundesliga" },
+  // National teams, one model for all of them (src/lib/model/international.ts).
+  { code: "intl", oddsKey: "soccer_uefa_nations_league", name: "Landskampe" },
+  { code: "intl", oddsKey: "soccer_fifa_world_cup_qualifiers_europe", name: "Landskampe" },
+  { code: "intl", oddsKey: "soccer_uefa_euro_qualification", name: "Landskampe" },
+  { code: "intl", oddsKey: "soccer_international_friendlies", name: "Landskampe" },
 ];
 
 export const leagueForOddsKey = (oddsKey: string) => RESULT_LEAGUES.find((l) => l.oddsKey === oddsKey) ?? null;

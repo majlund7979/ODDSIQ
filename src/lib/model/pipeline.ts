@@ -12,6 +12,7 @@ import { backtest } from "./backtest";
 import { REAL_MODEL } from "./ensemble";
 import { buildLeagueModel, forecastFor } from "./league-model";
 import { fetchFootballData, FOOTBALL_DATA_DIVISIONS, FOOTBALL_DATA_SOURCE, type StatMatch } from "./match-stats";
+import { fetchInternational, INTL_CODE, INTL_SOURCE } from "./international";
 import { fetchSeason, leagueForOddsKey, OPENFOOTBALL_SOURCE, recentSeasons, seasonOf, type HistMatch } from "./openfootball";
 
 const HOUR = 3_600_000;
@@ -36,6 +37,7 @@ export interface ModelRunSummary {
 }
 
 export async function refreshResults(prisma: PrismaClient, league: string, now: number, fetchImpl: typeof fetch = fetch): Promise<number> {
+  if (league === INTL_CODE) return storeResults(prisma, await fetchInternational(now - SEASONS_KEPT * 366 * DAY, fetchImpl), INTL_SOURCE);
   let added = 0;
   const current = seasonOf(now);
   for (const season of recentSeasons(now, SEASONS_KEPT)) {
@@ -233,10 +235,14 @@ export async function runModel(prisma: PrismaClient, opts: { oddsKeys: string[];
   const now = opts.now ?? Date.now();
   const summary: ModelRunSummary = { resultsAdded: 0, matchStatsAdded: 0, matchStatsErrors: [], predictions: 0, missing: [], outcomes: 0, settled: 0, backtests: [] };
   await ensureModelVersions(prisma, now);
+  // Several competitions share one results history (all national teams are "intl"): refresh and backtest each once.
+  const refreshed = new Set<string>();
   for (const key of opts.oddsKeys) {
     const league = leagueForOddsKey(key);
     if (!league) continue;
-    if (!opts.skipResultsRefresh) {
+    const first = !refreshed.has(league.code);
+    refreshed.add(league.code);
+    if (!opts.skipResultsRefresh && first) {
       summary.resultsAdded += await refreshResults(prisma, league.code, now, opts.fetchImpl);
       try {
         summary.matchStatsAdded += await refreshMatchStats(prisma, league.code, now, opts.fetchImpl);
@@ -247,7 +253,7 @@ export async function runModel(prisma: PrismaClient, opts: { oddsKeys: string[];
     const p = await predictUpcoming(prisma, key, now);
     summary.predictions += p.predictions;
     summary.missing.push(...p.missing);
-    if (await refreshBacktest(prisma, league.code, now)) summary.backtests.push(league.code);
+    if (first && (await refreshBacktest(prisma, league.code, now))) summary.backtests.push(league.code);
   }
   const c = await closeAndSettle(prisma, now);
   summary.outcomes = c.outcomes;

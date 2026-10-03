@@ -45,6 +45,15 @@ const ALIASES: Record<string, string> = {
   "real betis": "betis",
   "rayo vallecano madrid": "rayo vallecano",
   "hertha bsc": "hertha",
+  // National teams (international_results vs API-Football)
+  "turkiye": "turkey",
+  "ireland": "republic of ireland",
+  "czechia": "czech republic",
+  "macedonia": "north macedonia",
+  "fyr macedonia": "north macedonia",
+  "korea republic": "south korea",
+  "usa": "united states",
+  "cape verde islands": "cape verde",
   // football-data.co.uk short names
   "man united": "manchester united",
   "man city": "manchester city",
