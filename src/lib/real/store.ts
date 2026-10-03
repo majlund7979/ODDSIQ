@@ -29,7 +29,8 @@ const PRICE_WINDOW_MS = 12 * HOUR;
 /** Finished matches stay visible for a week (Matches → Results). */
 const LOOKBACK_MS = 7 * DAY;
 const LOOKAHEAD_MS = 10 * DAY;
-const CACHE_MS = 60_000;
+/** Odds arrive every few hours, so a view may reuse the snapshot for a few minutes. */
+const CACHE_MS = 5 * 60_000;
 
 export type EventView = SportEvent & { homeName: string; awayName: string; leagueName: string; sportName: string };
 
@@ -284,9 +285,11 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
   const models = new Map<string, LeagueModel>();
   const countModels = new Map<string, CountModels>();
   const htShares = new Map<string, { home: number; away: number; n: number }>();
-  for (const code of new Set(events.map((e) => leagueForOddsKey(oddsKeyOf(e.leagueId))?.code).filter((c): c is string => Boolean(c)))) {
-    models.set(code, await leagueModel(prisma, code, now));
-    const cm = await leagueCountModels(prisma, code, now);
+  // All leagues at once: on a fresh server instance this is the slow part of a page view.
+  const codes = [...new Set(events.map((e) => leagueForOddsKey(oddsKeyOf(e.leagueId))?.code).filter((c): c is string => Boolean(c)))];
+  const built = await Promise.all(codes.map(async (code) => [code, await leagueModel(prisma, code, now), await leagueCountModels(prisma, code, now)] as const));
+  for (const [code, model, cm] of built) {
+    models.set(code, model);
     countModels.set(code, cm);
     const anyModel = cm.corners ?? cm.cards ?? cm.fouls;
     htShares.set(code, halfTimeShare(anyModel?.history ?? [], now));
