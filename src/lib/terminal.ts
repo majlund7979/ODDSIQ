@@ -2,7 +2,7 @@
 // deterministic demo universe; with DEMO_MODE=false the same shapes come from
 // the live odds feed and the real model in Postgres.
 
-import { connection } from "next/server";
+import { after, connection } from "next/server";
 import { DataSourceNotConfiguredError, DEMO_MODE } from "@/lib/data";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { ALERT_TYPES, marketAlerts, type MarketAlert } from "@/lib/demo/alerts";
@@ -20,7 +20,7 @@ import { rating } from "@/lib/model/elo";
 import { demoPickContext, demoRecordedPicks } from "@/lib/demo/picks";
 import type { RecordedPick } from "@/lib/picks-extra";
 import { readRecordedPicks } from "@/lib/real/pick-records";
-import { realFinishedEvents, realMarketDetail, realMatchView, realSnapshot, type EventView, type SourceView } from "@/lib/real/store";
+import { realFinishedEvents, realMarketDetail, realMatchView, realSnapshot, type EventView, type RealSnapshot, type SourceView } from "@/lib/real/store";
 
 export interface Terminal {
   live: boolean;
@@ -32,15 +32,16 @@ export interface Terminal {
   /** Footnote label: "DEMO DATA" or the live source. */
   dataLabel: string;
   marketRows(): MarketRow[];
-  ledgerRows(): LedgerRow[];
-  ledgerAudit(): LedgerAudit;
+  /** The full prediction ledger; on live data this loads the whole ledger, so only the CSV export asks for it. */
+  ledgerRows(): Promise<LedgerRow[]>;
+  ledgerAudit(): Promise<LedgerAudit>;
   dataSources(): SourceView[];
   marketDetail(selectionId: string): (MarketDetail & { unavailableReason?: string | null; teamNews?: TeamNews | null }) | undefined;
   matchView(eventId: string): MatchView | undefined;
   /** Finished matches, newest first. */
   finishedEvents(): EventView[];
   /** Alerts fired in the last 24 hours, newest first, and the rules that apply to this data. */
-  alerts(): MarketAlert[];
+  alerts(): Promise<MarketAlert[]>;
   alertTypes: typeof ALERT_TYPES;
   /** Settled markets with their price history, and the bookmakers quoting them. */
   settled(): Promise<{ rows: SettledSelection[]; books: { id: string; name: string }[] }>;
@@ -60,7 +61,42 @@ export interface Terminal {
   recordedPicks(days?: number): Promise<RecordedPick[]>;
 }
 
-export async function terminal(): Promise<Terminal> {
+const FRESH_MS = 5 * 60_000;
+const STALE_MS = 60 * 60_000;
+let latest: { at: number; snap: RealSnapshot } | null = null;
+let rebuilding: Promise<RealSnapshot> | null = null;
+
+/**
+ * The live snapshot, stale-while-revalidate: up to five minutes old it is
+ * served as is; up to an hour old it is still served at once while a fresh one
+ * is built after the response, so a visitor only waits on a cold server.
+ */
+async function liveSnapshot(now: number, fresh: boolean): Promise<RealSnapshot> {
+  if (fresh) {
+    const snap = await realSnapshot(db(), now, { ledger: false, fresh: true });
+    latest = { at: now, snap };
+    return snap;
+  }
+  const rebuild = () =>
+    (rebuilding ??= realSnapshot(db(), now, { ledger: false })
+      .then((snap) => {
+        latest = { at: now, snap };
+        return snap;
+      })
+      .finally(() => {
+        rebuilding = null;
+      }));
+  if (latest && now - latest.at < FRESH_MS) return latest.snap;
+  if (latest && now - latest.at < STALE_MS) {
+    const stale = latest.snap;
+    after(() => rebuild().catch(() => undefined));
+    return stale;
+  }
+  return rebuild();
+}
+
+/** `fresh` skips every cache, for the data runs that have just written new odds and results. */
+export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal> {
   await connection();
   const now = Date.now();
   if (DEMO_MODE) {
@@ -71,13 +107,13 @@ export async function terminal(): Promise<Terminal> {
       ledgerSource: "Oddsanalyse prediction ledger (DEMO DATA)",
       dataLabel: "DEMO DATA",
       marketRows: () => demo.marketRows(now),
-      ledgerRows: () => demo.ledgerRows(now),
-      ledgerAudit: () => demo.ledgerAudit(now),
+      ledgerRows: async () => demo.ledgerRows(now),
+      ledgerAudit: async () => demo.ledgerAudit(now),
       dataSources: () => demo.dataSources(now),
       marketDetail: (id) => demo.marketDetail(id, now),
       matchView: (id) => demo.matchView(id, now),
       finishedEvents: () => demo.replayableEvents(now),
-      alerts: () => marketAlerts(now),
+      alerts: async () => marketAlerts(now),
       alertTypes: ALERT_TYPES,
       settled: async () => ({ rows: demo.settledSelections(now), books: BOOKMAKERS }),
       personal: async () => demoPersonal(now),
@@ -101,7 +137,10 @@ export async function terminal(): Promise<Terminal> {
     };
   }
   if (!DATABASE_CONFIGURED) throw new DataSourceNotConfiguredError();
-  const snap = await realSnapshot(db(), now);
+  const snap = await liveSnapshot(now, Boolean(opts.fresh));
+  // The ledger views need the full snapshot; built only when one of them is asked for.
+  let fullSnap: Promise<RealSnapshot> | null = null;
+  const full = () => (fullSnap ??= realSnapshot(db(), now));
   return {
     live: true,
     now,
@@ -109,20 +148,20 @@ export async function terminal(): Promise<Terminal> {
     ledgerSource: "Oddsanalyse prediction ledger (live)",
     dataLabel: "Live odds og Oddsanalyse-modellen",
     marketRows: () => snap.rows,
-    ledgerRows: () => snap.ledger,
-    ledgerAudit: () => snap.audit,
+    ledgerRows: async () => (await full()).ledger,
+    ledgerAudit: async () => (await full()).audit,
     dataSources: () => snap.sources,
     marketDetail: (id) => realMarketDetail(snap, id),
     matchView: (id) => realMatchView(snap, id),
     finishedEvents: () => realFinishedEvents(snap),
-    alerts: () => realAlerts(snap),
+    alerts: async () => realAlerts(await full()),
     alertTypes: LIVE_ALERT_TYPES,
     settled: () => realSettledSelections(db(), now),
-    personal: () => realPersonal(db(), snap),
+    personal: async () => realPersonal(db(), await full()),
     liveBoard: () => realLiveBoard(snap),
     liveView: (id) => realLiveView(snap, id),
     replayEvents: () => realReplayEvents(snap),
-    replay: (id) => realReplayData(db(), snap, id),
+    replay: async (id) => realReplayData(db(), await full(), id),
     recordedPicks: (days) => readRecordedPicks(db(), now, days),
     pickContext: (id) => {
       const e = snap.events.find((x) => x.view.id === id);

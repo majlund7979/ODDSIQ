@@ -41,7 +41,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
   const status = url.searchParams.get("status") ?? "all";
-  const rows = t.ledgerRows().filter(
+  const rows = (await t.ledgerRows()).filter(
     (r) =>
       (status === "all" || r.status === status) &&
       (!q || `${r.prediction.id} ${r.event.homeName} ${r.event.awayName} ${r.event.leagueName} ${r.selectionName} ${r.prediction.modelVersionId}`.toLowerCase().includes(q)),

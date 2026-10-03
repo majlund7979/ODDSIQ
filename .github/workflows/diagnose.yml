@@ -1,0 +1,28 @@
+# Speed and data check for the live site. Run it by hand: Actions → Diagnose →
+# Run workflow. Prints how fast the database and the page data are on the
+# server, what the pages have to show, and what the statistics feed returns.
+# Uses the same SITE_URL variable and CRON_SECRET secret as the data runs.
+
+name: Diagnose
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    if: vars.SITE_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check the live site
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for path in /login /login; do
+            curl -sS -o /dev/null --max-time 30 -w "$path HTTP %{http_code} in %{time_total}s (first byte %{time_starttransfer}s)\n" "${SITE_URL%/}$path" || true
+          done
+          code=$(curl -sS --max-time 60 -o out.json -w '%{http_code}' -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/diagnose" || echo 000)
+          cat out.json; echo
+          echo "::notice title=Diagnose (HTTP $code)::$(tr -d '\n' < out.json | head -c 3500)"
+          [ "$code" = 200 ]

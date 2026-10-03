@@ -74,8 +74,10 @@ export interface RealSnapshot {
   now: number;
   events: EventData[];
   rows: MarketRow[];
+  /** Empty, with an empty audit, in a snapshot built with `ledger: false`. */
   ledger: LedgerRow[];
   audit: LedgerAudit;
+  ledgerIncluded: boolean;
   sources: SourceView[];
   books: Map<string, string>;
   predictionsBySelection: Map<string, Prediction>;
@@ -237,11 +239,21 @@ function buildRow(e: EventData, m: MarketData, i: number, now: number, books: Ma
   };
 }
 
-let cache: { key: number; snap: RealSnapshot } | null = null;
+const caches: Record<"full" | "light", { key: number; snap: RealSnapshot } | null> = { full: null, light: null };
 
-export async function realSnapshot(prisma: PrismaClient, now: number): Promise<RealSnapshot> {
+const EMPTY_AUDIT: LedgerAudit = { verification: { ok: true, checked: 0, brokenAt: null, reason: null }, count: 0, headHash: null, firstAt: null, lastAt: null, missing: [], changed: 0, deleted: 0, versionChanges: [] };
+
+/**
+ * Everything the pages read, built from Postgres. With `ledger: false` (what
+ * the site's pages use) it skips the full prediction ledger and its audit,
+ * which only the CSV export and the old terminal views need and which grows
+ * with every run.
+ */
+export async function realSnapshot(prisma: PrismaClient, now: number, opts: { ledger?: boolean; fresh?: boolean } = {}): Promise<RealSnapshot> {
+  const full = opts.ledger !== false;
+  const mode = full ? "full" : "light";
   const key = Math.floor(now / CACHE_MS);
-  if (cache?.key === key) return cache.snap;
+  if (!opts.fresh && caches[mode]?.key === key) return caches[mode]!.snap;
 
   const events = await prisma.event.findMany({
     where: { externalId: { not: null }, kickoff: { gte: new Date(now - LOOKBACK_MS), lte: new Date(now + LOOKAHEAD_MS) } },
@@ -343,7 +355,13 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
   });
 
   // The ledger: every recorded real-model prediction, plus chain verification over the whole table.
-  const chain = (await prisma.prediction.findMany({ orderBy: { seq: "asc" } })).map(toPrediction);
+  // Without the ledger, only the predictions for the selections still to be played.
+  const scheduledIds = data.filter((e) => e.view.status === "scheduled").flatMap((e) => e.markets.flatMap((m) => m.selections.map((x) => x.id)));
+  const chain = full
+    ? (await prisma.prediction.findMany({ orderBy: { seq: "asc" } })).map(toPrediction)
+    : scheduledIds.length
+      ? (await prisma.prediction.findMany({ where: { selectionId: { in: scheduledIds }, modelVersionId: REAL_MODEL.ensemble.id }, orderBy: { seq: "asc" } })).map(toPrediction)
+      : [];
   const real = chain.filter((p) => p.modelVersionId === REAL_MODEL.ensemble.id);
   const predictionsBySelection = new Map(real.map((p) => [p.selectionId, p]));
 
@@ -356,6 +374,21 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
     });
   }
 
+  const { ledger, audit } = full ? await ledgerAndAudit(prisma, chain, real, books) : { ledger: [], audit: EMPTY_AUDIT };
+
+  const feeds = await prisma.dataSource.findMany();
+  const through = Math.max(0, ...[...models.values()].map((m) => m.dataThrough ?? 0));
+  const sources: SourceView[] = [
+    ...feeds.map((s) => ({ id: s.id, name: s.name, kind: s.kind as SourceView["kind"], status: s.status as SourceView["status"], lastSyncAt: s.lastSyncAt.getTime(), provider: s.provider })),
+    ...(through ? [{ id: "openfootball", name: "Match results", kind: "stats" as const, status: "ok" as const, lastSyncAt: through, provider: OPENFOOTBALL_SOURCE }] : []),
+  ];
+
+  const snap: RealSnapshot = { now, events: data, rows, ledger, audit, ledgerIncluded: full, sources, books, predictionsBySelection, models };
+  caches[mode] = { key, snap };
+  return snap;
+}
+
+async function ledgerAndAudit(prisma: PrismaClient, chain: Prediction[], real: Prediction[], books: Map<string, string>): Promise<{ ledger: LedgerRow[]; audit: LedgerAudit }> {
   const ledger = await ledgerRows(prisma, real, books);
   const missing = await prisma.missingPrediction.findMany({ orderBy: { kickoff: "desc" }, take: 200 });
   const feedEvents = new Set((await prisma.event.findMany({ where: { id: { in: missing.map((x) => x.eventId) }, externalId: { not: null } }, select: { id: true } })).map((e) => e.id));
@@ -377,17 +410,7 @@ export async function realSnapshot(prisma: PrismaClient, now: number): Promise<R
     deleted: 0,
     versionChanges: [...versions.entries()].map(([versionId, v]) => ({ versionId, ...v })),
   };
-
-  const feeds = await prisma.dataSource.findMany();
-  const through = Math.max(0, ...[...models.values()].map((m) => m.dataThrough ?? 0));
-  const sources: SourceView[] = [
-    ...feeds.map((s) => ({ id: s.id, name: s.name, kind: s.kind as SourceView["kind"], status: s.status as SourceView["status"], lastSyncAt: s.lastSyncAt.getTime(), provider: s.provider })),
-    ...(through ? [{ id: "openfootball", name: "Match results", kind: "stats" as const, status: "ok" as const, lastSyncAt: through, provider: OPENFOOTBALL_SOURCE }] : []),
-  ];
-
-  const snap: RealSnapshot = { now, events: data, rows, ledger, audit, sources, books, predictionsBySelection, models };
-  cache = { key, snap };
-  return snap;
+  return { ledger, audit };
 }
 
 async function ledgerRows(prisma: PrismaClient, preds: Prediction[], books: Map<string, string>): Promise<LedgerRow[]> {
