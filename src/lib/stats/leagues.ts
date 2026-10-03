@@ -12,4 +12,6 @@ export const STATS_LEAGUES: Record<string, number> = {
   soccer_portugal_primeira_liga: 94,
   soccer_belgium_first_div: 144,
   soccer_austria_bundesliga: 218,
+  soccer_denmark_superliga: 119,
+  soccer_uefa_champs_league: 2,
 };

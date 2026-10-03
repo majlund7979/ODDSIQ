@@ -21,13 +21,15 @@ model Sport {
 }
 
 model League {
-  id      String  @id
-  sportId String
-  name    String
-  country String
-  sport   Sport   @relation(fields: [sportId], references: [id])
-  teams   Team[]
-  events  Event[]
+  id            String    @id
+  sportId       String
+  name          String
+  country       String
+  /// Last time a scheduled run paid for this league's odds (feed leagues only).
+  oddsFetchedAt DateTime?
+  sport         Sport     @relation(fields: [sportId], references: [id])
+  teams         Team[]
+  events        Event[]
 }
 
 model Team {

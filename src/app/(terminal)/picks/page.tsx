@@ -179,6 +179,7 @@ function PickCard({ p, rank, now }: { p: Pick; rank: number; now: number }) {
             <span className="rounded-lg bg-accent/15 px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
             {p.value && <span className="rounded-full border border-good/40 bg-good/10 px-2 py-0.5 text-[11px] font-semibold text-good">Værdi</span>}
             {p.lineupsConfirmed && <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2">Opstilling bekræftet</span>}
+            {p.marketOnly && <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2" title="Ingen kampresultater for ligaen endnu, så procenten er bookmakernes">Kun odds</span>}
           </div>
         </div>
         <div className="flex items-center gap-5">
