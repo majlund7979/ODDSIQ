@@ -99,3 +99,10 @@ export function configuredAfOddsFeed(env: Record<string, string | undefined> = p
   const c = afOddsConfig(env);
   return c.enabled && c.keys.length ? new ApiFootballOddsFeed({ apiKey: env.STATS_API_KEY!, keys: c.keys }) : null;
 }
+
+/** API-Football odds for the extra markets of The Odds API's leagues (enrich.ts); on whenever both keys are set. */
+export function configuredEnrichFeed(env: Record<string, string | undefined> = process.env): ApiFootballOddsFeed | null {
+  const c = afOddsConfig(env);
+  const keys = feedConfig(env).sports.filter((k) => AF_COMPETITIONS.some((x) => x.key === k));
+  return c.enabled && feedConfig(env).apiKey && keys.length ? new ApiFootballOddsFeed({ apiKey: env.STATS_API_KEY!, keys }) : null;
+}

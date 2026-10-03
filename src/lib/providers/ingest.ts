@@ -15,8 +15,8 @@ import type { FeedCompetition, FeedEvent, FeedMarketType, FeedQuota, OddsFeed } 
 
 const DAY = 86_400_000;
 const SPORT_NAMES: Record<string, string> = { football: "Football", basketball: "Basketball", tennis: "Tennis", "american-football": "American Football", "ice-hockey": "Ice Hockey" };
-const MARKET_NAMES: Record<FeedMarketType, string> = { "1X2": "Match Winner", ML: "Moneyline", OU25: "Total Goals 2.5" };
-const MARKET_SELECTIONS: Record<FeedMarketType, string[]> = { "1X2": ["home", "draw", "away"], ML: ["home", "away"], OU25: ["over", "under"] };
+const MARKET_NAMES: Record<FeedMarketType, string> = { "1X2": "Match Winner", ML: "Moneyline", OU25: "Total Goals 2.5", BTTS: "Both Teams To Score", DC: "Double Chance" };
+export const MARKET_SELECTIONS: Record<FeedMarketType, string[]> = { "1X2": ["home", "draw", "away"], ML: ["home", "away"], OU25: ["over", "under"], BTTS: ["yes", "no"], DC: ["1x", "x2", "12"] };
 
 export const slug = (s: string) =>
   s
@@ -43,6 +43,8 @@ function selectionName(m: FeedMarketType, sel: string, e: FeedEvent): string {
   if (sel === "home") return e.home;
   if (sel === "away") return e.away;
   if (sel === "draw") return "Draw";
+  if (m === "BTTS") return sel === "yes" ? "Yes" : "No";
+  if (m === "DC") return sel === "1x" ? `${e.home} or draw` : sel === "x2" ? `Draw or ${e.away}` : `${e.home} or ${e.away}`;
   return m === "OU25" ? `${sel === "over" ? "Over" : "Under"} 2.5` : sel;
 }
 
@@ -57,7 +59,7 @@ export function bookMargins(events: FeedEvent[]): Map<string, number> {
     }
     for (const [k, odds] of groups) {
       const [book, market] = k.split("|") as [string, FeedMarketType];
-      if (odds.length === MARKET_SELECTIONS[market].length) acc.set(book, [...(acc.get(book) ?? []), overround(odds)]);
+      if (market !== "DC" && odds.length === MARKET_SELECTIONS[market].length) acc.set(book, [...(acc.get(book) ?? []), overround(odds)]);
     }
   }
   return new Map([...acc].map(([b, xs]) => [b, xs.reduce((a, c) => a + c, 0) / xs.length]));

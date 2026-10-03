@@ -15,6 +15,15 @@ const DAY = 86_400_000;
 
 /** Competition key → API-Football league id and the name the site shows. */
 export const AF_COMPETITIONS: { key: string; leagueId: number; name: string }[] = [
+  // The Odds API covers these by default; API-Football adds their extra markets (enrich.ts), or all their odds when
+  // The Odds API is not configured.
+  { key: "soccer_epl", leagueId: 39, name: "Premier League" },
+  { key: "soccer_spain_la_liga", leagueId: 140, name: "La Liga" },
+  { key: "soccer_germany_bundesliga", leagueId: 78, name: "Bundesliga" },
+  { key: "soccer_italy_serie_a", leagueId: 135, name: "Serie A" },
+  { key: "soccer_france_ligue_one", leagueId: 61, name: "Ligue 1" },
+  { key: "soccer_denmark_superliga", leagueId: 119, name: "Superliga" },
+  { key: "soccer_uefa_champs_league", leagueId: 2, name: "UEFA Champions League" },
   { key: "soccer_uefa_nations_league", leagueId: 5, name: "UEFA Nations League" },
   { key: "soccer_fifa_world_cup_qualifiers_europe", leagueId: 32, name: "VM-kvalifikation (Europa)" },
   { key: "soccer_uefa_euro_qualification", leagueId: 960, name: "EM-kvalifikation" },
@@ -63,7 +72,7 @@ export interface RawAfOdds {
 const FINISHED = new Set(["FT", "AET", "PEN"]);
 const OVER_UNDER = /^(Over|Under) 2\.5$/;
 
-/** Match Winner → 1X2 and Goals Over/Under 2.5 → OU25, for the kept bookmakers. */
+/** Match Winner → 1X2, Goals Over/Under 2.5 → OU25, Both Teams Score → BTTS and Double Chance → DC, for the kept bookmakers. */
 export function normalizeAfOdds(raw: RawAfOdds): FeedPrice[] {
   const lastUpdate = Date.parse(raw.update);
   return raw.bookmakers.flatMap((b) => {
@@ -79,6 +88,14 @@ export function normalizeAfOdds(raw: RawAfOdds): FeedPrice[] {
           return selection ? [{ ...base, market: "1X2", selection }] : [];
         }
         if (bet.name === "Goals Over/Under" && OVER_UNDER.test(v.value)) return [{ ...base, market: "OU25", selection: v.value.startsWith("Over") ? "over" : "under" }];
+        if (bet.name === "Both Teams Score") {
+          const selection = { Yes: "yes", No: "no" }[v.value];
+          return selection ? [{ ...base, market: "BTTS", selection }] : [];
+        }
+        if (bet.name === "Double Chance") {
+          const selection = { "Home/Draw": "1x", "Draw/Away": "x2", "Home/Away": "12" }[v.value];
+          return selection ? [{ ...base, market: "DC", selection }] : [];
+        }
         return [];
       }),
     );

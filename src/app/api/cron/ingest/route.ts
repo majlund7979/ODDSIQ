@@ -5,7 +5,8 @@
 
 import { timingSafeEqual } from "node:crypto";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
-import { AF_ODDS_PLAN, afOddsConfig, configuredAfOddsFeed, configuredFeed, feedConfig, oddsPlan } from "@/lib/providers/config";
+import { AF_ODDS_PLAN, afOddsConfig, configuredAfOddsFeed, configuredEnrichFeed, configuredFeed, feedConfig, oddsPlan } from "@/lib/providers/config";
+import { enrichMarkets } from "@/lib/providers/enrich";
 import { runModel } from "@/lib/model/pipeline";
 import { ingest } from "@/lib/providers/ingest";
 import { configuredStatsFeed, statsConfig } from "@/lib/stats/config";
@@ -28,6 +29,9 @@ export async function GET(req: Request): Promise<Response> {
   const feed = configuredFeed();
   if (!feed || !DATABASE_CONFIGURED) return Response.json({ ok: false, error: "Set ODDS_API_KEY and DATABASE_URL to ingest odds." }, { status: 503 });
   const summary = await ingest(db(), feed, { competitionKeys: feedConfig().sports, plan: oddsPlan() });
+  // Over/under, both teams score and double chance for those leagues' matches, from API-Football.
+  const enrichFeed = configuredEnrichFeed();
+  const extraMarkets = enrichFeed ? await enrichMarkets(db(), enrichFeed, { keys: feedConfig().sports }) : null;
   // Internationals and the rest of Europe from API-Football, under their own id prefix ("apf-…").
   const afFeed = configuredAfOddsFeed();
   const afKeys = afFeed ? afOddsConfig().keys : [];
@@ -53,5 +57,5 @@ export async function GET(req: Request): Promise<Response> {
   // A statistics-feed problem (e.g. a plan that does not cover the season) is reported but does not fail the run:
   // odds, the model and the picks still worked.
   const ok = !summary.error && !("error" in model);
-  return Response.json({ ok, ...summary, oddsAf, stats, statsAf, model, picksRecorded }, { status: ok ? 200 : 502 });
+  return Response.json({ ok, ...summary, extraMarkets, oddsAf, stats, statsAf, model, picksRecorded }, { status: ok ? 200 : 502 });
 }

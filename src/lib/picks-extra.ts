@@ -18,6 +18,8 @@ export interface ExtraPick {
   /** Small table shown under "Se hele analysen". */
   table: { label: string; probability: number }[];
   note: string;
+  /** The best bookmaker price for this outcome, when the feed has the market. */
+  best?: { odds: number; book: string };
 }
 
 const pmf = (k: number, l: number) => {
@@ -70,8 +72,8 @@ function finish(picks: ExtraPick[], count: number) {
   return picks.sort((a, b) => b.probability - a.probability || a.row.kickoff - b.row.kickoff).slice(0, count);
 }
 
-function make(row: MarketRow, category: string, outcome: string, spec: string, probability: number, table: ExtraPick["table"], note: string): ExtraPick {
-  return { row, category, outcome, spec, probability, fairOdds: 1 / probability, strength: strengthOf(probability), table, note };
+function make(row: MarketRow, category: string, outcome: string, spec: string, probability: number, table: ExtraPick["table"], note: string, best?: ExtraPick["best"]): ExtraPick {
+  return { row, category, outcome, spec, probability, fairOdds: 1 / probability, strength: strengthOf(probability), table, note, ...(best ? { best } : {}) };
 }
 
 const teams = (r: MarketRow) => r.match.split(" vs ") as [string, string];
@@ -91,6 +93,7 @@ export function doubleChancePicks(rows: MarketRow[], now: number, count: number,
       { outcome: `${home} eller ${away} (ikke uafgjort)`, spec: "DC:12", probability: h + a },
     ];
     const best = options.sort((x, y) => y.probability - x.probability)[0];
+    const dcRow = rows.find((r) => r.eventId === m.home.eventId && r.marketType === "DC" && r.side === best.spec.slice(3).toLowerCase() && r.bestOdds > 1);
     const dnbSide = h >= a ? { team: home, p: h } : { team: away, p: a };
     out.push(
       make(
@@ -106,6 +109,7 @@ export function doubleChancePicks(rows: MarketRow[], now: number, count: number,
           { label: `${dnbSide.team}, uafgjort = penge tilbage`, probability: dnbSide.p / (1 - d) },
         ],
         `Dobbeltchance vinder på to af de tre udfald. "Uafgjort = penge tilbage" på ${dnbSide.team}: du vinder i ${Math.round(dnbSide.p * 100)} % af kampene, får pengene tilbage i ${Math.round(d * 100)} % og taber i resten.`,
+        dcRow ? { odds: dcRow.bestOdds, book: dcRow.bestBook } : undefined,
       ),
     );
   }

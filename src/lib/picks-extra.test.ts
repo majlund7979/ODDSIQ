@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MarketRow } from "@/lib/demo/store";
+import { dailyPicks } from "./picks";
 import { coupons, doubleChancePicks, oddsCoupon, valueCoupon, halfTime, scoreGrid, settle, summarise } from "./picks-extra";
 import type { Pick } from "./picks";
 
@@ -52,6 +53,12 @@ describe("goal markets from expected goals", () => {
     expect(p.outcome).toBe("Arsenal eller uafgjort");
     expect(p.probability).toBeCloseTo(0.8);
     expect(p.table.at(-1)!.probability).toBeCloseTo(0.5 / 0.7);
+    expect(p.best).toBeUndefined();
+    // With a double chance market from the feed, its best price is shown, and the daily list leaves it out.
+    const dc = { ...row("home", 0.85), selectionId: "dc", marketType: "DC", side: "1x", bestOdds: 1.3, bestBook: "bet365" } as MarketRow;
+    const [q] = doubleChancePicks([row("home", 0.5), row("draw", 0.3), row("away", 0.2), dc], now, 5, () => null);
+    expect(q.best).toEqual({ odds: 1.3, book: "bet365" });
+    expect(dailyPicks([dc], now, 5).length).toBe(0);
   });
 
   it("builds the 2-bet coupon with combined odds of at least 2.0", () => {

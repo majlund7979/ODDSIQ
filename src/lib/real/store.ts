@@ -196,7 +196,8 @@ function buildRow(e: EventData, m: MarketData, i: number, now: number, books: Ma
     currentOdds,
     openingFavourite: openingOdds <= Math.min(...opening.selections.map((s) => s.medianOdds)),
     volatility: vol,
-    marketProbability: mine.fairProbability,
+    // Double chance outcomes each cover two of three results, so their margin-free probabilities add up to two.
+    marketProbability: m.type === "DC" ? Math.min(0.99, mine.fairProbability * 2) : mine.fairProbability,
     modelProbability: p,
     ciLow: prediction?.ciLow ?? fc?.ciLow ?? null,
     ciHigh: prediction?.ciHigh ?? fc?.ciHigh ?? null,

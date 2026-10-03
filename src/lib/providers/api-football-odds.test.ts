@@ -20,7 +20,9 @@ const odds = (id: number): RawAfOdds => ({
       bets: [
         { id: 1, name: "Match Winner", values: [{ value: "Home", odd: "1.80" }, { value: "Draw", odd: "3.60" }, { value: "Away", odd: "4.75" }] },
         { id: 5, name: "Goals Over/Under", values: [{ value: "Over 1.5", odd: "1.30" }, { value: "Over 2.5", odd: "2.05" }, { value: "Under 2.5", odd: "1.75" }] },
-        { id: 8, name: "Both Teams Score", values: [{ value: "Yes", odd: "1.90" }] },
+        { id: 8, name: "Both Teams Score", values: [{ value: "Yes", odd: "1.90" }, { value: "No", odd: "1.85" }] },
+        { id: 12, name: "Double Chance", values: [{ value: "Home/Draw", odd: "1.22" }, { value: "Home/Away", odd: "1.30" }, { value: "Draw/Away", odd: "2.10" }] },
+        { id: 10, name: "Exact Score", values: [{ value: "1:0", odd: "7.00" }] },
       ],
     },
     { id: 99, name: "Unknown book", bets: [{ id: 1, name: "Match Winner", values: [{ value: "Home", odd: "1.9" }] }] },
@@ -28,7 +30,7 @@ const odds = (id: number): RawAfOdds => ({
 });
 
 describe("API-Football odds", () => {
-  it("keeps 1X2 and over/under 2.5 from the kept bookmakers", () => {
+  it("keeps 1X2, over/under 2.5, both teams score and double chance from the kept bookmakers", () => {
     const p = normalizeAfOdds(odds(1));
     expect(p.map((x) => `${x.bookmakerKey} ${x.market} ${x.selection} ${x.odds}`)).toEqual([
       "bet365 1X2 home 1.8",
@@ -36,6 +38,11 @@ describe("API-Football odds", () => {
       "bet365 1X2 away 4.75",
       "bet365 OU25 over 2.05",
       "bet365 OU25 under 1.75",
+      "bet365 BTTS yes 1.9",
+      "bet365 BTTS no 1.85",
+      "bet365 DC 1x 1.22",
+      "bet365 DC 12 1.3",
+      "bet365 DC x2 2.1",
     ]);
     expect(p[0].lastUpdate).toBe(Date.parse("2026-10-09T08:00:00Z"));
   });

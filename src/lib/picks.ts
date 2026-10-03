@@ -236,10 +236,13 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
   return { row, probability: final, lineupsConfirmed, factors, insights, marketOnly: false };
 }
 
+/** Markets the daily list ranks. Double chance covers two outcomes, so it has its own tab rather than crowding out single outcomes. */
+const PICK_MARKETS = new Set<string>(["1X2", "OU25", "BTTS"]);
+
 export function dailyPicks(rows: MarketRow[], now: number, count: number, context: (eventId: string) => PickContext | null = () => null): Pick[] {
   const best = new Map<string, NonNullable<ReturnType<typeof analysePick>>>();
   for (const r of rows) {
-    if (r.sportId !== "football" || r.status !== "scheduled" || r.kickoff <= now || r.kickoff > now + PICK_WINDOW_MS) continue;
+    if (r.sportId !== "football" || r.status !== "scheduled" || r.kickoff <= now || r.kickoff > now + PICK_WINDOW_MS || !PICK_MARKETS.has(r.marketType)) continue;
     const a = analysePick(r, context(r.eventId));
     if (!a) continue;
     const cur = best.get(r.eventId);
