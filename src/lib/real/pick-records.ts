@@ -6,6 +6,7 @@ import { leagueForOddsKey } from "@/lib/model/openfootball";
 import { matchTeam } from "@/lib/model/teams";
 import { allPickDrafts, settle, type MatchOutcome, type RecordedPick } from "@/lib/picks-extra";
 import type { Terminal } from "@/lib/terminal";
+import { closes } from "./clv";
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
@@ -74,7 +75,7 @@ export async function matchOutcomes(prisma: PrismaClient, rows: SettleRow[]): Pr
 
 export async function readRecordedPicks(prisma: PrismaClient, now: number, days = RESULTS_DAYS): Promise<RecordedPick[]> {
   const rows = await prisma.pickRecord.findMany({ where: { kickoff: { gte: new Date(now - days * DAY), lte: new Date(now - 2 * HOUR) } }, orderBy: { kickoff: "desc" } });
-  const outcomes = await matchOutcomes(prisma, rows);
+  const [outcomes, close] = await Promise.all([matchOutcomes(prisma, rows), closes(prisma, rows)]);
   return rows.map((r, i) => ({
     day: dayKey(r.kickoff.getTime()),
     kickoff: r.kickoff.getTime(),
@@ -85,5 +86,6 @@ export async function readRecordedPicks(prisma: PrismaClient, now: number, days 
     probability: r.probability,
     odds: r.odds,
     result: settle(r.spec, outcomes[i]),
+    close: close[i],
   }));
 }
