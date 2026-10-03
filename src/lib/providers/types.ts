@@ -1,7 +1,8 @@
 // Provider-neutral shapes for a licensed odds feed. Adapters (e.g. The Odds
 // API) translate their responses into these; ingestion only sees these.
 
-export type FeedMarketType = "1X2" | "ML" | "OU25";
+/** DC = double chance: 1x (home or draw), x2 (draw or away), 12 (no draw). */
+export type FeedMarketType = "1X2" | "ML" | "OU25" | "BTTS" | "DC";
 
 export interface FeedCompetition {
   key: string;
@@ -17,7 +18,7 @@ export interface FeedPrice {
   /** When the bookmaker last changed any price in this market, per the provider. */
   lastUpdate: number;
   market: FeedMarketType;
-  /** home | draw | away | over | under */
+  /** home | draw | away | over | under | yes | no | 1x | x2 | 12 */
   selection: string;
   odds: number;
 }

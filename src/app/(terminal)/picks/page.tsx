@@ -428,6 +428,14 @@ function ExtraCard({ p, rank, now, save }: { p: ExtraPick; rank: number; now: nu
         </div>
         <div className="flex items-center gap-5">
           <Gauge p={p.probability} />
+          {p.best && (
+            <div className="min-w-[96px] rounded-lg border border-line bg-surface-2 px-3 py-2 text-center">
+              <div className="text-[10px] uppercase tracking-wider text-muted">Bedste odds</div>
+              <div className="num text-2xl font-semibold">{dec(p.best.odds)}</div>
+              <div className="truncate text-[11px] text-ink-2">{p.best.book}</div>
+              {p.best.odds * p.probability > 1 && <div className="mt-1 rounded-full bg-good/15 px-2 py-0.5 text-[10px] font-semibold text-good">Værdi</div>}
+            </div>
+          )}
           <div className="min-w-[96px] rounded-lg border border-line bg-surface-2 px-3 py-2 text-center">
             <div className="text-[10px] uppercase tracking-wider text-muted">Fair odds</div>
             <div className="num text-2xl font-semibold">{dec(p.fairOdds)}</div>
@@ -435,7 +443,7 @@ function ExtraCard({ p, rank, now, save }: { p: ExtraPick; rank: number; now: nu
           </div>
         </div>
       </div>
-      <AdviceRow p={p.probability} odds={null} eventId={p.row.eventId} save={save} />
+      <AdviceRow p={p.probability} odds={p.best?.odds ?? null} eventId={p.row.eventId} save={save} />
       <details className="group">
         <MoreToggle />
         <div className="space-y-4 border-t border-line px-5 py-5">

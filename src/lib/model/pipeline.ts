@@ -112,7 +112,7 @@ async function ensureModelVersions(prisma: PrismaClient, now: number) {
 }
 
 /** The market's selection keys in ledger order, and how the model names them. */
-const MARKET_KEYS: Record<string, string[]> = { "1X2": ["home", "draw", "away"], OU25: ["over", "under"] };
+const MARKET_KEYS: Record<string, string[]> = { "1X2": ["home", "draw", "away"], OU25: ["over", "under"], BTTS: ["yes", "no"] };
 
 export async function predictUpcoming(prisma: PrismaClient, oddsKey: string, now: number): Promise<{ predictions: number; missing: { event: string; reason: string }[] }> {
   const league = leagueForOddsKey(oddsKey);

@@ -152,5 +152,10 @@ describe("closing line", () => {
     expect(settle("1X2", "home", 1, 1)).toBe("lost");
     expect(settle("OU25", "over", 2, 1)).toBe("won");
     expect(settle("ML", "home", 2, 2)).toBe("void");
+    expect(settle("BTTS", "yes", 1, 1)).toBe("won");
+    expect(settle("BTTS", "no", 2, 0)).toBe("won");
+    expect(settle("DC", "1x", 1, 1)).toBe("won");
+    expect(settle("DC", "x2", 2, 1)).toBe("lost");
+    expect(settle("DC", "12", 0, 0)).toBe("lost");
   });
 });
