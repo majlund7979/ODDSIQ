@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ApiFootballFeed, normalizeFixtures, normalizeInjuries, normalizeLineups, normalizeStatistics, seasonFor, type RawFixture } from "./api-football";
 import { statsConfig, STATS_DEFAULT_BUDGET } from "./config";
+import { effectiveBudget, PAID_PLAN_BUDGET } from "./ingest";
 import data from "./fixtures/api-football.json";
 import { StatsFixtureFeed } from "./fixture-feed";
 import { teamNews, xgForm, type StoredFixture } from "./news";
@@ -127,5 +128,14 @@ describe("configuration and data quality", () => {
     expect(withNews.lineup).toBe("Confirmed");
     expect(withNews.injuries).toBe("Fresh");
     expect(withNews.score).toBeGreaterThan(without.score);
+  });
+});
+
+describe("statistics request budget", () => {
+  it("keeps the configured cap on the free plan and raises it on a paid plan", () => {
+    expect(effectiveBudget(20, { remaining: null, limit: null })).toBe(20);
+    expect(effectiveBudget(20, { remaining: 80, limit: 100 })).toBe(20);
+    expect(effectiveBudget(20, { remaining: 7400, limit: 7500 })).toBe(PAID_PLAN_BUDGET);
+    expect(effectiveBudget(500, { remaining: 7400, limit: 7500 })).toBe(500);
   });
 });

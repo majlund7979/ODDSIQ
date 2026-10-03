@@ -26,8 +26,12 @@ jobs:
         env:
           SITE_URL: ${{ vars.SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        # Prints a one-line summary as a run annotation (readable on the run page
+        # and through the API) and fails the run unless the site answered 200.
         run: |
-          curl -fsS --max-time 320 -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/ingest"
+          code=$(curl -sS --max-time 320 -o out.json -w '%{http_code}' -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/ingest" || echo 000)
+          summary=$(jq -r '"ok=\(.ok) odds=\(.error // "ok") credits=\(.quota.remaining // "?") oddsFetched=\((.oddsFetched // []) | join(",")) stats=\(if .stats == null then "off" else (.stats.error // "ok fixtures=\(.stats.fixtures) matched=\(.stats.matched) lineups=\(.stats.lineups) injuries=\(.stats.injuries) xg=\(.stats.stats) requests=\(.stats.requests) left=\(.stats.quota.remaining // "?")") end) model=\(.model.error // "ok") picks=\(.picksRecorded | tostring)"' out.json 2>/dev/null || head -c 300 out.json | tr '\n' ' ')
+          if [ "$code" = 200 ]; then echo "::notice title=Data run OK::$summary"; else echo "::error title=Data run failed (HTTP $code)::$summary"; exit 1; fi
 
   live:
     if: vars.SITE_URL != '' && vars.ODDS_LIVE == 'on' && github.event.schedule == '*/10 * * * *'

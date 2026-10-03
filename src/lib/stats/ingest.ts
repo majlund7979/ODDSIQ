@@ -34,6 +34,15 @@ export interface StatsIngestSummary {
 
 const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
 
+/** Requests a run may use when the provider reports a paid daily allowance (over the free plan's 100). */
+export const PAID_PLAN_BUDGET = 200;
+export const FREE_PLAN_DAILY_LIMIT = 100;
+
+/** The run's request cap: the configured budget, raised on a paid plan, which the first response's quota headers reveal. */
+export function effectiveBudget(budget: number, quota: StatsQuota): number {
+  return quota.limit !== null && quota.limit > FREE_PLAN_DAILY_LIMIT ? Math.max(budget, PAID_PLAN_BUDGET) : budget;
+}
+
 export async function ingestStats(
   prisma: PrismaClient,
   feed: StatsFeed,
@@ -50,7 +59,7 @@ export async function ingestStats(
     quota = r.quota;
     return r.data;
   };
-  const left = () => s.requests < opts.budget && (quota.remaining === null || quota.remaining > 0);
+  const left = () => s.requests < effectiveBudget(opts.budget, quota) && (quota.remaining === null || quota.remaining > 0);
 
   try {
     const work: { f: StatsFixture; id: string; eventId: string }[] = [];
