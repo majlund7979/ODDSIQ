@@ -22,7 +22,7 @@ export function SaveBet({ eventId, category, odds, share, back, saved }: { event
         <input type="hidden" name="back" value={back} />
         <label className="block w-32 space-y-1 text-xs text-muted">
           Indsats (kr)
-          <input name="stake" inputMode="decimal" required defaultValue={roundStake(bankroll * share)} className="num block w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-ink" />
+          <input name="stake" inputMode="decimal" required defaultValue={share > 0 ? roundStake(bankroll * share) : ""} placeholder={share > 0 ? undefined : "fx 50"} className="num block w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-ink" />
         </label>
         <label className="block w-32 space-y-1 text-xs text-muted">
           Odds du fik

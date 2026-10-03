@@ -38,6 +38,13 @@ export async function requireFriend(next = "/picks"): Promise<CurrentUser | null
   return user;
 }
 
+/** The signed-in, invited user, or null. Never redirects, so each page can send strangers to /login with its own path. */
+export async function signedInFriend(): Promise<CurrentUser | null> {
+  if (!ACCOUNTS_ENABLED) return null;
+  const user = await currentUser();
+  return user && (await isInvited(user.email)) ? user : null;
+}
+
 export async function requireOwner(next = "/venner"): Promise<CurrentUser> {
   const user = await requireFriend(next);
   if (!user || !isOwner(user.email)) redirect("/picks");

@@ -3,12 +3,14 @@ import { Logo } from "@/components/Logo";
 import { BottomNav, TopNav } from "@/components/MainNav";
 import { ACCOUNT_NAV, ADMIN_NAV, FRIENDS_NAV, SIMPLE_NAV } from "@/components/nav";
 import { Badge } from "@/components/ui";
-import { inviteOnly, isOwner, requireFriend } from "@/lib/auth/friends";
+import { inviteOnly, isOwner, signedInFriend } from "@/lib/auth/friends";
+import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { DEMO_MODE } from "@/lib/data";
 
 export default async function TerminalLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  // Every page checks again itself; this keeps the menu from rendering for strangers.
-  const user = await requireFriend();
+  // Each page sends strangers to /login with its own path; the menu only renders for signed-in friends.
+  const user = await signedInFriend();
+  if (ACCOUNTS_ENABLED && !user) return <>{children}</>;
   const owner = Boolean(user && isOwner(user.email));
   const items = [...SIMPLE_NAV, ...(owner && inviteOnly() ? [FRIENDS_NAV] : []), ...(owner ? [ADMIN_NAV] : []), ...(user ? [ACCOUNT_NAV] : [])];
   const initial = user?.email.charAt(0).toUpperCase();

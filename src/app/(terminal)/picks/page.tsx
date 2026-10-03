@@ -671,7 +671,10 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
     tab !== "skud" ? null : DEMO_MODE ? demoShotBoard(rows, t.now, t.pickContext) : await realShotBoard(db(), rows, t.now, t.pickContext);
   const sPicks = shots ? topShotPicks(shots.picks, count) : [];
   const recent = tab === "bedste" ? summarise(history.filter((p) => p.category === "bedste" && p.kickoff >= t.now - 7 * 86_400_000)) : null;
-  const href = (type: string, n: number) => `/picks?${new URLSearchParams({ ...(type !== "bedste" ? { type } : {}), ...(n !== 10 ? { antal: String(n) } : {}) })}`;
+  const href = (type: string, n: number) => {
+    const qs = new URLSearchParams({ ...(type !== "bedste" ? { type } : {}), ...(n !== 10 ? { antal: String(n) } : {}) }).toString();
+    return qs ? `/picks?${qs}` : "/picks";
+  };
   const scope = analysedMatches(rows, t.now);
   const savedKeys = user ? await openBetKeys(db(), user.id, t.now) : new Set<string>();
   const back = href(tab, count);
