@@ -39,6 +39,8 @@ export async function GET(req: Request): Promise<Response> {
     demoMode: DEMO_MODE,
     demoModeSetting: process.env.DEMO_MODE === undefined ? "unset" : JSON.stringify(process.env.DEMO_MODE),
     region: process.env.VERCEL_REGION ?? null,
+    // Only the database host's region part (e.g. "eu-central-1"), to match the server region to it.
+    dbRegion: /\.([a-z]{2}-[a-z]+-\d)\./.exec(process.env.DATABASE_URL ?? "")?.[1] ?? null,
     oddsKeyConfigured: Boolean(process.env.ODDS_API_KEY),
     statsKeyConfigured: Boolean(process.env.STATS_API_KEY),
     sports: feedConfig().sports,
@@ -65,7 +67,11 @@ export async function GET(req: Request): Promise<Response> {
       tips: await prisma.tipPick.count(),
       playerStats: await prisma.playerSeasonStat.count(),
       statsFixtures: await prisma.statsFixture.count({ where: { kickoff: { gte: new Date(now - 2 * 86_400_000) } } }),
+      eventsByLeague: (await prisma.event.groupBy({ by: ["leagueId"], where: { externalId: { not: null }, kickoff: { gte: new Date(now) } }, _count: true })).map((g) => `${g.leagueId}: ${g._count}`),
     };
+    out.lastRuns = (await prisma.ingestRun.findMany({ orderBy: { startedAt: "desc" }, take: 6 })).map(
+      (r) => `${r.startedAt.toISOString().slice(5, 16)} ${r.provider}/${r.kind} events=${r.events} snaps=${r.snapshots} credits=${r.creditsUsed ?? "?"}/${r.creditsRemaining ?? "?"}${r.error ? ` error=${r.error.slice(0, 120)}` : ""}`,
+    );
   } catch (e) {
     out.databaseError = message(e);
   }
@@ -84,6 +90,37 @@ export async function GET(req: Request): Promise<Response> {
       }
     };
     out.statsProbe = { league: key, from: isoDay(now - 86_400_000), to: isoDay(now + 3 * 86_400_000), results: [await probe(seasonFor(now)), await probe(seasonFor(now) - 1)] };
+    // What the provider itself calls the current season, and its next fixtures without a date range.
+    type Raw = { http?: number; results?: number | null; errors?: unknown; response: unknown[]; error?: string };
+    const raw = async (path: string, params: Record<string, string | number>): Promise<Raw> => {
+      try {
+        const res = await fetch(`https://v3.football.api-sports.io${path}?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]))}`, {
+          headers: { "x-apisports-key": process.env.STATS_API_KEY ?? "" },
+          cache: "no-store",
+        });
+        const body = (await res.json()) as { results?: number; errors?: unknown; response?: unknown[] };
+        return { http: res.status, results: body.results ?? null, errors: body.errors ?? null, response: body.response ?? [] };
+      } catch (e) {
+        return { error: message(e), response: [] };
+      }
+    };
+    const leagueInfo = await raw("/leagues", { id: league });
+    const seasons = ((leagueInfo.response[0] as { seasons?: { year: number; current: boolean; start: string; end: string }[] } | undefined)?.seasons ?? []);
+    const next = await raw("/fixtures", { league, next: 3 });
+    out.statsLeague = {
+      http: leagueInfo.http ?? null,
+      errors: leagueInfo.error ?? leagueInfo.errors ?? null,
+      current: seasons.filter((x) => x.current),
+      latest: seasons.slice(-2),
+    };
+    out.statsNext = {
+      results: next.results ?? null,
+      errors: next.error ?? next.errors ?? null,
+      fixtures: next.response.map((f) => {
+        const x = f as { fixture?: { date?: string }; league?: { season?: number }; teams?: { home?: { name?: string }; away?: { name?: string } } };
+        return `${x.fixture?.date} ${x.teams?.home?.name} vs ${x.teams?.away?.name} (season ${x.league?.season})`;
+      }),
+    };
   }
   return Response.json(out);
 }
