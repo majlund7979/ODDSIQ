@@ -21,6 +21,7 @@ export interface NewsLeague {
 /** The leagues the site follows (ODDS_SPORTS defaults), plus everything. */
 export const NEWS_LEAGUES: NewsLeague[] = [
   { id: "alle", label: "Alle", query: "fodbold" },
+  { id: "landshold", label: "Landsholdet", query: "landsholdet fodbold" },
   { id: "superliga", label: "Superliga", query: "Superligaen" },
   { id: "premier-league", label: "Premier League", query: '"Premier League"' },
   { id: "la-liga", label: "La Liga", query: '"La Liga"' },

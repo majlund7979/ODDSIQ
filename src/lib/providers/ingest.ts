@@ -137,6 +137,8 @@ export interface IngestSummary {
   oddsFetched: string[];
   /** Competitions the credit plan skipped this run. */
   oddsSkipped: string[];
+  /** Configured competitions the provider does not list now (skipped). */
+  unknown: string[];
   quota: FeedQuota | null;
   error: string | null;
 }
@@ -152,6 +154,8 @@ export async function ingest(prisma: PrismaClient, feed: OddsFeed, opts: IngestO
   let scores = 0;
   let results = 0;
   let error: string | null = null;
+  let keys = opts.competitionKeys;
+  let unknown: string[] = [];
   let fetchKeys = opts.competitionKeys;
   const leagueIds = opts.competitionKeys.map((k) => `${prefix}-${k}`);
   // Under a plan, results are asked for once a match is likely over, so one call settles it.
@@ -161,21 +165,23 @@ export async function ingest(prisma: PrismaClient, feed: OddsFeed, opts: IngestO
     const comps = await feed.competitions();
     quota = comps.quota.remaining !== null ? comps.quota : quota;
     const byKey = new Map<string, FeedCompetition>(comps.data.map((c) => [c.key, c]));
-    const unknown = opts.competitionKeys.filter((k) => !byKey.has(k));
-    if (unknown.length) throw new Error(`Unknown competition key(s): ${unknown.join(", ")}. See the provider's sports list.`);
+    // A key the provider does not list (a typo, or no current season) is skipped, not fatal: the other competitions still run.
+    keys = opts.competitionKeys.filter((k) => byKey.has(k));
+    unknown = opts.competitionKeys.filter((k) => !byKey.has(k));
+    fetchKeys = keys;
 
     if (opts.plan) {
       const kickoffs = new Map<string, number[]>();
-      for (const key of opts.competitionKeys) kickoffs.set(key, (await feed.upcoming(key)).data);
+      for (const key of keys) kickoffs.set(key, (await feed.upcoming(key)).data);
       const leagues = await prisma.league.findMany({ where: { id: { in: leagueIds } }, select: { id: true, oddsFetchedAt: true } });
       const lastFetched = new Map(leagues.map((l) => [l.id.slice(prefix.length + 1), l.oddsFetchedAt?.getTime() ?? null]));
       // Settling comes first: the results board depends on it.
       const settling = await prisma.event.findMany({ where: { leagueId: { in: leagueIds }, status: { not: "finished" }, kickoff: { lt: new Date(settleBefore), gt: new Date(now - 3 * DAY) } }, select: { leagueId: true }, distinct: ["leagueId"] });
       const budget = runBudget(quota?.remaining ?? null, now, opts.plan.runsPerDay);
-      fetchKeys = planOdds(opts.competitionKeys, { now, kickoffs, lastFetched, budget: budget === null ? null : Math.max(0, budget - settling.length * RESULTS_COST) }, opts.plan);
+      fetchKeys = planOdds(keys, { now, kickoffs, lastFetched, budget: budget === null ? null : Math.max(0, budget - settling.length * RESULTS_COST) }, opts.plan);
     }
 
-    for (const key of opts.competitionKeys) {
+    for (const key of keys) {
       const comp = byKey.get(key)!;
       const sportId = comp.sportId;
       const leagueId = `${prefix}-${key}`;
@@ -266,7 +272,7 @@ export async function ingest(prisma: PrismaClient, feed: OddsFeed, opts: IngestO
     create: { id: feed.provider, name: `${feed.providerName} odds`, kind: "odds", provider: feed.providerName, status: error ? "degraded" : "ok", lastSyncAt: finishedAt },
     update: { status: error ? "degraded" : "ok", ...(error ? {} : { lastSyncAt: finishedAt }) },
   });
-  return { runId: run.id.toString(), competitions: opts.competitionKeys, events, snapshots, inPlay, scores, results, oddsFetched: fetchKeys, oddsSkipped: opts.competitionKeys.filter((k) => !fetchKeys.includes(k)), quota, error };
+  return { runId: run.id.toString(), competitions: opts.competitionKeys, events, snapshots, inPlay, scores, results, oddsFetched: fetchKeys, oddsSkipped: opts.competitionKeys.filter((k) => !fetchKeys.includes(k)), unknown, quota, error };
 }
 
 /** A football match, half-time and stoppage included, is over well within this. */

@@ -5,7 +5,7 @@
 
 import { timingSafeEqual } from "node:crypto";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
-import { configuredFeed, feedConfig, oddsPlan } from "@/lib/providers/config";
+import { AF_ODDS_PLAN, afOddsConfig, configuredAfOddsFeed, configuredFeed, feedConfig, oddsPlan } from "@/lib/providers/config";
 import { runModel } from "@/lib/model/pipeline";
 import { ingest } from "@/lib/providers/ingest";
 import { configuredStatsFeed, statsConfig } from "@/lib/stats/config";
@@ -28,11 +28,16 @@ export async function GET(req: Request): Promise<Response> {
   const feed = configuredFeed();
   if (!feed || !DATABASE_CONFIGURED) return Response.json({ ok: false, error: "Set ODDS_API_KEY and DATABASE_URL to ingest odds." }, { status: 503 });
   const summary = await ingest(db(), feed, { competitionKeys: feedConfig().sports, plan: oddsPlan() });
+  // Internationals and the rest of Europe from API-Football, under their own id prefix ("apf-…").
+  const afFeed = configuredAfOddsFeed();
+  const afKeys = afFeed ? afOddsConfig().keys : [];
+  const oddsAf = afFeed ? await ingest(db(), afFeed, { competitionKeys: afKeys, plan: AF_ODDS_PLAN, prefix: "apf" }) : null;
   const statsFeed = configuredStatsFeed();
   const stats = statsFeed ? await ingestStats(db(), statsFeed, { oddsKeys: feedConfig().sports, budget: statsConfig().budget }) : null;
+  const statsAf = statsFeed && afFeed ? await ingestStats(db(), statsFeed, { oddsKeys: afKeys, budget: statsConfig().budget, prefix: "apf", seasons: afFeed.seasons }) : null;
   let model: Awaited<ReturnType<typeof runModel>> | { error: string };
   try {
-    model = await runModel(db(), { oddsKeys: feedConfig().sports });
+    model = await runModel(db(), { oddsKeys: [...new Set([...feedConfig().sports, ...afKeys])] });
   } catch (e) {
     model = { error: e instanceof Error ? e.message.trim().split("\n").at(-1)! : String(e) };
   }
@@ -48,5 +53,5 @@ export async function GET(req: Request): Promise<Response> {
   // A statistics-feed problem (e.g. a plan that does not cover the season) is reported but does not fail the run:
   // odds, the model and the picks still worked.
   const ok = !summary.error && !("error" in model);
-  return Response.json({ ok, ...summary, stats, model, picksRecorded }, { status: ok ? 200 : 502 });
+  return Response.json({ ok, ...summary, oddsAf, stats, statsAf, model, picksRecorded }, { status: ok ? 200 : 502 });
 }

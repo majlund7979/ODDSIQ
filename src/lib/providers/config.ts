@@ -1,6 +1,7 @@
 // Feed settings from the environment. Nothing is fetched unless ODDS_API_KEY is set.
 
 import { DEFAULT_ODDS_PLAN, type OddsPlan } from "./ingest";
+import { AF_COMPETITIONS, ApiFootballOddsFeed } from "./api-football-odds";
 import { TheOddsApiFeed } from "./the-odds-api";
 
 /** Top 5 leagues, the Danish Superliga and the Champions League (Mads, 2026-10-02). */
@@ -74,4 +75,27 @@ export function liveRunDecision(cfg: ReturnType<typeof liveConfig>, s: { inPlay:
   if (s.lastLiveRunAt !== null && s.now - s.lastLiveRunAt < (cfg.intervalMinutes * 60 - 30) * 1000) return { run: false, reason: `Last live run was under ${cfg.intervalMinutes} minutes ago.` };
   if (s.creditsRemaining !== null && s.creditsRemaining < cfg.reserve) return { run: false, reason: `Only ${s.creditsRemaining} credits left, below the reserve of ${cfg.reserve}.` };
   return { run: true };
+}
+
+/**
+ * Odds from API-Football (Mads, 2026-10-03: internationals and all the big European leagues), on whenever
+ * STATS_API_KEY is set; STATS_ODDS=off turns it off and STATS_ODDS_LEAGUES picks the competitions. Leagues
+ * The Odds API already covers (ODDS_SPORTS) are left out so no match is listed twice.
+ */
+export function afOddsConfig(env: Record<string, string | undefined> = process.env) {
+  const off = ["off", "false", "0", "no"].includes((env.STATS_ODDS ?? "").trim().toLowerCase());
+  const wanted = (env.STATS_ODDS_LEAGUES || AF_COMPETITIONS.map((c) => c.key).join(","))
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const theOddsApi = new Set(feedConfig(env).apiKey ? feedConfig(env).sports : []);
+  return { enabled: Boolean(env.STATS_API_KEY) && !off, keys: wanted.filter((k) => !theOddsApi.has(k)) };
+}
+
+/** API-Football's daily allowance is large, so its odds are refreshed every 5 hours for matches inside two days. */
+export const AF_ODDS_PLAN: OddsPlan = { windowMs: 48 * 3_600_000, minIntervalMs: 5 * 3_600_000, runsPerDay: 4, oddsCost: 3 };
+
+export function configuredAfOddsFeed(env: Record<string, string | undefined> = process.env): ApiFootballOddsFeed | null {
+  const c = afOddsConfig(env);
+  return c.enabled && c.keys.length ? new ApiFootballOddsFeed({ apiKey: env.STATS_API_KEY!, keys: c.keys }) : null;
 }

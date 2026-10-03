@@ -1,5 +1,7 @@
-// The Odds API competition key → API-Football league id, for the leagues the
-// real model covers.
+// Competition key → API-Football league id: the leagues the real model covers
+// plus every competition whose odds come from API-Football.
+
+import { AF_COMPETITIONS } from "@/lib/providers/api-football-odds";
 
 export const STATS_LEAGUES: Record<string, number> = {
   soccer_epl: 39,
@@ -14,4 +16,5 @@ export const STATS_LEAGUES: Record<string, number> = {
   soccer_austria_bundesliga: 218,
   soccer_denmark_superliga: 119,
   soccer_uefa_champs_league: 2,
+  ...Object.fromEntries(AF_COMPETITIONS.map((c) => [c.key, c.leagueId])),
 };

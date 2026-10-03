@@ -51,7 +51,11 @@ export async function realShotBoard(prisma: PrismaClient, rows: MarketRow[], now
     select: { eventId: true, leagueId: true, homeTeamId: true, awayTeamId: true },
   });
   const teamIds = [...new Set(fixtures.flatMap((f) => [f.homeTeamId!, f.awayTeamId!]))];
-  const players = teamIds.length ? await prisma.playerSeasonStat.findMany({ where: { provider: API_FOOTBALL, season, teamId: { in: teamIds } } }) : [];
+  // The newest season stored per team and competition: internationals and calendar-year leagues name seasons differently.
+  const stored = teamIds.length ? await prisma.playerSeasonStat.findMany({ where: { provider: API_FOOTBALL, teamId: { in: teamIds }, season: { gte: season - 1 } } }) : [];
+  const newest = new Map<string, number>();
+  for (const p of stored) newest.set(`${p.leagueId}:${p.teamId}`, Math.max(newest.get(`${p.leagueId}:${p.teamId}`) ?? 0, p.season));
+  const players = stored.filter((p) => p.season === newest.get(`${p.leagueId}:${p.teamId}`));
   const squad = (leagueId: number, teamId: number) => players.filter((p) => p.leagueId === leagueId && p.teamId === teamId);
   const picks: ShotPick[] = [];
   let covered = 0;
