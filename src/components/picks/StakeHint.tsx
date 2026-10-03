@@ -9,7 +9,7 @@ export function StakeHint({ share, note, reason }: { share: number; note: string
   return (
     <span className="flex items-baseline gap-1.5 text-sm" title={reason}>
       <span className="text-ink-2">Forslag:</span>
-      <span className="num font-semibold">{roundStake(bankroll * share)} kr</span>
+      <span className="num font-semibold">{share > 0 ? `${roundStake(bankroll * share)} kr` : "spil ikke"}</span>
       <span className="hidden text-xs text-muted sm:inline">({note})</span>
     </span>
   );

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { leagueTable, monthStart, parseNumber, displayName, type FriendBet } from "./friends";
 import { morningHtml, recipients } from "./morning";
-import { oddsMove, riskOf, roundStake, stakeAdvice } from "./picks-advice";
+import { kelly, oddsMove, riskOf, roundStake, stakeAdvice } from "./picks-advice";
 
 describe("risk level", () => {
   it("is green from 70 %, yellow from 55 % and red below", () => {
@@ -13,16 +13,25 @@ describe("risk level", () => {
 });
 
 describe("stake suggestion", () => {
-  it("stakes 3, 2 and 1 % by risk level", () => {
-    expect(stakeAdvice(0.8, 1.4).share).toBe(0.03);
-    expect(stakeAdvice(0.6, 1.8).share).toBe(0.02);
-    expect(stakeAdvice(0.4, 3).share).toBe(0.01);
-    expect(stakeAdvice(0.4, null).share).toBe(0.01);
+  it("stakes a quarter of the Kelly share, capped at 5 %", () => {
+    // 60 % at 2.0: Kelly (1.2 − 1) / 1 = 20 %, a quarter is 5 %.
+    expect(stakeAdvice(0.6, 2).share).toBeCloseTo(0.05);
+    // 55 % at 2.0: Kelly 10 %, a quarter is 2.5 %.
+    expect(stakeAdvice(0.55, 2).share).toBeCloseTo(0.025);
+    expect(stakeAdvice(0.55, 2).note).toContain("kvart-Kelly");
+    // 80 % at 3.0: Kelly 70 %, a quarter is 17.5 %, capped at 5 %.
+    expect(stakeAdvice(0.8, 3).share).toBe(0.05);
+    expect(kelly(0.5, 3)).toBeCloseTo(0.25);
   });
-  it("halves the stake when the odds pay less than fair odds", () => {
+  it("says don't bet when the odds pay less than fair odds", () => {
     const s = stakeAdvice(0.8, 1.2);
-    expect(s.share).toBe(0.015);
-    expect(s.note).toContain("halv");
+    expect(s.share).toBe(0);
+    expect(s.reason).toContain("spil ikke");
+  });
+  it("falls back to 3, 2 and 1 % by risk level without odds", () => {
+    expect(stakeAdvice(0.8, null).share).toBe(0.03);
+    expect(stakeAdvice(0.6, null).share).toBe(0.02);
+    expect(stakeAdvice(0.4, null).share).toBe(0.01);
   });
   it("rounds to amounts people bet", () => {
     expect(roundStake(30)).toBe(30);
