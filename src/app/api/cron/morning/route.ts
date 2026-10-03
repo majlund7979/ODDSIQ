@@ -24,7 +24,7 @@ export async function GET(req: Request): Promise<Response> {
   if (!authorized(req)) return new Response("Unauthorized.", { status: 401 });
   // Not set up yet is not a failure: the daily job just reports it.
   if (!MAIL_CONFIGURED) return Response.json({ ok: true, skipped: "Set RESEND_API_KEY to send the morning e-mail." });
-  const t = await terminal();
+  const t = await terminal({ fresh: true });
   const day = morningDay(t.now);
   const force = new URL(req.url).searchParams.get("force") === "1";
   if (DATABASE_CONFIGURED && !force && (await db().morningMail.findUnique({ where: { day } }))) return Response.json({ ok: true, skipped: `already sent for ${day}` });

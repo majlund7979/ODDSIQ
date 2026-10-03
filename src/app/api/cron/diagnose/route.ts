@@ -1,0 +1,89 @@
+// Speed and data check for the live site, run from GitHub Actions ("Diagnose"
+// workflow). Times the database and the page data on this server, counts what
+// the pages have to show, and asks the statistics feed for this week's
+// fixtures. Returns numbers only, never personal data.
+// Call with `Authorization: Bearer $CRON_SECRET`.
+
+import { timingSafeEqual } from "node:crypto";
+import { DEMO_MODE } from "@/lib/data";
+import { db, DATABASE_CONFIGURED } from "@/lib/db";
+import { PICK_WINDOW_MS } from "@/lib/picks";
+import { feedConfig } from "@/lib/providers/config";
+import { realSnapshot } from "@/lib/real/store";
+import { seasonFor } from "@/lib/stats/api-football";
+import { configuredStatsFeed } from "@/lib/stats/config";
+import { STATS_LEAGUES } from "@/lib/stats/leagues";
+
+export const maxDuration = 60;
+
+function authorized(req: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  const got = req.headers.get("authorization") ?? "";
+  const want = `Bearer ${secret}`;
+  return Boolean(secret) && got.length === want.length && timingSafeEqual(Buffer.from(got), Buffer.from(want));
+}
+
+async function timed<T>(f: () => Promise<T>): Promise<[T, number]> {
+  const t = Date.now();
+  const r = await f();
+  return [r, Date.now() - t];
+}
+
+const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
+const message = (e: unknown) => (e instanceof Error ? e.message.trim().split("\n").at(-1)! : String(e));
+
+export async function GET(req: Request): Promise<Response> {
+  if (!authorized(req)) return new Response("Unauthorized.", { status: 401 });
+  const now = Date.now();
+  const out: Record<string, unknown> = {
+    demoMode: DEMO_MODE,
+    demoModeSetting: process.env.DEMO_MODE === undefined ? "unset" : JSON.stringify(process.env.DEMO_MODE),
+    region: process.env.VERCEL_REGION ?? null,
+    oddsKeyConfigured: Boolean(process.env.ODDS_API_KEY),
+    statsKeyConfigured: Boolean(process.env.STATS_API_KEY),
+    sports: feedConfig().sports,
+  };
+  if (!DATABASE_CONFIGURED) return Response.json({ ...out, database: "not configured" });
+  const prisma = db();
+  try {
+    const pings: number[] = [];
+    for (let i = 0; i < 3; i++) pings.push((await timed(() => prisma.$queryRaw`SELECT 1`))[1]);
+    out.dbPingMs = pings;
+    const [light, lightMs] = await timed(() => realSnapshot(prisma, now, { ledger: false, fresh: true }));
+    const [, againMs] = await timed(() => realSnapshot(prisma, now, { ledger: false }));
+    out.pageDataMs = { cold: lightMs, cached: againMs };
+    const soon = light.rows.filter((r) => r.sportId === "football" && r.kickoff > now && r.kickoff <= now + PICK_WINDOW_MS);
+    out.counts = {
+      events: light.events.length,
+      rows: light.rows.length,
+      matchesNext24h: new Set(soon.map((r) => r.eventId)).size,
+      matchesNext24hWithModel: new Set(soon.filter((r) => r.modelProbability !== null).map((r) => r.eventId)).size,
+      leagues: [...new Set(light.rows.map((r) => r.league))],
+      lastOddsAt: light.rows.length ? new Date(Math.max(...light.rows.map((r) => r.lastUpdate))).toISOString() : null,
+      predictions: await prisma.prediction.count(),
+      users: await prisma.user.count(),
+      tips: await prisma.tipPick.count(),
+      playerStats: await prisma.playerSeasonStat.count(),
+      statsFixtures: await prisma.statsFixture.count({ where: { kickoff: { gte: new Date(now - 2 * 86_400_000) } } }),
+    };
+  } catch (e) {
+    out.databaseError = message(e);
+  }
+
+  // One fixtures call for the first covered league this season and the season before, to see what the plan returns.
+  const feed = configuredStatsFeed();
+  const key = feedConfig().sports.find((k) => STATS_LEAGUES[k] !== undefined);
+  if (feed && key) {
+    const league = STATS_LEAGUES[key];
+    const probe = async (season: number) => {
+      try {
+        const r = await feed.fixtures(league, season, isoDay(now - 86_400_000), isoDay(now + 3 * 86_400_000));
+        return { season, fixtures: r.data.length, first: r.data[0] ? `${r.data[0].home} vs ${r.data[0].away}` : null, left: r.quota.remaining };
+      } catch (e) {
+        return { season, error: message(e) };
+      }
+    };
+    out.statsProbe = { league: key, from: isoDay(now - 86_400_000), to: isoDay(now + 3 * 86_400_000), results: [await probe(seasonFor(now)), await probe(seasonFor(now) - 1)] };
+  }
+  return Response.json(out);
+}

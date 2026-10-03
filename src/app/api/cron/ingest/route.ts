@@ -40,7 +40,7 @@ export async function GET(req: Request): Promise<Response> {
   let picksRecorded: number | { error: string } = 0;
   if (!DEMO_MODE) {
     try {
-      picksRecorded = await recordPicks(db(), await terminal());
+      picksRecorded = await recordPicks(db(), await terminal({ fresh: true }));
     } catch (e) {
       picksRecorded = { error: e instanceof Error ? e.message.trim().split("\n").at(-1)! : String(e) };
     }

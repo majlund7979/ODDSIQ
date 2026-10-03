@@ -3,7 +3,18 @@
 
 import { connection } from "next/server";
 
-export const DEMO_MODE = process.env.DEMO_MODE !== "false";
+/**
+ * DEMO_MODE=false (also "False", "0", "no", "off", with or without quotes)
+ * switches to live data. Left unset, the site goes live by itself once the
+ * database and the odds feed are configured.
+ */
+export function demoModeFrom(env: Record<string, string | undefined>): boolean {
+  const raw = (env.DEMO_MODE ?? "").trim().replace(/^["']|["']$/g, "").trim().toLowerCase();
+  if (!raw) return !(env.DATABASE_URL && env.ODDS_API_KEY);
+  return !["false", "0", "no", "off", "nej"].includes(raw);
+}
+
+export const DEMO_MODE = demoModeFrom(process.env);
 
 export class DataSourceNotConfiguredError extends Error {
   constructor() {
