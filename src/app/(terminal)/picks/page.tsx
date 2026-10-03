@@ -20,6 +20,13 @@ import { explainPick } from "@/lib/picks-explain";
 import { applyLearning, applyLearningToPicks, LEARN_DAYS, LEARN_MIN, learn, type CategoryLearning } from "@/lib/picks-learning";
 import { correctScorePicks, coupons, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
+import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
+import { db } from "@/lib/db";
+import { oddsMove } from "@/lib/picks-advice";
+import { openBetKeys } from "@/lib/real/friend-bets";
+import { AdviceRow, OddsMoveTag, RiskBadge, type SaveTarget } from "@/components/picks/Advice";
+import { BankrollInput } from "@/components/picks/BankrollInput";
+import { HitRates } from "@/components/picks/HitRates";
 
 export const metadata = { title: "Dagens bedste bets · Oddsanalyse" };
 
@@ -33,12 +40,6 @@ function kickoffLabel(t: number, now: number) {
   return `${day} kl. ${clock(t)}`;
 }
 
-const STRENGTH_TONE: Record<Pick["strength"], string> = {
-  "Meget stærk": "bg-good/15 text-good border-good/40",
-  Stærk: "bg-accent/15 text-accent border-accent/40",
-  God: "bg-surface-3 text-ink border-line-strong",
-  Middel: "bg-surface-3 text-ink-2 border-line",
-};
 
 function Gauge({ p }: { p: number }) {
   const pct = Math.round(p * 100);
@@ -53,15 +54,15 @@ function Gauge({ p }: { p: number }) {
   );
 }
 
-/** League, kickoff and strength above the team names on every card. */
-function CardTop({ rank, league, kickoff, strength, now }: { rank: number; league: string; kickoff: number; strength: Pick["strength"]; now: number }) {
+/** League, kickoff and risk level above the team names on every card. */
+function CardTop({ rank, league, kickoff, probability, now }: { rank: number; league: string; kickoff: number; probability: number; now: number }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
       <span className="num flex h-6 w-6 items-center justify-center rounded-full bg-surface-3 text-[12px] font-semibold text-ink">{rank}</span>
       <span>{league}</span>
       <span aria-hidden>·</span>
       <span>{kickoffLabel(kickoff, now)}</span>
-      <span className={`ml-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:ml-2 ${STRENGTH_TONE[strength]}`}>{strength}</span>
+      <RiskBadge p={probability} className="ml-auto sm:ml-2" />
     </div>
   );
 }
@@ -146,6 +147,7 @@ function LearningNote({ l }: { l: CategoryLearning }) {
 }
 
 function Analysis({ p, home, away, now }: { p: Pick; home: string; away: string; now: number }) {
+  const move = oddsMove(p.insights.movement, p.row.openingOdds, p.row.currentOdds);
   const i = p.insights;
   const maxPp = Math.max(4, ...p.factors.map((f) => Math.abs(f.pp ?? 0)));
   return (
@@ -223,7 +225,14 @@ function Analysis({ p, home, away, now }: { p: Pick; home: string; away: string;
           </Fact>
         )}
         <Fact label="Oddsen">
-          {Math.abs(i.movement) < 0.01 ? "Stort set uændret siden markedet åbnede." : `${i.movement < 0 ? "Faldet" : "Steget"} ${dec(Math.abs(i.movement) * 100, 0)} % siden markedet åbnede (fra ${dec(p.row.openingOdds)} til ${dec(p.row.currentOdds)}).`}
+          {move ? (
+            <>
+              {move.fact}
+              <div className="text-xs text-ink-2">{move.maybe}</div>
+            </>
+          ) : (
+            "Stort set uændret siden markedet åbnede."
+          )}
           <div className="text-xs text-muted">
             {p.row.booksQuoting} bookmakere · fair odds efter vores procent: {dec(p.fairOdds)}
           </div>
@@ -235,13 +244,13 @@ function Analysis({ p, home, away, now }: { p: Pick; home: string; away: string;
   );
 }
 
-function PickCard({ p, rank, now }: { p: Pick; rank: number; now: number }) {
+function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: number; save: SaveTarget | null }) {
   const [home, away] = p.row.match.split(" vs ");
   return (
     <article className="overflow-hidden rounded-2xl border border-line bg-surface">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
-          <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} strength={p.strength} now={now} />
+          <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} probability={p.probability} now={now} />
           <h2 className="text-lg font-semibold leading-tight sm:text-xl">
             {home} <span className="text-muted">–</span> {away}
           </h2>
@@ -249,6 +258,7 @@ function PickCard({ p, rank, now }: { p: Pick; rank: number; now: number }) {
             <span className="text-xs text-muted">Vores bud</span>
             <span className="rounded-lg bg-accent/15 px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
             {p.value && <span className="rounded-full border border-good/40 bg-good/10 px-2 py-0.5 text-[11px] font-semibold text-good">Værdi</span>}
+            <OddsMoveTag row={p.row} />
             {p.lineupsConfirmed && <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2">Opstilling bekræftet</span>}
             {p.marketOnly && <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2" title="Ingen kampresultater for ligaen endnu, så procenten er bookmakernes">Kun odds</span>}
           </div>
@@ -262,6 +272,7 @@ function PickCard({ p, rank, now }: { p: Pick; rank: number; now: number }) {
           </div>
         </div>
       </div>
+      <AdviceRow p={p.probability} odds={p.row.bestOdds} eventId={p.row.eventId} save={save} />
       <details className="group">
         <MoreToggle />
         <Analysis p={p} home={home} away={away} now={now} />
@@ -270,7 +281,7 @@ function PickCard({ p, rank, now }: { p: Pick; rank: number; now: number }) {
   );
 }
 
-function CountCard({ p, rank, now }: { p: CountPick; rank: number; now: number }) {
+function CountCard({ p, rank, now, save }: { p: CountPick; rank: number; now: number; save: SaveTarget | null }) {
   const [home, away] = p.row.match.split(" vs ");
   const f = p.forecast;
   const leagueAvg = f.league.homeMean + f.league.awayMean;
@@ -279,7 +290,7 @@ function CountCard({ p, rank, now }: { p: CountPick; rank: number; now: number }
     <article className="overflow-hidden rounded-2xl border border-line bg-surface">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
-          <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} strength={p.strength} now={now} />
+          <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} probability={p.probability} now={now} />
           <h2 className="text-lg font-semibold leading-tight sm:text-xl">
             {home} <span className="text-muted">–</span> {away}
           </h2>
@@ -299,6 +310,7 @@ function CountCard({ p, rank, now }: { p: CountPick; rank: number; now: number }
           </div>
         </div>
       </div>
+      <AdviceRow p={p.probability} odds={null} eventId={p.row.eventId} save={save} />
       <details className="group">
         <MoreToggle />
         <div className="grid gap-6 border-t border-line px-5 py-5 md:grid-cols-2">
@@ -395,13 +407,13 @@ function CountCard({ p, rank, now }: { p: CountPick; rank: number; now: number }
   );
 }
 
-function ExtraCard({ p, rank, now }: { p: ExtraPick; rank: number; now: number }) {
+function ExtraCard({ p, rank, now, save }: { p: ExtraPick; rank: number; now: number; save: SaveTarget | null }) {
   const [home, away] = p.row.match.split(" vs ");
   return (
     <article className="overflow-hidden rounded-2xl border border-line bg-surface">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
-          <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} strength={p.strength} now={now} />
+          <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} probability={p.probability} now={now} />
           <h2 className="text-lg font-semibold leading-tight sm:text-xl">
             {home} <span className="text-muted">–</span> {away}
           </h2>
@@ -416,6 +428,7 @@ function ExtraCard({ p, rank, now }: { p: ExtraPick; rank: number; now: number }
           </div>
         </div>
       </div>
+      <AdviceRow p={p.probability} odds={null} eventId={p.row.eventId} save={save} />
       <details className="group">
         <MoreToggle />
         <div className="space-y-4 border-t border-line px-5 py-5">
@@ -510,8 +523,14 @@ function Empty({ title, text }: { title: string; text: string }) {
   );
 }
 
-export default async function PicksPage({ searchParams }: { searchParams: Promise<{ antal?: string; type?: string }> }) {
-  await requireFriend();
+const SAVED_FLASH: Record<string, string> = {
+  ok: "Bettet er gemt i vennerligaen.",
+  fejl: "Bettet blev ikke gemt. Tjek indsats og odds.",
+  lukket: "Bettet kan ikke gemmes længere, fordi kampen er gået i gang eller ikke er på listen mere.",
+};
+
+export default async function PicksPage({ searchParams }: { searchParams: Promise<{ antal?: string; type?: string; gemt?: string }> }) {
+  const user = await requireFriend();
   const t = await terminal();
   const q = await searchParams;
   const count = PICK_COUNTS.find((n) => String(n) === q.antal) ?? 10;
@@ -520,13 +539,18 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   const goalCat = GOAL_CATEGORIES.find((c) => c.id === tab);
   const countCat = COUNT_CATEGORIES.find((c) => c.id === tab);
   const history = await t.recordedPicks(LEARN_DAYS);
-  const learned = learn(history, t.dataLabel).get(tab);
+  const allLearning = learn(history, t.dataLabel);
+  const learned = allLearning.get(tab);
   const picks = applyLearningToPicks(tab === "bedste" ? dailyPicks(rows, t.now, count, t.pickContext) : goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [], learned);
   const cPicks = applyLearning(countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [], learned);
   const xPicks = applyLearning(EXTRA[tab] ? EXTRA[tab](rows, t.now, count, t.pickContext) : [], learned);
   const recent = tab === "bedste" ? summarise(history.filter((p) => p.category === "bedste" && p.kickoff >= t.now - 7 * 86_400_000)) : null;
   const href = (type: string, n: number) => `/picks?${new URLSearchParams({ ...(type !== "bedste" ? { type } : {}), ...(n !== 10 ? { antal: String(n) } : {}) })}`;
   const scope = analysedMatches(rows, t.now);
+  const savedKeys = user ? await openBetKeys(db(), user.id, t.now) : new Set<string>();
+  const back = href(tab, count);
+  const saveFor = (eventId: string): SaveTarget | null =>
+    tab === "straffe" ? null : { category: tab, back, saved: savedKeys.has(`${eventId}|${tab}`), signedIn: !!user, accounts: ACCOUNTS_ENABLED };
   const today = new Date(t.now).toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: TZ });
 
   return (
@@ -538,6 +562,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
             <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">Dagens bedste bets</h1>
             <p className="mt-2 max-w-2xl text-[15px] text-ink-2">De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste.</p>
           </div>
+          <div className="flex flex-wrap items-center gap-3">
+          <BankrollInput />
           <nav aria-label="Antal bets" className="flex rounded-xl border border-line bg-surface p-1">
             {PICK_COUNTS.map((n) => (
               <Link
@@ -551,6 +577,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
               </Link>
             ))}
           </nav>
+          </div>
         </div>
         <p className="text-xs text-muted">
           <span className="num">{scope.matches}</span> kampe i <span className="num">{scope.leagues}</span> {scope.leagues === 1 ? "liga" : "ligaer"} analyseret · odds opdateret kl.{" "}
@@ -584,6 +611,12 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         </details>
       </nav>
 
+      {q.gemt && SAVED_FLASH[q.gemt] && (
+        <div role="status" className={`rounded-2xl border px-4 py-3 text-sm ${q.gemt === "ok" ? "border-good/40 bg-good/10 text-good" : "border-warning/40 bg-warning/10 text-warning"}`}>
+          {SAVED_FLASH[q.gemt]} {q.gemt === "ok" && <Link href="/picks/liga" className="underline">Se vennerligaen</Link>}
+        </div>
+      )}
+
       {tab === "bedste" && recent && recent.settled > 0 && (
         <Link href="/picks/resultater" className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-good/30 bg-good/5 px-4 py-3 text-sm hover:bg-good/10">
           <span>
@@ -603,6 +636,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         </Link>
       )}
 
+      <HitRates learning={allLearning} labels={TABS.filter((x) => x.id !== "straffe")} current={tab} days={LEARN_DAYS} source={t.dataLabel} />
+
       {EXTRA[tab] ? (
         xPicks.length === 0 ? (
           <Empty title="Ingen kampe at vise lige nu" text="Der er ingen fodboldkampe med en analyse de næste 24 timer. Kig forbi igen senere." />
@@ -610,7 +645,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
           <ol className="space-y-4">
             {xPicks.map((p, i) => (
               <li key={p.row.eventId}>
-                <ExtraCard p={p} rank={i + 1} now={t.now} />
+                <ExtraCard p={p} rank={i + 1} now={t.now} save={saveFor(p.row.eventId)} />
               </li>
             ))}
           </ol>
@@ -630,7 +665,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
           <ol className="space-y-4">
             {cPicks.map((p, i) => (
               <li key={p.row.eventId}>
-                <CountCard p={p} rank={i + 1} now={t.now} />
+                <CountCard p={p} rank={i + 1} now={t.now} save={saveFor(p.row.eventId)} />
               </li>
             ))}
           </ol>
@@ -644,7 +679,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         <ol className="space-y-4">
           {picks.map((p, i) => (
             <li key={p.row.selectionId}>
-              <PickCard p={p} rank={i + 1} now={t.now} />
+              <PickCard p={p} rank={i + 1} now={t.now} save={saveFor(p.row.eventId)} />
             </li>
           ))}
         </ol>

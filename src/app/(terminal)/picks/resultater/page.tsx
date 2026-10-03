@@ -2,22 +2,10 @@ import Link from "next/link";
 import { requireFriend } from "@/lib/auth/friends";
 import { summarise, type RecordedPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
+import { CATEGORY_LABEL } from "@/lib/pick-categories";
 import { LEARN_DAYS, LEARN_MIN, LEARNING_VERSION, learn, type CategoryLearning } from "@/lib/picks-learning";
 
 export const metadata = { title: "Resultater · Oddsanalyse" };
-
-const CATEGORY_LABEL: Record<string, string> = {
-  bedste: "Bedste bets",
-  vinder: "Hvem vinder",
-  dobbelt: "Dobbeltchance",
-  maal: "Over/under 2,5 mål",
-  btts: "Begge hold scorer",
-  resultat: "Korrekt resultat",
-  halvleg: "1. halvleg",
-  hjorne: "Hjørnespark",
-  kort: "Kort",
-  frispark: "Frispark",
-};
 
 const pct = (x: number) => (Number.isFinite(x) ? `${Math.round(x * 100)} %` : "—");
 const kr = (units: number) => `${units >= 0 ? "+" : "−"}${Math.round(Math.abs(units) * 100)} kr`;
