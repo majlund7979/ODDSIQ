@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { Suspense } from "react";
-import { TeamNews } from "@/components/News";
+import { TeamNews } from "@/components/TeamNews";
 import {
   analysedMatches,
   COUNT_CATEGORIES,
@@ -66,13 +65,11 @@ function CardTop({ rank, league, kickoff, strength, now }: { rank: number; leagu
   );
 }
 
-function NewsBlock({ home, away, now }: { home: string; away: string; now: number }) {
+function NewsBlock({ home, away }: { home: string; away: string }) {
   return (
     <div className="space-y-2.5 border-t border-line pt-5 md:col-span-2">
       <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">Nyheder om holdene</div>
-      <Suspense fallback={<p className="text-sm text-muted">Henter nyheder…</p>}>
-        <TeamNews home={home} away={away} now={now} />
-      </Suspense>
+      <TeamNews home={home} away={away} />
     </div>
   );
 }
@@ -145,7 +142,7 @@ function LearningNote({ l }: { l: CategoryLearning }) {
   );
 }
 
-function Analysis({ p, home, away, now }: { p: Pick; home: string; away: string; now: number }) {
+function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
   const i = p.insights;
   const maxPp = Math.max(4, ...p.factors.map((f) => Math.abs(f.pp ?? 0)));
   return (
@@ -228,9 +225,9 @@ function Analysis({ p, home, away, now }: { p: Pick; home: string; away: string;
             {p.row.booksQuoting} bookmakere · fair odds efter vores procent: {dec(p.fairOdds)}
           </div>
         </Fact>
-        <Fact label="Startopstilling">{i.lineupsConfirmed ? "Bekræftet for begge hold." : "Ikke meldt endnu. Kommer typisk en time før kampstart."}</Fact>
+        <Fact label="Startopstilling">{i.lineupsConfirmed ? "Bekræftet for begge hold." : "Ikke meldt endnu. Den kommer typisk en time før kampstart, og så bliver procenten mere præcis."}</Fact>
       </div>
-      <NewsBlock home={home} away={away} now={now} />
+      <NewsBlock home={home} away={away} />
     </div>
   );
 }
@@ -249,7 +246,13 @@ function PickCard({ p, rank, now }: { p: Pick; rank: number; now: number }) {
             <span className="text-xs text-muted">Vores bud</span>
             <span className="rounded-lg bg-accent/15 px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
             {p.value && <span className="rounded-full border border-good/40 bg-good/10 px-2 py-0.5 text-[11px] font-semibold text-good">Værdi</span>}
-            {p.lineupsConfirmed && <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2">Opstilling bekræftet</span>}
+            {p.lineupsConfirmed ? (
+              <span className="rounded-full border border-good/40 bg-good/10 px-2 py-0.5 text-[11px] font-semibold text-good">Opstilling bekræftet</span>
+            ) : (
+              <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2" title="Procenten bliver mere præcis, når holdopstillingerne er meldt, typisk en time før kampstart">
+                Afventer opstilling
+              </span>
+            )}
             {p.marketOnly && <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2" title="Ingen kampresultater for ligaen endnu, så procenten er bookmakernes">Kun odds</span>}
           </div>
         </div>
@@ -264,7 +267,7 @@ function PickCard({ p, rank, now }: { p: Pick; rank: number; now: number }) {
       </div>
       <details className="group">
         <MoreToggle />
-        <Analysis p={p} home={home} away={away} now={now} />
+        <Analysis p={p} home={home} away={away} />
       </details>
     </article>
   );
@@ -388,7 +391,7 @@ function CountCard({ p, rank, now }: { p: CountPick; rank: number; now: number }
               linje.
             </p>
           </Fact>
-          <NewsBlock home={home} away={away} now={now} />
+          <NewsBlock home={home} away={away} />
         </div>
       </details>
     </article>
@@ -435,7 +438,7 @@ function ExtraCard({ p, rank, now }: { p: ExtraPick; rank: number; now: number }
             ))}
           </ul>
           <p className="text-xs text-ink-2">{p.note}</p>
-          <NewsBlock home={home} away={away} now={now} />
+          <NewsBlock home={home} away={away} />
         </div>
       </details>
     </article>
@@ -583,6 +586,14 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
           </div>
         </details>
       </nav>
+
+      <p className="flex items-start gap-2.5 rounded-2xl border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-ink-2">
+        <span aria-hidden className="mt-px text-accent">ⓘ</span>
+        <span>
+          <span className="font-medium text-ink">Bets bliver mere præcise, når holdopstillingen er meldt.</span> Den kommer typisk en time før kampstart. Kig forbi igen tæt
+          på kampstart, eller hold øje med mærket &quot;Opstilling bekræftet&quot;.
+        </span>
+      </p>
 
       {tab === "bedste" && recent && recent.settled > 0 && (
         <Link href="/picks/resultater" className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-good/30 bg-good/5 px-4 py-3 text-sm hover:bg-good/10">

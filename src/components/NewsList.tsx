@@ -1,4 +1,4 @@
-import { teamNews, type NewsItem } from "@/lib/news/news";
+import type { NewsItem } from "@/lib/news/news";
 
 const TZ = "Europe/Copenhagen";
 
@@ -27,10 +27,4 @@ export function NewsList({ items, now, compact = false }: { items: NewsItem[]; n
       ))}
     </ul>
   );
-}
-
-/** Headlines about the two teams, under a bet's analysis. Streams in after the page. */
-export async function TeamNews({ home, away, now }: { home: string; away: string; now: number }) {
-  const items = await teamNews(home, away, now);
-  return items.length ? <NewsList items={items} now={now} compact /> : <p className="text-sm text-muted">Ingen nyheder om holdene den seneste uge.</p>;
 }
