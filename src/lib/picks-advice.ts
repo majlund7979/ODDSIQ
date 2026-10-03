@@ -20,12 +20,17 @@ export function riskOf(p: number): Risk {
   return { level: "red", label: "Høj risiko" };
 }
 
-/** Share of the bankroll per level. */
+/** Share of the bankroll per level, used only when there are no bookmaker odds to size the bet with. */
 export const STAKE_SHARE: Record<RiskLevel, number> = { green: 0.03, yellow: 0.02, red: 0.01 };
 export const DEFAULT_BANKROLL = 1000;
+/** Quarter Kelly: a quarter of the stake the Kelly criterion gives, because our probabilities are estimates. */
+export const KELLY_FRACTION = 0.25;
+/** Never more than this share of the bankroll on one bet. */
+export const STAKE_CAP = 0.05;
+export const STAKE_VERSION = "kvart-kelly-v1";
 
 export interface StakeAdvice {
-  /** Share of the bankroll to stake. */
+  /** Share of the bankroll to stake; 0 means no bet. */
   share: number;
   /** Short note shown next to the amount. */
   note: string;
@@ -33,21 +38,35 @@ export interface StakeAdvice {
   reason: string;
 }
 
+/** The Kelly share for chance p at decimal odds: (p × odds − 1) / (odds − 1); 0 or less means the odds pay too little. */
+export const kelly = (p: number, odds: number) => (p * odds - 1) / (odds - 1);
+
 /**
- * Stake as a share of the bankroll: 3 % for green, 2 % for yellow and 1 % for red.
- * Halved when the best odds pay less than our fair odds, because then the bet loses money in the long run even if it often wins.
+ * Stake by quarter Kelly (Mads, 2026-10-03): a quarter of the Kelly share, capped at 5 % of the bankroll.
+ * When the odds pay less than our fair odds, Kelly says don't bet, so the share is 0.
+ * Without bookmaker odds, falls back to 3 / 2 / 1 % by risk level.
  */
 export function stakeAdvice(p: number, odds: number | null): StakeAdvice {
-  const risk = riskOf(p);
-  const base = STAKE_SHARE[risk.level];
   const pct = (x: number) => `${String(Math.round(x * 1000) / 10).replace(".", ",")} %`;
-  if (odds && odds > 1 && p * odds < 1)
+  if (!odds || odds <= 1) {
+    const risk = riskOf(p);
+    const base = STAKE_SHARE[risk.level];
+    return { share: base, note: `${pct(base)} af puljen`, reason: `Ingen bookmakerodds endnu, så indsatsen følger risikoen: ${risk.label} giver ${pct(base)} af puljen.` };
+  }
+  const k = kelly(p, odds);
+  if (k <= 0)
     return {
-      share: base / 2,
-      note: `${pct(base / 2)} af puljen, halv indsats`,
-      reason: `${risk.label} giver ${pct(base)} af puljen, men oddsen er lavere end vores fair odds, så indsatsen er halveret.`,
+      share: 0,
+      note: "ingen værdi i oddsen",
+      reason: `Oddsen ${odds.toFixed(2).replace(".", ",")} betaler mindre end vores fair odds ${(1 / p).toFixed(2).replace(".", ",")}, så kvart-Kelly siger: spil ikke.`,
     };
-  return { share: base, note: `${pct(base)} af puljen`, reason: `${risk.label} giver ${pct(base)} af puljen.` };
+  const share = Math.min(STAKE_CAP, k * KELLY_FRACTION);
+  const capped = share < k * KELLY_FRACTION;
+  return {
+    share,
+    note: `${pct(share)} af puljen, kvart-Kelly`,
+    reason: `Kelly giver ${pct(k)} af puljen ved ${Math.round(p * 100)} % chance og odds ${odds.toFixed(2).replace(".", ",")}. Vi bruger en fjerdedel, fordi procenterne er skøn${capped ? `, og højst ${pct(STAKE_CAP)}` : ""}.`,
+  };
 }
 
 /** Rounds a stake to something you would actually bet: whole 5 kr under 100 kr, whole 10 kr above. */

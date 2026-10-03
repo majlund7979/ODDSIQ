@@ -21,7 +21,7 @@ import { COUPON_MIN_ODDS, correctScorePicks, coupons, isValue, doubleChancePicks
 import { terminal } from "@/lib/terminal";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { oddsMove } from "@/lib/picks-advice";
+import { oddsMove, STAKE_VERSION } from "@/lib/picks-advice";
 import { openBetKeys } from "@/lib/real/friend-bets";
 import { AdviceRow, OddsMoveTag, RiskBadge, type SaveTarget } from "@/components/picks/Advice";
 import { BankrollInput } from "@/components/picks/BankrollInput";
@@ -705,6 +705,10 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
             ))}
           </nav>
           <BankrollInput />
+          <p className="basis-full text-xs text-muted">
+            Indsatsforslag efter kvart-Kelly: en fjerdedel af det, Kelly-formlen giver ud fra chance og odds, højst 5 % af puljen. Er oddsen lavere end vores fair odds, står
+            der &quot;spil ikke&quot;. Skøn, {STAKE_VERSION}.
+          </p>
         </div>
       </aside>
 
