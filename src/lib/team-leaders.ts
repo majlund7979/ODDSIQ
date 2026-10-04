@@ -105,3 +105,41 @@ export function cleanQuery(q: string | undefined): string | null {
   const s = (q ?? "").normalize("NFC").replace(/[^\p{L}\p{N} ]/gu, " ").replace(/\s+/g, " ").trim().slice(0, 40);
   return s.length >= 3 ? s : null;
 }
+
+export interface PlayerCardRow {
+  id: LeaderCategoryId;
+  short: string;
+  label: string;
+  season: number;
+  per90: number | null;
+  recent: number | null;
+  recentPer90: number | null;
+  form: Leader["form"];
+}
+
+export interface PlayerCard {
+  player: PlayerSeason;
+  rows: PlayerCardRow[];
+  /** The player's matches among the team's last ones, newest first. */
+  matches: PlayerMatch[];
+  /** How many of the team's last matches the player played. */
+  played: number;
+  teamMatches: number;
+}
+
+/** Everything the player card shows, from the same numbers as the team lists. Null when the player is not in the squad. Pure. */
+export function playerCard(players: PlayerSeason[], recentMatches: PlayerMatch[], playerId: number, teamMatches: number): PlayerCard | null {
+  const player = mergeCompetitions(players).find((p) => p.playerId === playerId);
+  if (!player) return null;
+  const mine = recentMatches.filter((m) => m.playerId === playerId);
+  const leaders = teamLeaders(players.filter((p) => p.playerId === playerId), mine, 1);
+  const rows = LEADER_CATEGORIES.map((c) => {
+    const l = leaders[c.id][0];
+    const per90 = player.minutes >= PER90_MIN_MINUTES ? (c.value(player) * 90) / player.minutes : null;
+    const recentMinutes = mine.reduce((n, m) => n + m.minutes, 0);
+    const recent = mine.length ? mine.reduce((n, m) => n + c.value(m), 0) : null;
+    const recentPer90 = recent !== null && recentMinutes >= RECENT_MIN_MINUTES ? (recent * 90) / recentMinutes : null;
+    return { id: c.id, short: c.short, label: c.label, season: c.value(player), per90, recent, recentPer90, form: l?.form ?? formOf(per90, recentPer90) };
+  });
+  return { player, rows, matches: [...mine].sort((a, b) => (b.kickoff ?? 0) - (a.kickoff ?? 0)), played: mine.length, teamMatches };
+}

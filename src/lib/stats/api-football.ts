@@ -79,6 +79,8 @@ export interface PlayerMatch {
   assists: number;
   foulsCommitted: number;
   foulsDrawn: number;
+  /** Set when read back from storage, for the player card's match list. */
+  kickoff?: number;
 }
 
 /** The team's players who got minutes in the match. */

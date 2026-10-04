@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlayerSeason } from "@/lib/stats/types";
-import { cleanQuery, formOf, mergeCompetitions, teamLeaders } from "./team-leaders";
+import { cleanQuery, formOf, mergeCompetitions, playerCard, teamLeaders } from "./team-leaders";
 import type { PlayerMatch } from "@/lib/stats/api-football";
 
 const p = (id: number, x: Partial<PlayerSeason>): PlayerSeason => ({ playerId: id, name: `P${id}`, position: "Attacker", appearances: 5, lineups: 5, minutes: 450, shotsOn: 0, shotsTotal: 0, goals: 0, injured: false, ...x });
@@ -42,6 +42,20 @@ describe("recent form", () => {
     const l = teamLeaders([p(1, { shotsOn: 9, minutes: 810 })], [m(1, { shotsOn: 1, minutes: 30 })]);
     expect(l.sot[0].form).toBeNull();
     expect(teamLeaders([p(2, { shotsOn: 3, minutes: 810 })]).sot[0].recent).toBeNull();
+  });
+});
+
+describe("player card", () => {
+  it("shows season, last matches and form per category, also when the season value is 0", () => {
+    const m = (x: Partial<PlayerMatch>): PlayerMatch => ({ playerId: 1, name: "P1", minutes: 90, shotsOn: 0, goals: 0, assists: 0, foulsCommitted: 0, foulsDrawn: 0, ...x });
+    const c = playerCard([p(1, { shotsOn: 9, minutes: 810, foulsDrawn: 9 })], [m({ shotsOn: 3, kickoff: 1 }), m({ shotsOn: 3, kickoff: 2 }), m({ playerId: 2 })], 1, 5)!;
+    expect(c.played).toBe(2);
+    expect(c.matches.map((x) => x.kickoff)).toEqual([2, 1]);
+    const sot = c.rows.find((r) => r.id === "sot")!;
+    expect(sot).toMatchObject({ season: 9, recent: 6, form: "over" });
+    expect(c.rows.find((r) => r.id === "fw")!.form).toBe("under");
+    expect(c.rows.find((r) => r.id === "goals")!.form).toBe("same");
+    expect(playerCard([], [], 1, 5)).toBeNull();
   });
 });
 

@@ -24,7 +24,7 @@ export function demoRecent(team: string, squad: PlayerSeason[], now: number): { 
       const minutes = Math.max(10, Math.min(90, Math.round(perMatch * (0.7 + rng.next() * 0.5))));
       const share = minutes / Math.max(1, p.minutes);
       const draw = (total: number | undefined) => Math.round((total ?? 0) * share * form * (0.5 + rng.next()));
-      recent.push({ playerId: p.playerId, name: p.name, minutes, shotsOn: draw(p.shotsOn), goals: draw(p.goals), assists: draw(p.assists), foulsCommitted: draw(p.foulsCommitted), foulsDrawn: draw(p.foulsDrawn) });
+      recent.push({ playerId: p.playerId, name: p.name, kickoff: recentKickoffs[i], minutes, shotsOn: draw(p.shotsOn), goals: draw(p.goals), assists: draw(p.assists), foulsCommitted: draw(p.foulsCommitted), foulsDrawn: draw(p.foulsDrawn) });
     }
   }
   return { recent, recentKickoffs };

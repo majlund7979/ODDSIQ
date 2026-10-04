@@ -78,7 +78,7 @@ async function recentMatches(prisma: PrismaClient, teamId: number): Promise<{ re
   const ids = fixtures.map((f) => f.fixtureId);
   const rows = ids.length ? await prisma.playerMatchStat.findMany({ where: { provider: API_FOOTBALL, teamId, fixtureId: { in: ids } } }) : [];
   return {
-    recent: rows.map((r) => ({ playerId: r.playerId, name: r.name, minutes: r.minutes, shotsOn: r.shotsOn, goals: r.goals, assists: r.assists, foulsCommitted: r.foulsCommitted, foulsDrawn: r.foulsDrawn })),
+    recent: rows.map((r) => ({ playerId: r.playerId, name: r.name, kickoff: r.kickoff.getTime(), minutes: r.minutes, shotsOn: r.shotsOn, goals: r.goals, assists: r.assists, foulsCommitted: r.foulsCommitted, foulsDrawn: r.foulsDrawn })),
     recentKickoffs: fixtures.map((f) => f.kickoff.getTime()),
   };
 }
@@ -96,7 +96,7 @@ async function refresh(prisma: PrismaClient, feed: ApiFootballFeed, teamId: numb
   const have = new Set((await prisma.playerMatchStat.findMany({ where: { provider: API_FOOTBALL, teamId, fixtureId: { in: last.map((f) => f.id) } }, select: { fixtureId: true }, distinct: ["fixtureId"] })).map((r) => r.fixtureId));
   for (const f of last.filter((f) => !have.has(f.id))) {
     const ps = (await feed.fixturePlayers(f.id, teamId)).data;
-    await prisma.playerMatchStat.createMany({ data: ps.map((p) => ({ provider: API_FOOTBALL, fixtureId: f.id, teamId, kickoff: new Date(f.kickoff), fetchedAt: new Date(now), ...p })), skipDuplicates: true });
+    await prisma.playerMatchStat.createMany({ data: ps.map((p) => ({ ...p, provider: API_FOOTBALL, fixtureId: f.id, teamId, kickoff: new Date(f.kickoff), fetchedAt: new Date(now) })), skipDuplicates: true });
   }
   const key = { provider: API_FOOTBALL, season, teamId };
   await prisma.$transaction([
