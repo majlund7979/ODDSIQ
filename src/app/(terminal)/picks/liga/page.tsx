@@ -9,6 +9,7 @@ import { betProfit, displayName, LEAGUE_PERIODS, leagueTable, monthStart, type F
 import { CATEGORY_LABEL } from "@/lib/pick-categories";
 import { readFriendBets } from "@/lib/real/friend-bets";
 import { terminal } from "@/lib/terminal";
+import { Tile } from "@/components/picks/Overview";
 
 export const metadata = { title: "Vennerligaen · Oddsanalyse" };
 
@@ -18,6 +19,7 @@ const kr = (x: number) => `${x >= 0 ? "+" : "−"}${Math.round(Math.abs(x)).toLo
 const dec = (x: number) => x.toFixed(2).replace(".", ",");
 const when = (t: number) => new Date(t).toLocaleString("da-DK", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: TZ, hour12: false });
 const RECENT = 40;
+const HIT_MIN = 10;
 
 function Mark({ r }: { r: FriendBet["result"] }) {
   if (r === "won") return <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-good/20 text-sm font-bold text-good">✓</span>;
@@ -37,10 +39,15 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
   const recent = bets.slice(0, RECENT);
   const back = `/picks/liga${period !== "maaned" ? `?periode=${period}` : ""}`;
   const month = new Date(t.now).toLocaleDateString("da-DK", { month: "long", timeZone: TZ });
+  const leader = table.find((r) => r.settled > 0) ?? null;
+  const sharp = [...table].filter((r) => r.settled >= HIT_MIN).sort((a, b) => b.won / b.settled - a.won / a.settled)[0] ?? null;
+  const settledAll = table.reduce((n, r) => n + r.settled, 0);
+  const wonAll = table.reduce((n, r) => n + r.won, 0);
+  const teamProfit = table.reduce((n, r) => n + r.profit, 0);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <header className="space-y-3">
+    <div className="mx-auto max-w-5xl space-y-6">
+      <header className="space-y-5 rounded-[28px] border border-line bg-gradient-to-br from-accent/15 to-surface px-4 py-5 sm:px-10 sm:py-8">
         <Link href="/picks" className="text-sm text-muted hover:text-ink">
           ← Dagens bedste bets
         </Link>
@@ -51,19 +58,51 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
               Gem de bets, du spiller, med &quot;Gem bet&quot; på Dagens bedste bets. Her kan I se, hvem der rammer flest, og hvem der tjener mest.
             </p>
           </div>
-          <nav aria-label="Periode" className="flex rounded-lg border border-line bg-surface p-1">
+          <nav aria-label="Periode" className="flex rounded-full border border-line bg-surface p-1">
             {LEAGUE_PERIODS.map((p) => (
               <Link
                 key={p.id}
                 href={`/picks/liga${p.id !== "maaned" ? `?periode=${p.id}` : ""}`}
                 scroll={false}
                 aria-current={p.id === period ? "page" : undefined}
-                className={`rounded-md px-4 py-1.5 text-sm font-medium ${p.id === period ? "bg-accent text-page" : "text-ink-2 hover:text-ink"}`}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium ${p.id === period ? "bg-accent text-page" : "text-ink-2 hover:text-ink"}`}
               >
                 {p.id === "maaned" ? month.charAt(0).toUpperCase() + month.slice(1) : p.label}
               </Link>
             ))}
           </nav>
+        </div>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Tile label="Fører lige nu" foot={`Mest vundet i ${period === "maaned" ? month : "hele perioden"}. Historisk${DEMO_MODE ? " · DEMO DATA" : ""}.`}>
+            {leader ? (
+              <>
+                <div className="truncate text-2xl font-extrabold tracking-[-0.02em]">{leader.name}</div>
+                <div className={`num text-sm font-semibold ${leader.profit >= 0 ? "text-good" : "text-serious"}`}>{kr(leader.profit)}</div>
+              </>
+            ) : (
+              <div className="text-sm text-ink-2">Ingen bets endnu.</div>
+            )}
+          </Tile>
+          <Tile label="Bedste træfprocent" foot={`Kun spillere med mindst ${HIT_MIN} afgjorte bets.`}>
+            {sharp ? (
+              <>
+                <div className="truncate text-2xl font-extrabold tracking-[-0.02em]">{sharp.name}</div>
+                <div className="num text-sm text-ink-2">
+                  {pct(sharp.won / sharp.settled)} · {sharp.won} af {sharp.settled}
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-ink-2">For få afgjorte bets endnu.</div>
+            )}
+          </Tile>
+          <Tile label="Bets i perioden" foot={`${settledAll} afgjort, ${bets.length - settledAll} venter på kampen.`}>
+            <div className="num text-2xl font-extrabold tracking-[-0.02em] sm:text-3xl">{bets.length}</div>
+            <div className="text-sm text-ink-2">af {table.length} {table.length === 1 ? "spiller" : "spillere"}</div>
+          </Tile>
+          <Tile label="Holdet samlet" foot="Gevinst tæller bets med odds, ramte tæller alle afgjorte bets.">
+            <div className={`num text-2xl font-extrabold tracking-[-0.02em] sm:text-3xl ${teamProfit >= 0 ? "text-good" : "text-serious"}`}>{kr(teamProfit)}</div>
+            <div className="num text-sm text-ink-2">{settledAll ? `${pct(wonAll / settledAll)} ramte` : "—"}</div>
+          </Tile>
         </div>
       </header>
 

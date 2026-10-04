@@ -96,6 +96,10 @@ body {
   white-space: normal;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
+.tip-end > .tip-body {
+  left: auto;
+  right: 0;
+}
 .tip:hover > .tip-body,
 .tip:focus-within > .tip-body {
   display: block;
