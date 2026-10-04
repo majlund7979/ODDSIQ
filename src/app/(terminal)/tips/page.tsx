@@ -15,6 +15,7 @@ import {
   modelTips,
   nextWeek,
   previousWeek,
+  MAX_TIP_POINTS,
   SIDE_LABEL,
   standings,
   tipCounts,
@@ -60,7 +61,8 @@ function Table({ rows, me, empty }: { rows: Standing[]; me?: string; empty: stri
           <th className="w-8 px-4 py-2 font-normal">#</th>
           <th className="px-1 py-2 font-normal">Navn</th>
           <th className="px-2 py-2 text-right font-normal">Tips</th>
-          <th className="px-4 py-2 text-right font-normal">Point</th>
+          <th className="px-2 py-2 text-right font-normal">Rigtige</th>
+          <th className="px-4 py-2 text-right font-normal" title="Et rigtigt tip giver point efter oddsen: jo mindre sandsynligt, jo flere point">Point</th>
         </tr>
       </thead>
       <tbody className="num whitespace-nowrap">
@@ -75,7 +77,8 @@ function Table({ rows, me, empty }: { rows: Standing[]; me?: string; empty: stri
                 {r.userId === me && <span className="ml-1.5 text-xs font-normal text-muted">(dig)</span>}
               </td>
               <td className="px-2 py-2 text-right text-ink-2">{r.tips}</td>
-              <td className="px-4 py-2 text-right font-semibold">{r.correct}</td>
+              <td className="px-2 py-2 text-right text-ink-2">{r.correct}</td>
+              <td className="px-4 py-2 text-right font-semibold">{r.points.toFixed(1).replace(".", ",")}</td>
             </tr>
           );
         })}
@@ -122,7 +125,7 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
             <div>
               <h1 className="text-3xl font-semibold tracking-tight">Ugens tips</h1>
               <p className="mt-2 max-w-xl text-[15px] text-ink-2">
-                Tip 1, X eller 2 på ugens kampe og dyst mod vennerne. Et rigtigt tip giver 1 point. Du kan ændre dit tip, indtil kampen starter.
+                Tip 1, X eller 2 på ugens kampe og dyst mod vennerne. Et rigtigt tip giver point efter, hvor usandsynligt det var: oddsen, da du tippede. En favorit til 1,40 giver 1,4 point, en outsider til 4,50 giver 4,5 point (højst {MAX_TIP_POINTS}). Du kan ændre dit tip, indtil kampen starter.
               </p>
               <a href="#stilling" className="mt-2 inline-block text-sm font-medium text-accent hover:underline lg:hidden">
                 Se stillingen ↓
@@ -238,7 +241,7 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
         )}
 
         <p className="px-1 text-xs text-muted">
-          Under hvert tip står den bedste odds og modellens sandsynlighed. Ved lige mange point vinder den, hvis rigtige tips havde den højeste samlede odds. Modellen spiller med for sjov og kan ikke
+          Under hvert tip står den bedste odds og modellens sandsynlighed. Point er oddsen på dine rigtige tips (1 point uden odds, højst {MAX_TIP_POINTS} pr. tip). Ved lige mange point vinder den med flest rigtige. Modellen spiller med for sjov og kan ikke
           vinde ugen. Kampene kommer på, når oddsene er klar, typisk dagen før. Kun for sjov, der spilles ikke om penge.
         </p>
       </div>
@@ -249,7 +252,7 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
             <div className="text-xs font-semibold tracking-wide text-warning uppercase">Ugens vinder · {weekLabel(weekById(shownWinner.week)!)}</div>
             <div className="mt-2 text-2xl font-semibold">{shownWinner.winners.map((w) => w.name).join(" og ")}</div>
             <div className="mt-1 text-sm text-ink-2">
-              {shownWinner.winners[0].correct} rigtige af {shownWinner.winners[0].settled}
+              {shownWinner.winners[0].points.toFixed(1).replace(".", ",")} point · {shownWinner.winners[0].correct} rigtige af {shownWinner.winners[0].settled}
             </div>
           </section>
         )}

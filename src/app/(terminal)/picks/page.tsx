@@ -20,7 +20,10 @@ import { applyLearning, applyLearningToPicks, LEARN_DAYS, LEARN_MIN, learn, type
 import { COUPON_MIN_ODDS, correctScorePicks, coupons, isValue, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
-import { db } from "@/lib/db";
+import { db, DATABASE_CONFIGURED } from "@/lib/db";
+import { livePicks } from "@/lib/live/scores";
+import { LiveNow } from "@/components/picks/LiveNow";
+import { MyCoupon } from "@/components/picks/MyCoupon";
 import { compareBooks, isFriendly, oddsMove, STAKE_VERSION } from "@/lib/picks-advice";
 import { openBetKeys } from "@/lib/real/friend-bets";
 import { AdviceRow, OddsMoveTag, RiskBadge, type SaveTarget } from "@/components/picks/Advice";
@@ -28,6 +31,7 @@ import { BankrollInput } from "@/components/picks/BankrollInput";
 import { HitRates } from "@/components/picks/HitRates";
 import { DEMO_MODE } from "@/lib/data";
 import { demoShotBoard } from "@/lib/demo/player-shots";
+import { demoLivePicks } from "@/lib/demo/picks";
 import { POSITION_LABEL, SHOTS_MODEL_VERSION, topShotPicks, TYPICAL_TEAM_GOALS, type ShotPick } from "@/lib/player-shots";
 import { realShotBoard, type ShotBoard } from "@/lib/real/player-shots";
 
@@ -314,7 +318,7 @@ function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: number; 
           </div>
         </div>
       </div>
-      <AdviceRow p={p.probability} odds={p.row.bestOdds} eventId={p.row.eventId} save={save} />
+      <AdviceRow p={p.probability} odds={p.row.bestOdds} eventId={p.row.eventId} save={save} leg={{ key: `${p.row.eventId}|${p.row.selectionId}`, match: p.row.match, outcome: p.outcome, kickoff: p.row.kickoff }} />
       <details className="group">
         <MoreToggle />
         <Analysis p={p} home={home} away={away} />
@@ -352,7 +356,7 @@ function CountCard({ p, rank, now, save }: { p: CountPick; rank: number; now: nu
           </div>
         </div>
       </div>
-      <AdviceRow p={p.probability} odds={null} eventId={p.row.eventId} save={save} />
+      <AdviceRow p={p.probability} odds={null} eventId={p.row.eventId} save={save} leg={{ key: `${p.row.eventId}|count|${p.outcome}`, match: p.row.match, outcome: p.outcome, kickoff: p.row.kickoff }} />
       <details className="group">
         <MoreToggle />
         <div className="grid gap-6 border-t border-line px-5 py-5 md:grid-cols-2">
@@ -478,7 +482,7 @@ function ExtraCard({ p, rank, now, save }: { p: ExtraPick; rank: number; now: nu
           </div>
         </div>
       </div>
-      <AdviceRow p={p.probability} odds={p.best?.odds ?? null} eventId={p.row.eventId} save={save} />
+      <AdviceRow p={p.probability} odds={p.best?.odds ?? null} eventId={p.row.eventId} save={save} leg={{ key: `${p.row.eventId}|${p.category}|${p.outcome}`, match: p.row.match, outcome: p.outcome, kickoff: p.row.kickoff }} />
       <details className="group">
         <MoreToggle />
         <div className="space-y-4 border-t border-line px-5 py-5">
@@ -684,6 +688,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
     return qs ? `/picks?${qs}` : "/picks";
   };
   const scope = analysedMatches(rows, t.now);
+  const live = await (DEMO_MODE ? Promise.resolve(demoLivePicks(tab, t.now)) : DATABASE_CONFIGURED ? livePicks(db(), process.env.STATS_API_KEY || null, tab, t.now) : Promise.resolve([])).catch(() => []);
   const savedKeys = user ? await openBetKeys(db(), user.id, t.now) : new Set<string>();
   const back = href(tab, count);
   const saveFor = (eventId: string): SaveTarget | null =>
@@ -800,6 +805,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
           <HitRates learning={allLearning} labels={TABS.filter((x) => x.id !== "straffe")} current={tab} days={LEARN_DAYS} source={t.dataLabel} returns={new Map(TABS.map((x) => [x.id, summarise(history.filter((h) => h.category === x.id))]))} />
         </div>
 
+        <LiveNow type={tab} initial={live} />
+
         {tab === "bedste" && <h2 className="text-xl font-semibold">Top {count} enkeltbets</h2>}
       {EXTRA[tab] ? (
         xPicks.length === 0 ? (
@@ -874,6 +881,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
           ))}
         </ol>
       )}
+
+      <MyCoupon />
 
       {learned && tab !== "straffe" && <LearningNote l={learned} />}
 
