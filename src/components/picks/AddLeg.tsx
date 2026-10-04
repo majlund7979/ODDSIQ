@@ -13,7 +13,7 @@ export function AddLeg({ leg }: { leg: Leg }) {
       onClick={() => toggleLeg(leg)}
       disabled={full}
       title={full ? `Højst ${MAX_LEGS} bets på en kupon` : inCoupon ? "Fjern fra din kupon" : "Læg på din kupon"}
-      className={`rounded-md border px-3 py-1 text-sm disabled:opacity-50 ${inCoupon ? "border-accent/60 bg-accent/10 text-accent" : "border-line-strong text-ink-2 hover:text-ink"}`}
+      className={`rounded-full border px-3.5 py-1 text-sm font-semibold disabled:opacity-50 ${inCoupon ? "border-lime bg-lime text-accent" : "border-accent/30 text-accent hover:bg-lime-soft"}`}
     >
       {inCoupon ? "✓ På kupon" : "+ Kupon"}
     </button>

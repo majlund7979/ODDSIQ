@@ -35,7 +35,7 @@ export function LiveNow({ type, initial }: { type: string; initial: LivePick[] }
   }, [type]);
   if (!items.length) return null;
   return (
-    <section className="overflow-hidden rounded-2xl border border-line bg-surface">
+    <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
       <div className="flex items-baseline justify-between border-b border-line px-5 py-3">
         <span className="flex items-center gap-2 text-sm font-semibold">
           <span className="h-2 w-2 rounded-full bg-critical" aria-hidden />I gang nu

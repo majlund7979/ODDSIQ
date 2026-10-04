@@ -26,11 +26,11 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <h1 className="text-3xl font-semibold tracking-tight">Min konto</h1>
+      <h1 className="display text-[40px] text-accent sm:text-5xl">Min konto</h1>
       {billing && NOTICE[billing] && <p className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink-2">{NOTICE[billing]}</p>}
 
-      <section className="flex items-center gap-4 rounded-2xl border border-line bg-surface p-5">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent/15 text-lg font-semibold text-accent">{user.email.charAt(0).toUpperCase()}</span>
+      <section className="flex items-center gap-4 rounded-[20px] border border-line bg-surface p-5">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-lime-soft text-lg font-semibold text-accent">{user.email.charAt(0).toUpperCase()}</span>
         <div className="min-w-0">
           <div className="truncate font-medium">{user.email}</div>
           <div className="text-sm text-muted">{isOwner(user.email) ? "Ejer af siden" : inviteOnly() ? "Inviteret ven" : "Medlem"}</div>
@@ -38,7 +38,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       </section>
 
       {isOwner(user.email) && (
-        <Link href="/admin" className="flex items-center justify-between rounded-2xl border border-line bg-surface p-5 hover:bg-surface-2">
+        <Link href="/admin" className="flex items-center justify-between rounded-[20px] border border-line bg-surface p-5 hover:bg-surface-2">
           <span>
             <span className="block font-medium">Admin</span>
             <span className="text-sm text-ink-2">Se alle tilmeldte og deres e-mail.</span>
@@ -48,7 +48,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       )}
 
       {inviteOnly() && isOwner(user.email) && (
-        <Link href="/venner" className="flex items-center justify-between rounded-2xl border border-line bg-surface p-5 hover:bg-surface-2">
+        <Link href="/venner" className="flex items-center justify-between rounded-[20px] border border-line bg-surface p-5 hover:bg-surface-2">
           <span>
             <span className="block font-medium">Venner</span>
             <span className="text-sm text-ink-2">Inviter venner eller fjern deres adgang.</span>
@@ -58,7 +58,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       )}
 
       {BILLING_ENABLED && (
-        <section className="space-y-3 rounded-2xl border border-line bg-surface p-5 text-sm">
+        <section className="space-y-3 rounded-[20px] border border-line bg-surface p-5 text-sm">
           <div className="font-medium">Abonnement: {plan.name}</div>
           {user.plan === "pro" && (
             <p className="text-xs text-muted">
@@ -82,7 +82,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         </section>
       )}
 
-      <section className="space-y-3 rounded-2xl border border-line bg-surface p-5">
+      <section className="space-y-3 rounded-[20px] border border-line bg-surface p-5">
         <div>
           <div className="font-medium">App på telefonen</div>
           <p className="text-sm text-ink-2">Læg Oddsanalyse på hjemmeskærmen, så den åbner som en app.</p>

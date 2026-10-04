@@ -16,7 +16,7 @@ export default async function NewsPage({ searchParams }: { searchParams: Promise
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Nyheder</h1>
+        <h1 className="display text-[40px] text-accent sm:text-5xl">Nyheder</h1>
         <p className="text-[15px] text-ink-2">Seneste fodboldnyheder fra ligaerne, vi analyserer. Tryk på en overskrift for at læse hele artiklen.</p>
       </header>
       <nav aria-label="Liga" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
@@ -26,13 +26,13 @@ export default async function NewsPage({ searchParams }: { searchParams: Promise
             href={l.id === "alle" ? "/nyheder" : `/nyheder?liga=${l.id}`}
             scroll={false}
             aria-current={l.id === league.id ? "page" : undefined}
-            className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm ${l.id === league.id ? "border-accent bg-accent/15 font-medium text-accent" : "border-line bg-surface text-ink-2 hover:border-line-strong hover:text-ink"}`}
+            className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm ${l.id === league.id ? "border-lime bg-lime font-semibold text-accent" : "border-line bg-surface text-ink-2 hover:border-line-strong hover:text-ink"}`}
           >
             {l.label}
           </Link>
         ))}
       </nav>
-      <section className="overflow-hidden rounded-2xl border border-line bg-surface">
+      <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
         {items.length ? (
           <NewsList items={items} now={now} />
         ) : (

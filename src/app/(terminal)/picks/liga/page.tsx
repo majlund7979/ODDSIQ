@@ -46,7 +46,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
         </Link>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Vennerligaen</h1>
+            <h1 className="display text-[40px] text-accent sm:text-5xl">Vennerligaen</h1>
             <p className="mt-2 max-w-2xl text-[15px] text-ink-2">
               Gem de bets, du spiller, med &quot;Gem bet&quot; på Dagens bedste bets. Her kan I se, hvem der rammer flest, og hvem der tjener mest.
             </p>
@@ -77,7 +77,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
         <div className="rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">Ligaen kræver login, som ikke er slået til på siden endnu.</div>
       )}
       {ACCOUNTS_ENABLED && !user && (
-        <div className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink-2">
+        <div className="rounded-[20px] border border-line bg-surface px-4 py-3 text-sm text-ink-2">
           <Link href="/login?next=/picks/liga" className="font-semibold text-accent hover:underline">
             Log ind
           </Link>{" "}
@@ -85,7 +85,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
         </div>
       )}
 
-      <section className="overflow-hidden rounded-2xl border border-line bg-surface">
+      <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
         <div className="border-b border-line px-5 py-3 text-sm font-semibold">Stillingen</div>
         {table.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-ink-2">Ingen har gemt et bet i perioden endnu.</p>
@@ -103,7 +103,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
             </thead>
             <tbody className="num whitespace-nowrap">
               {table.map((r, i) => (
-                <tr key={r.userId} className={`border-t border-line ${r.userId === user?.id ? "bg-accent/5" : ""}`}>
+                <tr key={r.userId} className={`border-t border-line ${r.userId === user?.id ? "bg-lime-soft/60" : ""}`}>
                   <td className="px-3 py-2.5 text-muted sm:px-5">{i + 1}</td>
                   <td className="px-2 py-2.5 font-sans font-medium">
                     {r.name}
@@ -135,7 +135,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
         </p>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-line bg-surface">
+      <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
         <div className="flex items-baseline justify-between border-b border-line px-5 py-3">
           <span className="text-sm font-semibold">Vennernes bets</span>
           <span className="text-xs text-muted">de seneste {Math.min(RECENT, recent.length)}</span>
@@ -175,7 +175,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
       </section>
 
       {profile && (
-        <section className="rounded-2xl border border-line bg-surface p-5">
+        <section className="rounded-[20px] border border-line bg-surface p-5">
           <h2 className="mb-3 text-sm font-semibold">Dine indstillinger</h2>
           <form action={updateLeagueProfile} className="flex flex-wrap items-end gap-4">
             <label className="space-y-1 text-xs text-muted">
@@ -185,14 +185,14 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
                 maxLength={30}
                 defaultValue={profile.displayName ?? ""}
                 placeholder={displayName(null, profile.email)}
-                className="block w-52 rounded-md border border-line bg-surface-2 px-2 py-1.5 text-sm text-ink"
+                className="block w-52 rounded-[10px] border border-line-strong bg-surface-2 px-2 py-1.5 text-sm text-ink"
               />
             </label>
             <label className="flex items-center gap-2 pb-1.5 text-sm text-ink-2">
               <input type="checkbox" name="morningEmail" defaultChecked={profile.morningEmail} className="h-4 w-4 accent-[var(--accent)]" />
               Send mig dagens top 5 på mail hver morgen
             </label>
-            <button type="submit" className="rounded-md bg-accent px-4 py-1.5 text-sm font-semibold text-page">
+            <button type="submit" className="rounded-full bg-lime px-4 py-1.5 text-sm font-semibold text-accent hover:bg-[#8fdc5c]">
               Gem
             </button>
           </form>

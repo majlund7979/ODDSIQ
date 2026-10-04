@@ -37,7 +37,7 @@ export function InstallApp() {
   if (installed) return <p className="text-sm text-ink-2">Oddsanalyse er lagt på din hjemmeskærm.</p>;
   if (prompt)
     return (
-      <button type="button" onClick={() => prompt.prompt().then(() => setPrompt(null))} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-page">
+      <button type="button" onClick={() => prompt.prompt().then(() => setPrompt(null))} className="rounded-full bg-lime px-5 py-2.5 text-sm font-semibold text-accent hover:bg-[#8fdc5c]">
         Læg på hjemmeskærmen
       </button>
     );

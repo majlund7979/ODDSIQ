@@ -19,7 +19,7 @@ export default async function FriendsPage() {
   return (
     <div className="mx-auto max-w-xl space-y-5">
       <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Venner</h1>
+        <h1 className="display text-[40px] text-accent sm:text-5xl">Venner</h1>
         <p className="text-[15px] text-ink-2">
           {inviteOnly()
             ? "Kun dem på listen kan oprette en konto og se bets. Skriv din vens email herunder, og send vedkommende linket."
@@ -27,7 +27,7 @@ export default async function FriendsPage() {
         </p>
       </header>
 
-      <section className="space-y-4 rounded-2xl border border-line bg-surface p-5">
+      <section className="space-y-4 rounded-[20px] border border-line bg-surface p-5">
         <FriendForm />
         <div className="rounded-xl bg-surface-2 px-4 py-3 text-sm">
           <div className="text-ink-2">Link til din ven:</div>
@@ -35,7 +35,7 @@ export default async function FriendsPage() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-line bg-surface">
+      <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
         <h2 className="border-b border-line px-5 py-3 text-sm font-semibold">
           Inviterede <span className="font-normal text-muted">· {friends.length + fromEnv.length}</span>
         </h2>

@@ -3,10 +3,10 @@ import Link from "next/link";
 export function Logo() {
   return (
     <Link href="/picks" className="flex items-center gap-2">
-      <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent text-[13px] font-black text-page">
-        OA
+      <span aria-hidden className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-[17px] font-extrabold text-lime">
+        $
       </span>
-      <span className="text-[17px] font-bold tracking-tight">Oddsanalyse</span>
+      <span className="text-[19px] font-extrabold tracking-[-0.02em] text-accent">Oddsanalyse</span>
     </Link>
   );
 }

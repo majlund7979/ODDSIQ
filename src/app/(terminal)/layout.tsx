@@ -16,8 +16,8 @@ export default async function TerminalLayout({ children }: Readonly<{ children: 
   const initial = user?.email.charAt(0).toUpperCase();
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-30 border-b border-line bg-page/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-5xl items-center gap-6 px-4">
+      <header className="sticky top-0 z-30 border-b border-line bg-page">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4">
           <Logo />
           {DEMO_MODE && <Badge tone="warning">Demo data</Badge>}
           <div className="ml-auto flex items-center gap-3">
@@ -26,7 +26,7 @@ export default async function TerminalLayout({ children }: Readonly<{ children: 
               <Link
                 href="/account"
                 title={user.email}
-                className="hidden h-9 w-9 items-center justify-center rounded-full border border-line-strong bg-surface-2 text-sm font-semibold text-ink hover:border-accent md:flex"
+                className="hidden h-10 w-10 items-center justify-center rounded-full bg-accent text-sm font-bold text-lime hover:bg-forest-2 md:flex"
               >
                 {initial}
               </Link>
@@ -34,8 +34,8 @@ export default async function TerminalLayout({ children }: Readonly<{ children: 
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-28 md:pb-12">{children}</main>
-      <footer className="mx-auto hidden w-full max-w-5xl px-4 pb-8 text-xs text-muted md:block">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-28 md:pt-8 md:pb-16">{children}</main>
+      <footer className="mx-auto hidden w-full max-w-6xl border-t border-line px-4 py-8 text-sm text-muted md:block">
         Kun analyse, vi formidler ikke spil. 18+. Spil indebærer risiko for tab. Brug for hjælp? Kontakt StopSpillet.dk.
       </footer>
       <BottomNav items={items} />

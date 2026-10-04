@@ -51,13 +51,13 @@ function activeHref(pathname: string, items: NavItem[]) {
 export function TopNav({ items }: { items: NavItem[] }) {
   const active = activeHref(usePathname(), items);
   return (
-    <nav aria-label="Menu" className="hidden items-center gap-1 md:flex">
+    <nav aria-label="Menu" className="hidden items-center gap-1 rounded-full bg-surface-2 p-1 md:flex">
       {items.map((i) => (
         <Link
           key={i.href}
           href={i.href}
           aria-current={i.href === active ? "page" : undefined}
-          className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${i.href === active ? "bg-surface-3 text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`}
+          className={`rounded-full px-4 py-2 text-[15px] font-semibold transition-colors ${i.href === active ? "bg-lime text-accent" : "text-accent/80 hover:bg-surface-3 hover:text-accent"}`}
         >
           {i.label}
         </Link>
@@ -70,16 +70,18 @@ export function TopNav({ items }: { items: NavItem[] }) {
 export function BottomNav({ items }: { items: NavItem[] }) {
   const active = activeHref(usePathname(), items);
   return (
-    <nav aria-label="Menu" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-page/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+    <nav aria-label="Menu" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-page pb-[env(safe-area-inset-bottom)] md:hidden">
       <div className="mx-auto flex max-w-md">
         {items.filter((i) => i.mobile !== false).map((i) => (
           <Link
             key={i.href}
             href={i.href}
             aria-current={i.href === active ? "page" : undefined}
-            className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium ${i.href === active ? "text-accent" : "text-muted"}`}
+            className={`flex flex-1 flex-col items-center gap-1 py-2 text-[11px] font-semibold ${i.href === active ? "text-accent" : "text-muted"}`}
           >
-            <Icon name={i.icon} />
+            <span className={`flex h-8 w-14 items-center justify-center rounded-full ${i.href === active ? "bg-lime" : ""}`}>
+              <Icon name={i.icon} />
+            </span>
             {i.short}
           </Link>
         ))}

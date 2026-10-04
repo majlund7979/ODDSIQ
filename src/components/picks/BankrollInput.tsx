@@ -21,7 +21,7 @@ export function BankrollInput() {
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => e.key === "Enter" && commit()}
-        className="num w-24 rounded-md border border-line bg-surface px-2 py-1 text-right text-ink"
+        className="num w-24 rounded-[10px] border border-line-strong bg-surface px-2 py-1 text-right text-ink"
         aria-label="Din pulje i kroner"
       />
       kr

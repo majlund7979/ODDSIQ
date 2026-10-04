@@ -14,7 +14,7 @@ const when = (d: Date | null | undefined) =>
 
 function Tile({ label, value, hint }: { label: string; value: number; hint: string }) {
   return (
-    <div className="rounded-2xl border border-line bg-surface p-4">
+    <div className="rounded-[20px] border border-line bg-surface p-4">
       <div className="text-xs text-muted">{label}</div>
       <div className="num mt-1 text-3xl font-semibold">{value.toLocaleString("da-DK")}</div>
       <div className="mt-1 text-xs text-muted">{hint}</div>
@@ -51,7 +51,7 @@ export default async function AdminPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight">Admin</h1>
+        <h1 className="display text-[40px] text-accent sm:text-5xl">Admin</h1>
         <p className="mt-2 text-[15px] text-ink-2">Kun du kan se denne side. Her er alle, der har oprettet en konto på Oddsanalyse.</p>
       </header>
 
@@ -62,7 +62,7 @@ export default async function AdminPage() {
         <Tile label="Tips" value={tipsThisWeek} hint={`i uge ${week.number}`} />
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-line bg-surface">
+      <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
         <div className="flex items-baseline justify-between border-b border-line px-5 py-3">
           <span className="text-sm font-semibold">Tilmeldte</span>
           <span className="text-xs text-muted">nyeste først</span>
@@ -109,7 +109,7 @@ export default async function AdminPage() {
       </section>
 
       {users.length > 0 && (
-        <section className="space-y-2 rounded-2xl border border-line bg-surface p-5">
+        <section className="space-y-2 rounded-[20px] border border-line bg-surface p-5">
           <h2 className="text-sm font-semibold">Alle e-mails</h2>
           <p className="text-xs text-muted">Marker og kopier, hvis du vil skrive til alle på én gang.</p>
           <textarea readOnly value={emails} rows={3} className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-xs text-ink" />

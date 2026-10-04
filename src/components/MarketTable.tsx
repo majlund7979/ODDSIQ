@@ -121,7 +121,7 @@ export function MarketTable({ rows, now, initialQuery = "" }: { rows: TableRow[]
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1100px] border-collapse text-[12.5px]">
           <thead>
-            <tr className="border-b border-line text-[10.5px] uppercase tracking-wider text-muted">
+            <tr className="border-b border-line text-xs font-medium text-muted">
               {columns.map((c) => (
                 <th key={c.label} title={c.title} className={`px-2.5 py-2 font-medium ${c.align === "right" ? "text-right" : "text-left"}`}>
                   {c.key ? (

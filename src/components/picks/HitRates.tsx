@@ -13,7 +13,7 @@ export function HitRates({ learning, labels, current, days, source, returns }: {
   if (!rows.length) return null;
   rows.sort((a, b) => b.rate - a.rate || b.n - a.n);
   return (
-    <section className="overflow-hidden rounded-2xl border border-line bg-surface px-4 py-3">
+    <section className="overflow-hidden rounded-[20px] border border-line bg-surface px-4 py-3">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
         <span className="text-sm font-semibold">Træfprocent og afkast pr. bet-type</span>
         <span className="text-xs text-muted">
@@ -26,7 +26,7 @@ export function HitRates({ learning, labels, current, days, source, returns }: {
             <Link
               href={`/picks/resultater?type=${r.id}`}
               title={`${r.n} afgjorte bets${r.ret?.withOdds ? `, afkast ${roiLabel(r.ret)} på ${r.ret.withOdds} bets med odds` : ""}`}
-              className={`num inline-flex shrink-0 items-baseline gap-1.5 whitespace-nowrap rounded-lg border px-2.5 py-1 text-sm ${r.id === current ? "border-accent/60 bg-accent/10" : "border-line hover:border-line-strong"}`}
+              className={`num inline-flex shrink-0 items-baseline gap-1.5 whitespace-nowrap rounded-lg border px-2.5 py-1 text-sm ${r.id === current ? "border-accent/60 bg-lime-soft" : "border-line hover:border-line-strong"}`}
             >
               <span className="font-sans text-ink-2">{r.label}</span>
               <span className="font-semibold">{Math.round(r.rate * 100)} %</span>
