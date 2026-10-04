@@ -240,21 +240,21 @@ model MissingPrediction {
 /// A terminal account. Personal lists use the same compact encodings as the
 /// signed-out cookies (src/lib/demo/personal.ts), so they move over on sign-in.
 model User {
-  id               String      @id
-  email            String      @unique
+  id               String         @id
+  email            String         @unique
   passwordHash     String
-  createdAt        DateTime    @default(now())
-  plan             String      @default("free") // free | pro
+  createdAt        DateTime       @default(now())
+  plan             String         @default("free") // free | pro
   planStatus       String? // Stripe subscription status
   planRenewsAt     DateTime?
-  stripeCustomerId String?     @unique
-  watchlist        String      @default("")
-  positions        String      @default("")
-  thresholdPp      Int         @default(5)
+  stripeCustomerId String?        @unique
+  watchlist        String         @default("")
+  positions        String         @default("")
+  thresholdPp      Int            @default(5)
   /// Name shown in the friends' league; null shows the part of the e-mail before the @.
   displayName      String?
   /// Receives the morning e-mail with the day's top 5.
-  morningEmail     Boolean     @default(true)
+  morningEmail     Boolean        @default(true)
   sessions         Session[]
   friendBets       FriendBet[]
   friendCoupons    FriendCoupon[]
@@ -546,24 +546,47 @@ model TipPick {
 /// A player's season totals for one team in one league, from the statistics
 /// feed's squad endpoint. Replaced on each refresh, for the shots-on-target picks.
 model PlayerSeasonStat {
-  provider    String
-  leagueId    Int
-  season      Int
-  teamId      Int
-  playerId    Int
-  name        String
-  position    String?
-  appearances Int
-  lineups     Int
-  minutes     Int
-  shotsOn     Int
-  shotsTotal  Int
-  goals       Int
-  injured     Boolean  @default(false)
-  fetchedAt   DateTime
+  provider       String
+  leagueId       Int
+  season         Int
+  teamId         Int
+  playerId       Int
+  name           String
+  position       String?
+  appearances    Int
+  lineups        Int
+  minutes        Int
+  shotsOn        Int
+  shotsTotal     Int
+  goals          Int
+  assists        Int      @default(0)
+  foulsCommitted Int      @default(0)
+  foulsDrawn     Int      @default(0)
+  injured        Boolean  @default(false)
+  fetchedAt      DateTime
 
   @@id([provider, leagueId, season, teamId, playerId])
   @@index([provider, teamId, season])
+}
+
+/// One player's numbers in one of his team's recent matches, for the team search's "last 5 matches".
+model PlayerMatchStat {
+  provider       String
+  fixtureId      String
+  teamId         Int
+  playerId       Int
+  name           String
+  kickoff        DateTime
+  minutes        Int
+  shotsOn        Int
+  goals          Int
+  assists        Int
+  foulsCommitted Int
+  foulsDrawn     Int
+  fetchedAt      DateTime
+
+  @@id([provider, fixtureId, playerId])
+  @@index([provider, teamId, kickoff])
 }
 
 /// When a team's squad statistics were last fetched in full.

@@ -757,6 +757,14 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
                   </Link>
                 );
               })}
+              {g.title === "Spillere" && (
+                <Link
+                  href="/picks/spillere"
+                  className="flex shrink-0 items-center justify-between gap-3 whitespace-nowrap rounded-full border border-line bg-surface px-4 py-2 text-[15px] font-medium text-ink-2 hover:text-accent lg:border-0 lg:bg-transparent lg:px-4 lg:hover:bg-surface-2"
+                >
+                  Holdsøgning
+                </Link>
+              )}
             </div>
           ))}
         </nav>

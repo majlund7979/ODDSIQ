@@ -51,9 +51,59 @@ export interface RawPlayerStats {
     league: { id: number | null };
     games: { appearences: number | null; lineups: number | null; minutes: number | null; position: string | null };
     shots: { total: number | null; on: number | null };
-    goals: { total: number | null };
+    goals: { total: number | null; assists?: number | null };
+    fouls?: { drawn: number | null; committed: number | null };
   }[];
 }
+
+export interface RawFixturePlayers {
+  team: { id: number; name: string };
+  players: {
+    player: { id: number; name: string };
+    statistics: {
+      games: { minutes: number | null; position?: string | null };
+      shots: { on: number | null };
+      goals: { total: number | null; assists: number | null };
+      fouls: { drawn: number | null; committed: number | null };
+    }[];
+  }[];
+}
+
+/** One player's numbers in one match. */
+export interface PlayerMatch {
+  playerId: number;
+  name: string;
+  minutes: number;
+  shotsOn: number;
+  goals: number;
+  assists: number;
+  foulsCommitted: number;
+  foulsDrawn: number;
+  /** Set when read back from storage, for the player card's match list. */
+  kickoff?: number;
+}
+
+/** The team's players who got minutes in the match. */
+export function normalizeFixturePlayers(raw: RawFixturePlayers[], teamId: number): PlayerMatch[] {
+  return (raw.find((t) => t.team.id === teamId)?.players ?? []).flatMap((p) => {
+    const s = p.statistics[0];
+    if (!s?.games.minutes) return [];
+    return [{ playerId: p.player.id, name: p.player.name, minutes: s.games.minutes, shotsOn: s.shots.on ?? 0, goals: s.goals.total ?? 0, assists: s.goals.assists ?? 0, foulsCommitted: s.fouls.committed ?? 0, foulsDrawn: s.fouls.drawn ?? 0 }];
+  });
+}
+
+export interface RawTeamSearch {
+  team: { id: number; name: string; country: string | null; national: boolean; logo?: string | null };
+}
+
+export interface TeamHit {
+  id: number;
+  name: string;
+  country: string | null;
+  national: boolean;
+}
+
+export const normalizeTeamSearch = (raw: RawTeamSearch[]): TeamHit[] => raw.map((t) => ({ id: t.team.id, name: t.team.name, country: t.team.country ?? null, national: Boolean(t.team.national) }));
 
 const FINISHED = new Set(["FT", "AET", "PEN"]);
 const LIVE = new Set(["1H", "HT", "2H", "ET", "BT", "P", "LIVE", "INT", "SUSP"]);
@@ -121,26 +171,33 @@ export function normalizeStatistics(raw: RawStatistics[], fixture: StatsFixture)
   });
 }
 
+const seasonRow = (p: RawPlayerStats, s: RawPlayerStats["statistics"][number]): PlayerSeason => ({
+  playerId: p.player.id,
+  name: p.player.name,
+  position: s.games.position ?? null,
+  appearances: s.games.appearences ?? 0,
+  lineups: s.games.lineups ?? 0,
+  minutes: s.games.minutes ?? 0,
+  shotsOn: s.shots.on ?? 0,
+  shotsTotal: s.shots.total ?? 0,
+  goals: s.goals.total ?? 0,
+  assists: s.goals.assists ?? 0,
+  foulsCommitted: s.fouls?.committed ?? 0,
+  foulsDrawn: s.fouls?.drawn ?? 0,
+  injured: Boolean(p.player.injured),
+});
+
 /** Season totals for this team in this league; players without a minute are left out. */
 export function normalizePlayers(raw: RawPlayerStats[], teamId: number, leagueId: number): PlayerSeason[] {
   return raw.flatMap((p) => {
     const s = p.statistics.find((x) => x.team.id === teamId && x.league.id === leagueId);
-    if (!s || !s.games.minutes) return [];
-    return [
-      {
-        playerId: p.player.id,
-        name: p.player.name,
-        position: s.games.position ?? null,
-        appearances: s.games.appearences ?? 0,
-        lineups: s.games.lineups ?? 0,
-        minutes: s.games.minutes,
-        shotsOn: s.shots.on ?? 0,
-        shotsTotal: s.shots.total ?? 0,
-        goals: s.goals.total ?? 0,
-        injured: Boolean(p.player.injured),
-      },
-    ];
+    return s && s.games.minutes ? [seasonRow(p, s)] : [];
   });
+}
+
+/** Season totals for this team in every competition it played, one row per player and competition. */
+export function normalizeTeamPlayers(raw: RawPlayerStats[], teamId: number): (PlayerSeason & { leagueId: number })[] {
+  return raw.flatMap((p) => p.statistics.filter((s) => s.team.id === teamId && s.league.id !== null && s.games.minutes).map((s) => ({ ...seasonRow(p, s), leagueId: s.league.id! })));
 }
 
 /** API-Football seasons are named by their starting year; European leagues start in July or August. */
@@ -216,5 +273,25 @@ export class ApiFootballFeed implements StatsFeed {
   async players(teamId: number, leagueId: number, season: number, page: number) {
     const r = await this.get<RawPlayerStats>("/players", { team: teamId, league: leagueId, season, page });
     return { data: normalizePlayers(r.data, teamId, leagueId), quota: r.quota, pages: r.pages };
+  }
+  /** A team's squad in all competitions this season (the team search). */
+  async teamPlayers(teamId: number, season: number, page: number) {
+    const r = await this.get<RawPlayerStats>("/players", { team: teamId, season, page });
+    return { data: normalizeTeamPlayers(r.data, teamId), quota: r.quota, pages: r.pages };
+  }
+  /** The team's last played matches, newest first. */
+  async lastFixtures(teamId: number, count: number) {
+    const r = await this.get<RawFixture>("/fixtures", { team: teamId, last: count });
+    return { data: normalizeFixtures(r.data), quota: r.quota };
+  }
+  /** Player numbers for one team in one match. */
+  async fixturePlayers(fixtureId: string, teamId: number) {
+    const r = await this.get<RawFixturePlayers>("/fixtures/players", { fixture: fixtureId });
+    return { data: normalizeFixturePlayers(r.data, teamId), quota: r.quota };
+  }
+  /** Teams whose name contains the text (at least 3 letters). */
+  async searchTeams(text: string) {
+    const r = await this.get<RawTeamSearch>("/teams", { search: text });
+    return { data: normalizeTeamSearch(r.data), quota: r.quota };
   }
 }
