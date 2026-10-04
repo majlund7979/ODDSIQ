@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { googleNewsUrl, parseRss, tidy } from "./news";
+import { googleNewsUrl, onTopic, parseRss, tidy } from "./news";
 
 const XML = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>"Brøndby" - Google News</title>
 <item><title>Brøndby henter ny back &amp; klar til derby - Tipsbladet</title><link>https://news.google.com/rss/articles/abc</link><pubDate>Sat, 03 Oct 2026 12:00:00 GMT</pubDate><description>&lt;a href="x"&gt;x&lt;/a&gt;</description><source url="https://www.tipsbladet.dk">Tipsbladet</source></item>
@@ -24,5 +24,14 @@ describe("football news", () => {
   it("builds Danish and English search URLs", () => {
     expect(googleNewsUrl('"Brøndby"', "da")).toContain("hl=da&gl=DK&ceid=DK%3Ada");
     expect(googleNewsUrl("x", "en")).toContain("hl=en-GB");
+  });
+
+  it("keeps only headlines about injuries or transfers", () => {
+    expect(onTopic("Skade i FCK før kampen", "skader")).toBe(true);
+    expect(onTopic("Brøndby henter ny back", "klubskifter")).toBe(true);
+    expect(onTopic("Haaland ruled out for three weeks", "alle")).toBe(true);
+    expect(onTopic("Arsenal agree deal for winger", "klubskifter")).toBe(true);
+    expect(onTopic("Regeringen fremlægger finanslov", "alle")).toBe(false);
+    expect(onTopic("Brøndby henter ny back", "skader")).toBe(false);
   });
 });
