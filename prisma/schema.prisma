@@ -257,6 +257,7 @@ model User {
   morningEmail     Boolean     @default(true)
   sessions         Session[]
   friendBets       FriendBet[]
+  friendCoupons    FriendCoupon[]
   tips             TipPick[]
 }
 
@@ -467,6 +468,42 @@ model FriendBet {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, eventId, spec])
+  @@index([kickoff])
+}
+
+/// A coupon a friend played from "Din kupon": every leg must go home. Legs are copied from the page's own picks.
+model FriendCoupon {
+  id        BigInt            @id @default(autoincrement())
+  userId    String
+  createdAt DateTime          @default(now())
+  /// Stake in kroner.
+  stake     Float
+  /// The combined odds the friend got; null when not entered.
+  odds      Float?
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legs      FriendCouponLeg[]
+
+  @@index([userId])
+}
+
+model FriendCouponLeg {
+  id          BigInt       @id @default(autoincrement())
+  couponId    BigInt
+  eventId     String
+  kickoff     DateTime
+  leagueName  String
+  leagueCode  String?
+  home        String
+  away        String
+  category    String
+  outcome     String
+  spec        String
+  probability Float
+  /// Best odds we showed for the leg; null for bet types without odds.
+  odds        Float?
+  coupon      FriendCoupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@index([couponId])
   @@index([kickoff])
 }
 

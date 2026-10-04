@@ -13,6 +13,8 @@ export interface Leg {
   probability: number;
   odds: number | null;
   kickoff: number;
+  /** Bet type tab the leg came from, so "Spil kupon" can find the pick again on the server. */
+  category?: string;
 }
 
 const KEY = "oddsiq-kupon";

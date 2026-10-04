@@ -54,7 +54,7 @@ export function AdviceRow({ p, odds, eventId, save, leg }: { p: number; odds: nu
       <StakeHint share={s.share} note={s.note} reason={s.reason} />
       {leg && (
         <span className="ml-auto">
-          <AddLeg leg={{ ...leg, eventId, probability: p, odds }} />
+          <AddLeg leg={{ ...leg, eventId, probability: p, odds, category: save?.category }} />
         </span>
       )}
       {save?.accounts &&

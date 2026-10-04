@@ -903,7 +903,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         </ol>
       )}
 
-      <MyCoupon />
+      <MyCoupon canPlay={ACCOUNTS_ENABLED && !!user} />
 
       {learned && tab !== "straffe" && <LearningNote l={learned} />}
 

@@ -18,6 +18,22 @@ export interface FriendBet {
   /** Stake in kroner. */
   stake: number;
   result: "won" | "lost" | null;
+  /** Set for a played coupon: one entry per leg. The coupon counts as one bet and wins only if every leg does. */
+  legs?: CouponLegView[];
+}
+
+export interface CouponLegView {
+  match: string;
+  outcome: string;
+  kickoff: number;
+  probability: number;
+  result: "won" | "lost" | null;
+}
+
+/** A coupon is lost as soon as one leg loses, won when every leg has won, open otherwise. Pure. */
+export function couponResult(legs: Pick<CouponLegView, "result">[]): "won" | "lost" | null {
+  if (legs.some((l) => l.result === "lost")) return "lost";
+  return legs.length > 0 && legs.every((l) => l.result === "won") ? "won" : null;
 }
 
 export interface LeagueRow {
