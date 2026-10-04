@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireFriend } from "@/lib/auth/friends";
-import { summarise, type RecordedPick } from "@/lib/picks-extra";
+import { roiLabel, ROI_MIN, summarise, type RecordedPick } from "@/lib/picks-extra";
+import { brier, calibration, CALIBRATION_MIN, CALIBRATION_VERSION } from "@/lib/picks-calibration";
 import { terminal } from "@/lib/terminal";
 import { CLV_VERSION } from "@/lib/real/clv";
 import { CATEGORY_LABEL } from "@/lib/pick-categories";
@@ -39,7 +40,10 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   const total = summarise(picks);
   const byCat = Object.keys(CATEGORY_LABEL).map((c) => ({ id: c, s: summarise(all.filter((p) => p.category === c)) }));
   const days = [...new Set(picks.map((p) => p.day))];
-  const learning = learn(await t.recordedPicks(LEARN_DAYS), t.dataLabel);
+  const history = await t.recordedPicks(LEARN_DAYS);
+  const learning = learn(history, t.dataLabel);
+  const cal = calibration(history);
+  const score = brier(history);
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -51,12 +55,17 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
         <p className="max-w-2xl text-[15px] text-ink-2">Sådan gik de bets, siden viste de sidste 7 dage. Hvert bet tælles første gang, det blev vist.</p>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
         {[
           { v: total.settled ? `${total.won} af ${total.settled}` : "—", l: "gik hjem" },
           { v: total.settled ? pct(total.won / total.settled) : "—", l: "ramte" },
           { v: pct(total.expectedRate), l: "vi regnede med" },
           { v: total.withOdds ? kr(total.profit) : "—", l: "ved 100 kr pr. bet", tone: total.withOdds ? (total.profit >= 0 ? "text-good" : "text-serious") : "" },
+          {
+            v: total.withOdds ? roiLabel(total).replace(" (for få bets)", "") : "—",
+            l: total.withOdds && total.withOdds < ROI_MIN ? `afkast, for få bets (${total.withOdds})` : `afkast (${total.withOdds} bets med odds)`,
+            tone: !total.withOdds || total.withOdds < ROI_MIN ? "text-muted" : total.roi >= 0 ? "text-good" : "text-serious",
+          },
         ].map((x) => (
           <div key={x.l} className="rounded-2xl border border-line bg-surface px-4 py-3">
             <div className={`num text-xl font-semibold ${x.tone ?? ""}`}>{x.v}</div>
@@ -92,6 +101,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
               <th className="px-3 py-2 text-right font-normal">Ramte</th>
               <th className="hidden px-3 py-2 text-right font-normal sm:table-cell">Forventet</th>
               <th className="px-3 py-2 text-right font-normal">100 kr pr. bet</th>
+              <th className="px-3 py-2 text-right font-normal" title="Gevinst i procent af det, der er satset">Afkast</th>
               <th className="hidden px-3 py-2 text-right font-normal sm:table-cell" title="Gennemsnitlig CLV mod lukkeoddsen">CLV</th>
               <th className="px-5 py-2 text-right font-normal" title="Hvor meget modellen har justeret procenterne ud fra resultaterne">Justering</th>
             </tr>
@@ -108,6 +118,9 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
                 <td className="px-3 py-2 text-right">{s.settled ? pct(s.won / s.settled) : "—"}</td>
                 <td className="hidden px-3 py-2 text-right text-muted sm:table-cell">{pct(s.expectedRate)}</td>
                 <td className={`px-3 py-2 text-right ${s.withOdds ? (s.profit >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{s.withOdds ? kr(s.profit) : "ingen odds"}</td>
+                <td className={`px-3 py-2 text-right ${!s.withOdds || s.withOdds < ROI_MIN ? "text-muted" : s.roi >= 0 ? "text-good" : "text-serious"}`}>
+                  {!s.withOdds ? "—" : s.withOdds < ROI_MIN ? "for få" : roiLabel(s)}
+                </td>
                 <td className={`hidden px-3 py-2 text-right sm:table-cell ${s.withClose ? (s.clv >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{s.withClose ? signedPct(s.clv) : "—"}</td>
                 <td className="px-5 py-2 text-right text-ink-2">{adjustment(learning.get(id))}</td>
               </tr>
@@ -117,6 +130,55 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
         <p className="border-t border-line px-5 py-3 text-xs text-muted">
           Justering: modellen sammenligner, hvor ofte hver bet-type har ramt, med hvad den regnede med, og retter procenterne lidt til. Den lærer først, når en type
           har {LEARN_MIN} afgjorte bets, og jo flere bets, jo mere stoler den på dem. Bygger på de sidste {LEARN_DAYS} dage (historisk, {t.dataLabel}, {LEARNING_VERSION}).
+        </p>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-line bg-surface">
+        <div className="border-b border-line px-5 py-3">
+          <h2 className="text-sm font-semibold">Holder procenterne?</h2>
+          <p className="mt-1 text-xs text-ink-2">Går vores 70 %-bets hjem 70 % af gangene? Alle bet-typer, sidste {LEARN_DAYS} dage.</p>
+        </div>
+        {cal.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-ink-2">Ingen afgjorte bets endnu.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-muted">
+                <th className="px-5 py-2 font-normal">Vi sagde</th>
+                <th className="px-3 py-2 text-right font-normal">Bets</th>
+                <th className="px-3 py-2 text-right font-normal">Snit</th>
+                <th className="px-3 py-2 text-right font-normal">Gik hjem</th>
+                <th className="px-5 py-2 text-right font-normal" title="1 / bedste odds, et skøn der stadig rummer lidt bookmakeravance">Bookmakerne</th>
+              </tr>
+            </thead>
+            <tbody className="num">
+              {cal.map((r) => {
+                const gap = r.hitRate - r.stated;
+                const few = r.n < CALIBRATION_MIN;
+                return (
+                  <tr key={r.from} className="border-t border-line">
+                    <td className="px-5 py-2 font-sans">
+                      {Math.round(r.from * 100)}–{Math.round(r.to * 100)} %
+                    </td>
+                    <td className="px-3 py-2 text-right text-ink-2">{r.n}</td>
+                    <td className="px-3 py-2 text-right">{pct(r.stated)}</td>
+                    <td className={`px-3 py-2 text-right font-semibold ${few ? "text-muted" : Math.abs(gap) <= 0.05 ? "text-good" : "text-serious"}`}>
+                      {pct(r.hitRate)}
+                      {few && <span className="block text-[10px] font-normal">for få bets</span>}
+                    </td>
+                    <td className="px-5 py-2 text-right text-ink-2">{r.withOdds ? pct(r.market) : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        <p className="border-t border-line px-5 py-3 text-xs text-muted">
+          Grønt: højst 5 point fra det, vi sagde. Bookmakerne er 1 / bedste odds, et skøn med lidt avance i. Grupper under {CALIBRATION_MIN} bets er for små til at sige noget sikkert.
+          {score
+            ? ` Samlet præcision (Brier, lavere er bedre) på ${score.n} bets med odds: os ${score.ours.toFixed(3).replace(".", ",")}, bookmakerne ${score.market.toFixed(3).replace(".", ",")}.`
+            : ""}{" "}
+          Historisk, kilde {t.dataLabel}, {CALIBRATION_VERSION}.
         </p>
       </section>
 

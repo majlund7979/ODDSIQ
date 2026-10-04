@@ -304,6 +304,8 @@ export interface ResultsSummary {
   profit: number;
   /** Average stated probability of the settled picks. */
   expectedRate: number;
+  /** Profit per krone staked on the settled picks with odds; NaN without any. */
+  roi: number;
   /** Bets with a closing line, and how many of them beat it. */
   withClose: number;
   beatClose: number;
@@ -311,15 +313,27 @@ export interface ResultsSummary {
   clv: number;
 }
 
+/** Settled bets with odds needed before a return (ROI) is shown as more than a hint. */
+export const ROI_MIN = 30;
+
+/** "+4 %" or "−7 %", or "for få bets" below ROI_MIN. */
+export function roiLabel(s: { roi: number; withOdds: number }): string {
+  if (!s.withOdds) return "—";
+  const v = `${s.roi >= 0 ? "+" : "−"}${Math.round(Math.abs(s.roi) * 100)} %`;
+  return s.withOdds < ROI_MIN ? `${v} (for få bets)` : v;
+}
+
 export function summarise(picks: RecordedPick[]): ResultsSummary {
   const settled = picks.filter((p) => p.result);
   const odds = settled.filter((p) => p.odds);
   const closed = picks.filter((p) => p.close);
+  const profit = odds.reduce((s, p) => s + (p.result === "won" ? p.odds! - 1 : -1), 0);
   return {
     settled: settled.length,
     won: settled.filter((p) => p.result === "won").length,
     withOdds: odds.length,
-    profit: odds.reduce((s, p) => s + (p.result === "won" ? p.odds! - 1 : -1), 0),
+    profit,
+    roi: odds.length ? profit / odds.length : NaN,
     expectedRate: settled.length ? settled.reduce((s, p) => s + p.probability, 0) / settled.length : NaN,
     withClose: closed.length,
     beatClose: closed.filter((p) => p.close!.clv > 0).length,

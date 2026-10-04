@@ -21,7 +21,7 @@ import { COUPON_MIN_ODDS, correctScorePicks, coupons, isValue, doubleChancePicks
 import { terminal } from "@/lib/terminal";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { compareBooks, oddsMove, STAKE_VERSION } from "@/lib/picks-advice";
+import { compareBooks, isFriendly, oddsMove, STAKE_VERSION } from "@/lib/picks-advice";
 import { openBetKeys } from "@/lib/real/friend-bets";
 import { AdviceRow, OddsMoveTag, RiskBadge, type SaveTarget } from "@/components/picks/Advice";
 import { BankrollInput } from "@/components/picks/BankrollInput";
@@ -65,6 +65,14 @@ function CardTop({ rank, league, kickoff, probability, now }: { rank: number; le
       <span>{league}</span>
       <span aria-hidden>·</span>
       <span>{kickoffLabel(kickoff, now)}</span>
+      {isFriendly(league) && (
+        <span
+          className="rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning"
+          title="Venskabskampe er sværere at forudsige: holdene roterer, og der er ikke meget på spil. Procenten er mere usikker end normalt."
+        >
+          Venskabskamp, mere usikker
+        </span>
+      )}
       <RiskBadge p={probability} className="ml-auto sm:ml-2" />
     </div>
   );
@@ -736,8 +744,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
           </nav>
           <BankrollInput />
           <p className="basis-full text-xs text-muted">
-            Indsatsforslag efter kvart-Kelly: en fjerdedel af det, Kelly-formlen giver ud fra chance og odds, højst 5 % af puljen. Er oddsen lavere end vores fair odds, står
-            der &quot;spil ikke&quot;. Skøn, {STAKE_VERSION}.
+            Indsatsforslag efter kvart-Kelly: en fjerdedel af det, Kelly-formlen giver ud fra chance og odds, højst 5 % af puljen. Er oddsen lavere end vores fair odds, er
+            der ingen værdi, og forslaget er en lille fast indsats på 1 %. Skøn, {STAKE_VERSION}.
           </p>
         </div>
       </aside>
@@ -789,7 +797,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         </p>
 
         <div className="lg:hidden">
-          <HitRates learning={allLearning} labels={TABS.filter((x) => x.id !== "straffe")} current={tab} days={LEARN_DAYS} source={t.dataLabel} />
+          <HitRates learning={allLearning} labels={TABS.filter((x) => x.id !== "straffe")} current={tab} days={LEARN_DAYS} source={t.dataLabel} returns={new Map(TABS.map((x) => [x.id, summarise(history.filter((h) => h.category === x.id))]))} />
         </div>
 
         {tab === "bedste" && <h2 className="text-xl font-semibold">Top {count} enkeltbets</h2>}

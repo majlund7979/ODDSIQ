@@ -23,10 +23,11 @@ describe("stake suggestion", () => {
     expect(stakeAdvice(0.8, 3).share).toBe(0.05);
     expect(kelly(0.5, 3)).toBeCloseTo(0.25);
   });
-  it("says don't bet when the odds pay less than fair odds", () => {
+  it("suggests a small 1 % stake when the odds pay less than fair odds", () => {
     const s = stakeAdvice(0.8, 1.2);
-    expect(s.share).toBe(0);
-    expect(s.reason).toContain("spil ikke");
+    expect(s.share).toBe(0.01);
+    expect(s.note).toContain("ingen værdi");
+    expect(s.reason).toContain("Fair odds 1,25, bedste odds 1,20");
   });
   it("falls back to 3, 2 and 1 % by risk level without odds", () => {
     expect(stakeAdvice(0.8, null).share).toBe(0.03);
