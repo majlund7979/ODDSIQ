@@ -1,6 +1,6 @@
 # Calls the site's cron routes on a schedule. Vercel's free (Hobby) plan only
-# runs its own cron jobs once a day, so this does the six-hourly odds run and,
-# when enabled, the in-play runs.
+# runs its own cron jobs once a day, so this does the six-hourly odds run, the
+# ten-minute lineup check and, when enabled, the in-play runs.
 #
 # Setup (GitHub → Settings → Secrets and variables → Actions):
 #   variable SITE_URL     e.g. https://oddsiq.vercel.app
@@ -33,8 +33,22 @@ jobs:
         # and through the API) and fails the run unless the site answered 200.
         run: |
           code=$(curl -sS --max-time 320 -o out.json -w '%{http_code}' -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/ingest" || echo 000)
-          summary=$(jq -r '"ok=\(.ok) odds=\(.error // "ok") credits=\(.quota.remaining // "?") oddsFetched=\((.oddsFetched // []) | join(",")) extra=\(if .extraMarkets == null then "off" else (.extraMarkets.error // "ok matched=\(.extraMarkets.matched)") end) af=\(if .oddsAf == null then "off" else (.oddsAf.error // "ok events=\(.oddsAf.events) leagues=\((.oddsAf.oddsFetched // []) | length)") end) stats=\(if .stats == null then "off" else (.stats.error // "ok fixtures=\(.stats.fixtures) matched=\(.stats.matched) lineups=\(.stats.lineups) injuries=\(.stats.injuries) xg=\(.stats.stats) requests=\(.stats.requests) left=\(.stats.quota.remaining // "?")") end) model=\(.model.error // "ok") picks=\(.picksRecorded | tostring)"' out.json 2>/dev/null || head -c 300 out.json | tr '\n' ' ')
+          summary=$(jq -r '"ok=\(.ok) odds=\(.error // "ok") credits=\(.quota.remaining // "?") oddsFetched=\((.oddsFetched // []) | join(",")) extra=\(if .extraMarkets == null then "off" else (.extraMarkets.error // "ok matched=\(.extraMarkets.matched)") end) af=\(if .oddsAf == null then "off" else (.oddsAf.error // "ok events=\(.oddsAf.events) leagues=\((.oddsAf.oddsFetched // []) | length)") end) stats=\(if .stats == null then "off" else (.stats.error // "ok fixtures=\(.stats.fixtures) matched=\(.stats.matched) lineups=\(.stats.lineups) injuries=\(.stats.injuries) xg=\(.stats.stats) requests=\(.stats.requests) left=\(.stats.quota.remaining // "?")") end) statsAf=\(if .statsAf == null then "off" else (.statsAf.error // "ok matched=\(.statsAf.matched) lineups=\(.statsAf.lineups) injuries=\(.statsAf.injuries) requests=\(.statsAf.requests)") end) model=\(.model.error // "ok") picks=\(.picksRecorded | tostring)"' out.json 2>/dev/null || head -c 300 out.json | tr '\n' ' ')
           if [ "$code" = 200 ]; then echo "::notice title=Data run OK::$summary"; else echo "::error title=Data run failed (HTTP $code)::$summary"; exit 1; fi
+
+  lineups:
+    if: vars.SITE_URL != '' && github.event.schedule == '*/10 * * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Lineups for matches close to kickoff (free when none is near)
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -sS --max-time 70 -o out.json -w '%{http_code}' -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/lineups" || echo 000)
+          summary=$(jq -r '"due=\(.due) fetched=\(.fetched) requests=\(.requests) left=\(.remaining // "?") error=\(.error // "none")"' out.json 2>/dev/null || head -c 300 out.json | tr '\n' ' ')
+          if [ "$code" = 200 ]; then echo "::notice title=Lineups::$summary"; else echo "::error title=Lineups failed (HTTP $code)::$summary"; exit 1; fi
 
   live:
     if: vars.SITE_URL != '' && vars.ODDS_LIVE == 'on' && github.event.schedule == '*/10 * * * *'
