@@ -1,0 +1,100 @@
+// Live scores for the picks whose matches are being played. One API-Football
+// call (all fixtures of the day) serves every visitor for a minute, so the
+// cost is at most one request a minute while someone has the page open.
+// Each pick is matched to its fixture by id (API-Football events) or by
+// kickoff and team names (The Odds API events).
+
+import type { PrismaClient } from "@/generated/prisma/client";
+import { matchTeam } from "@/lib/model/teams";
+import { settle } from "@/lib/picks-extra";
+import { apiFootballGet } from "@/lib/stats/api-football";
+
+const MIN = 60_000;
+/** A pick counts as live from kickoff until this long after. */
+export const LIVE_WINDOW_MS = 150 * MIN;
+const CACHE_MS = MIN;
+const FINISHED = new Set(["FT", "AET", "PEN"]);
+const NOT_STARTED = new Set(["TBD", "NS", "PST", "CANC", "ABD", "AWD", "WO"]);
+
+export interface LiveFixture {
+  id: string;
+  home: string;
+  away: string;
+  kickoff: number;
+  /** API-Football short status: 1H, HT, 2H, ET, P, FT … */
+  status: string;
+  minute: number | null;
+  goals: [number, number] | null;
+}
+
+export interface LivePick {
+  key: string;
+  match: string;
+  league: string;
+  outcome: string;
+  /** "62'", "Pause" or "Slut". */
+  clock: string;
+  score: [number, number] | null;
+  /** How the bet stands on the current score; null when the score cannot settle it (corners, cards, half-time …). */
+  state: "won" | "lost" | null;
+  finished: boolean;
+}
+
+interface ApiFixture {
+  fixture: { id: number; timestamp: number; status: { short: string; elapsed: number | null } };
+  teams: { home: { name: string }; away: { name: string } };
+  goals: { home: number | null; away: number | null };
+}
+
+export function normalizeFixtures(rows: ApiFixture[]): LiveFixture[] {
+  return rows.map((r) => ({
+    id: String(r.fixture.id),
+    home: r.teams.home.name,
+    away: r.teams.away.name,
+    kickoff: r.fixture.timestamp * 1000,
+    status: r.fixture.status.short,
+    minute: r.fixture.status.elapsed,
+    goals: r.goals.home === null || r.goals.away === null ? null : [r.goals.home, r.goals.away],
+  }));
+}
+
+const cache = new Map<string, { at: number; fixtures: LiveFixture[] }>();
+
+/** All fixtures of one UTC day ("2026-10-04"), cached for a minute. */
+export async function dayFixtures(apiKey: string, day: string, now: number, fetchImpl?: typeof fetch): Promise<LiveFixture[]> {
+  const hit = cache.get(day);
+  if (hit && now - hit.at < CACHE_MS) return hit.fixtures;
+  const { body } = await apiFootballGet<ApiFixture>("/fixtures", { date: day }, { apiKey, fetchImpl, wait: async () => {} });
+  const fixtures = normalizeFixtures(body.response);
+  cache.set(day, { at: now, fixtures });
+  for (const [d, v] of cache) if (now - v.at > 10 * CACHE_MS) cache.delete(d);
+  return fixtures;
+}
+
+/** The fixture for a pick: by id for "apf-<id>" events, else by kickoff (±20 min) and both team names. */
+export function findFixture(p: { eventId: string; home: string; away: string; kickoff: number }, fixtures: LiveFixture[]): LiveFixture | null {
+  if (p.eventId.startsWith("apf-")) return fixtures.find((f) => f.id === p.eventId.slice(4)) ?? null;
+  return fixtures.find((f) => Math.abs(f.kickoff - p.kickoff) <= 20 * MIN && matchTeam(p.home, [f.home]) && matchTeam(p.away, [f.away])) ?? null;
+}
+
+export function liveState(spec: string, f: LiveFixture): Pick<LivePick, "clock" | "score" | "state" | "finished"> {
+  const finished = FINISHED.has(f.status);
+  const clock = finished ? "Slut" : f.status === "HT" ? "Pause" : f.minute !== null ? `${f.minute}'` : f.status;
+  const state = f.goals ? settle(spec, { goals: f.goals, ht: null, corners: null, cards: null, fouls: null }) : null;
+  return { clock, score: f.goals, state, finished };
+}
+
+/** Recorded picks of one bet type whose matches kicked off within the live window, with their live score. */
+export async function livePicks(prisma: PrismaClient, apiKey: string | null, category: string, now: number): Promise<LivePick[]> {
+  if (!apiKey) return [];
+  const rows = await prisma.pickRecord.findMany({ where: { category, kickoff: { gte: new Date(now - LIVE_WINDOW_MS), lte: new Date(now) } }, orderBy: { kickoff: "asc" } });
+  if (!rows.length) return [];
+  // A late kickoff can still be playing after midnight UTC, so fetch every day the picks started on.
+  const days = [...new Set(rows.map((r) => r.kickoff.toISOString().slice(0, 10)))];
+  const fixtures = (await Promise.all(days.map((d) => dayFixtures(apiKey, d, now)))).flat();
+  return rows.flatMap((r) => {
+    const f = findFixture({ eventId: r.eventId, home: r.home, away: r.away, kickoff: r.kickoff.getTime() }, fixtures);
+    if (!f || NOT_STARTED.has(f.status)) return [];
+    return [{ key: `${r.eventId}|${r.category}`, match: `${r.home} vs ${r.away}`, league: r.leagueName, outcome: r.outcome, ...liveState(r.spec, f) }];
+  });
+}

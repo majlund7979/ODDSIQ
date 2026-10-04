@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { InstallApp } from "@/components/InstallApp";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { openBillingPortal, signOut, startCheckout } from "@/app/auth-actions";
@@ -80,6 +81,14 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           )}
         </section>
       )}
+
+      <section className="space-y-3 rounded-2xl border border-line bg-surface p-5">
+        <div>
+          <div className="font-medium">App på telefonen</div>
+          <p className="text-sm text-ink-2">Læg Oddsanalyse på hjemmeskærmen, så den åbner som en app.</p>
+        </div>
+        <InstallApp />
+      </section>
 
       <form action={signOut}>
         <button type="submit" className={btn}>

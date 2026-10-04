@@ -2,6 +2,8 @@
 
 import { oddsMove, riskOf, stakeAdvice, type RiskLevel } from "@/lib/picks-advice";
 import type { MarketRow } from "@/lib/demo/store";
+import { AddLeg } from "./AddLeg";
+import type { Leg } from "./coupon-store";
 import { SaveBet } from "./SaveBet";
 import { StakeHint } from "./StakeHint";
 
@@ -44,12 +46,17 @@ export interface SaveTarget {
   accounts: boolean;
 }
 
-/** Stake suggestion and the "Gem bet" button. */
-export function AdviceRow({ p, odds, eventId, save }: { p: number; odds: number | null; eventId: string; save: SaveTarget | null }) {
+/** Stake suggestion, "+ Kupon" and the "Gem bet" button. */
+export function AdviceRow({ p, odds, eventId, save, leg }: { p: number; odds: number | null; eventId: string; save: SaveTarget | null; leg?: Omit<Leg, "probability" | "odds" | "eventId"> }) {
   const s = stakeAdvice(p, odds);
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-line px-5 py-2.5">
       <StakeHint share={s.share} note={s.note} reason={s.reason} />
+      {leg && (
+        <span className="ml-auto">
+          <AddLeg leg={{ ...leg, eventId, probability: p, odds }} />
+        </span>
+      )}
       {save?.accounts &&
         (save.signedIn ? (
           <SaveBet eventId={eventId} category={save.category} odds={odds} share={s.share} back={save.back} saved={save.saved} />

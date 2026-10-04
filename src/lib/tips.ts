@@ -1,5 +1,7 @@
 // The weekly tipping game (/tips): friends tip 1, X or 2 on the week's matches,
-// one point per correct tip. Weeks run Monday to Sunday in Danish time.
+// a correct tip scores points by how unlikely it was (Mads, 2026-10-04): the
+// best odds when tipped, so a correct outsider pays more than a favourite.
+// Weeks run Monday to Sunday in Danish time.
 // Pure functions; reading and writing tips lives in src/lib/real/tips.ts.
 
 export type Side = "home" | "draw" | "away";
@@ -165,25 +167,37 @@ export interface Standing {
   tips: number;
   settled: number;
   correct: number;
-  /** Sum of the odds of the correct tips: the tiebreak, so a bold correct tip counts for more. */
+  /** Sum of the odds of the correct tips. */
   bonus: number;
+  /** Points: each correct tip scores tipPoints(odds). Ranks the table. */
+  points: number;
+}
+
+/** Most points one tip can score, so a freak long shot cannot decide a whole week. */
+export const MAX_TIP_POINTS = 10;
+
+/** Points for a correct tip: its odds when tipped (1 over the chance the market gave it), one decimal, between 1 and MAX_TIP_POINTS. 1 point without odds. */
+export function tipPoints(odds: number | null): number {
+  if (!odds || odds <= 1) return 1;
+  return Math.round(Math.min(MAX_TIP_POINTS, Math.max(1, odds)) * 10) / 10;
 }
 
 export function standings(tips: Tip[]): Standing[] {
   const rows = new Map<string, Standing>();
   for (const t of tips) {
-    const r = rows.get(t.userId) ?? { userId: t.userId, name: t.name, tips: 0, settled: 0, correct: 0, bonus: 0 };
+    const r = rows.get(t.userId) ?? { userId: t.userId, name: t.name, tips: 0, settled: 0, correct: 0, bonus: 0, points: 0 };
     r.tips++;
     if (t.result) {
       r.settled++;
       if (t.result === t.pick) {
         r.correct++;
         r.bonus += t.odds ?? 0;
+        r.points = Math.round((r.points + tipPoints(t.odds)) * 10) / 10;
       }
     }
     rows.set(t.userId, r);
   }
-  return [...rows.values()].sort((a, b) => b.correct - a.correct || b.bonus - a.bonus || a.settled - b.settled || a.name.localeCompare(b.name, "da"));
+  return [...rows.values()].sort((a, b) => b.points - a.points || b.correct - a.correct || a.settled - b.settled || a.name.localeCompare(b.name, "da"));
 }
 
 export interface WeekWinner {
@@ -200,7 +214,7 @@ export function weekWinners(tips: Tip[]): WeekWinner[] {
     .map(([week, ts]) => {
       const table = standings(ts).filter((s) => s.settled > 0);
       const top = table[0];
-      return { week, winners: top && top.correct > 0 ? table.filter((s) => s.correct === top.correct && Math.abs(s.bonus - top.bonus) < 1e-9) : [] };
+      return { week, winners: top && top.correct > 0 ? table.filter((s) => Math.abs(s.points - top.points) < 1e-9 && s.correct === top.correct) : [] };
     })
     .filter((w) => w.winners.length)
     .sort((a, b) => b.week.localeCompare(a.week));

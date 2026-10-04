@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { funStats, MODEL_ID, modelTips, nextWeek, previousWeek, standings, weekById, weekMatches, weekOf, weekWinners, type Tip, type TipRow } from "./tips";
+import { funStats, tipPoints, MODEL_ID, modelTips, nextWeek, previousWeek, standings, weekById, weekMatches, weekOf, weekWinners, type Tip, type TipRow } from "./tips";
 
 describe("weeks in Danish time", () => {
   it("runs Monday to Sunday and names the ISO week", () => {
@@ -89,13 +89,15 @@ describe("standings, winners and fun stats", () => {
     tip("ida", "d", "home", null, 1.4, "2026-W40", "home", 4),
   ];
 
-  it("ranks by correct tips, then by the odds of the correct tips", () => {
+  it("ranks by points, where a correct tip scores its odds", () => {
     const w39 = standings(tips.filter((t) => t.week === "2026-W39"));
-    expect(w39.map((s) => [s.name, s.correct])).toEqual([
-      ["ida", 2],
-      ["bo", 2],
+    expect(w39.map((s) => [s.name, s.correct, s.points])).toEqual([
+      ["ida", 2, 5.3],
+      ["bo", 2, 3.3],
     ]);
-    expect(w39[0].bonus).toBeCloseTo(5.3);
+    expect(tipPoints(null)).toBe(1);
+    expect(tipPoints(1.234)).toBe(1.2);
+    expect(tipPoints(25)).toBe(10);
   });
 
   it("names one winner per week, newest first, and never the model", () => {

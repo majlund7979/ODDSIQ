@@ -5,6 +5,7 @@
 import { buildLeagueModel, type LeagueModel } from "@/lib/model/league-model";
 import { buildCountModels, forecastCounts, halfTimeShare, type CountModels, type StatMatch } from "@/lib/model/match-stats";
 import { allPickDrafts, settle, type MatchOutcome, type RecordedPick } from "@/lib/picks-extra";
+import { LIVE_WINDOW_MS, liveState, type LivePick } from "@/lib/live/scores";
 import { rating } from "@/lib/model/elo";
 import type { HistMatch } from "@/lib/model/openfootball";
 import type { PickContext } from "@/lib/picks";
@@ -160,4 +161,29 @@ function computeRecorded(now: number, t: number, days: number): RecordedPick[] {
       seen.add(k);
       return true;
     });
+}
+
+/**
+ * DEMO DATA live scores: the picks made three hours ago whose matches are on
+ * now, with a score drawn per match and minute (seeded, so stable on reload).
+ */
+export function demoLivePicks(category: string, now: number): LivePick[] {
+  const t = feedTime(now);
+  const at = t - 3 * 3_600_000;
+  const drafts = allPickDrafts(marketRows(at), at, 10, (id) => demoPickContext(id, at)).filter((p) => p.category === category && p.row.kickoff <= t && p.row.kickoff > t - LIVE_WINDOW_MS);
+  return drafts.map((p) => {
+    const raw = Math.floor((t - p.row.kickoff) / 60_000);
+    const minute = raw < 45 ? raw + 1 : raw < 60 ? 45 : Math.min(90, raw - 14);
+    const status = raw < 45 ? "1H" : raw < 60 ? "HT" : raw < 110 ? "2H" : "FT";
+    const goals: [number, number] = [0, 0];
+    // One seeded draw per side per 5-minute block keeps the score from jumping around between polls.
+    for (let b = 0; b < Math.floor(minute / 5); b++) {
+      const r = new Rng(`live:${p.row.eventId}:${b}`);
+      if (r.next() < 0.07) goals[0]++;
+      if (r.next() < 0.055) goals[1]++;
+    }
+    const [home, away] = p.row.match.split(" vs ");
+    const f = { id: p.row.eventId, home, away, kickoff: p.row.kickoff, status, minute, goals };
+    return { key: `${p.row.eventId}|${p.category}`, match: p.row.match, league: `${p.row.league} · DEMO DATA`, outcome: p.outcome, ...liveState(p.spec, f) };
+  });
 }
