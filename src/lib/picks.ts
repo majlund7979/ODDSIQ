@@ -165,23 +165,28 @@ export function absences(news: TeamNews | null) {
 
 const signedPp = (pp: number) => `${pp >= 0 ? "+" : "−"}${Math.abs(pp).toFixed(1).replace(".", ",")} pp`;
 
+/** Both lineups are stored, from the match's team news or (without a model forecast) the event itself. */
+function lineupsIn(row: MarketRow, ctx: PickContext | null): boolean {
+  return (ctx?.news?.lineups.length ?? 0) >= 2 || row.dataQuality?.lineup === "Confirmed";
+}
+
 export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick, "fairOdds" | "value" | "outcome" | "strength"> | null {
   const model = row.modelProbability;
   if (model == null) {
     // No results history for this league (e.g. Superliga, Champions League): the margin-free market price is all there is.
     if (!(row.marketProbability > 0 && row.marketProbability < 1)) return null;
-    const insights: PickInsights = { expectedGoals: null, elo: null, form: null, h2h: null, movement: row.movement, lineupsConfirmed: false };
+    const lineupsConfirmed = lineupsIn(row, ctx);
+    const insights: PickInsights = { expectedGoals: null, elo: null, form: null, h2h: null, movement: row.movement, lineupsConfirmed };
     const factors: PickFactor[] = [{ label: "Bookmakerne", pp: null, detail: `${pct(row.marketProbability)} uden bookmakernes avance. Vi har ingen kampresultater for ligaen endnu, så procenten er kun markedets.` }];
-    return { row, probability: row.marketProbability, lineupsConfirmed: false, factors, insights, marketOnly: true };
+    return { row, probability: row.marketProbability, lineupsConfirmed, factors, insights, marketOnly: true };
   }
   const factors: PickFactor[] = [{ label: "Resultatmodel", pp: null, detail: `${pct(model)} ud fra kampresultater og Elo` }];
   let p = model;
-  let lineupsConfirmed = false;
+  const lineupsConfirmed = lineupsIn(row, ctx);
 
   if (ctx) {
     const base = ctx.expectedGoals;
     const news = ctx.news;
-    lineupsConfirmed = !!news && news.lineups.length === 2;
     let lambda = base.home;
     let mu = base.away;
     const ref = goalsProbability(row.marketType, row.side, lambda, mu);
