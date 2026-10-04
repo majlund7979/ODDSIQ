@@ -3,6 +3,7 @@ import { requireFriend } from "@/lib/auth/friends";
 import { roiLabel, ROI_MIN, summarise, type RecordedPick } from "@/lib/picks-extra";
 import { brier, calibration, CALIBRATION_MIN, CALIBRATION_VERSION } from "@/lib/picks-calibration";
 import { terminal } from "@/lib/terminal";
+import { byDay, HitBars, ProfitBars, Tile } from "@/components/picks/Overview";
 import { CLV_VERSION } from "@/lib/real/clv";
 import { CATEGORY_LABEL } from "@/lib/pick-categories";
 import { LEARN_DAYS, LEARN_MIN, LEARNING_VERSION, learn, type CategoryLearning } from "@/lib/picks-learning";
@@ -40,39 +41,51 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   const total = summarise(picks);
   const byCat = Object.keys(CATEGORY_LABEL).map((c) => ({ id: c, s: summarise(all.filter((p) => p.category === c)) }));
   const days = [...new Set(picks.map((p) => p.day))];
+  const chartDays = byDay(picks);
+  const settledKick = picks.filter((p) => p.result).map((p) => p.kickoff);
+  const period = settledKick.length
+    ? `${new Date(Math.min(...settledKick)).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: "Europe/Copenhagen" })}–${new Date(Math.max(...settledKick)).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: "Europe/Copenhagen" })}`
+    : "sidste 7 dage";
+  const context = `Historisk · n = ${total.settled} · ${period} · ${t.dataLabel} · ${LEARNING_VERSION}`;
   const history = await t.recordedPicks(LEARN_DAYS);
   const learning = learn(history, t.dataLabel);
   const cal = calibration(history);
   const score = brier(history);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <header className="space-y-2">
-        <Link href="/picks" className="text-sm text-muted hover:text-ink">
-          ← Dagens bedste bets
-        </Link>
-        <h1 className="display text-[40px] text-ink sm:text-5xl">Resultater</h1>
-        <p className="max-w-2xl text-[15px] text-ink-2">Sådan gik de bets, siden viste de sidste 7 dage. Hvert bet tælles første gang, det blev vist.</p>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <header className="space-y-5 rounded-[28px] border border-line bg-gradient-to-br from-accent/15 to-surface px-4 py-5 sm:px-10 sm:py-8">
+        <div className="space-y-2">
+          <Link href="/picks" className="text-sm text-muted hover:text-ink">
+            ← Dagens bedste bets
+          </Link>
+          <h1 className="display text-[40px] text-ink sm:text-5xl">Vores resultater</h1>
+          <p className="max-w-2xl text-[15px] text-ink-2">
+            Sådan gik vores forudsigelser de sidste 7 dage. Hvert bet tælles første gang, det blev vist, også dem der tabte. Viser: <span className="font-semibold text-ink">{CATEGORY_LABEL[type]}</span>
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Tile label="Gik hjem" foot={context}>
+            <div className="flex items-baseline gap-2">
+              <span className="num text-2xl font-extrabold tracking-[-0.02em] sm:text-3xl">{total.settled ? pct(total.won / total.settled).replace(" ", "") : "—"}</span>
+              <span className="text-sm text-ink-2">{total.settled ? `${total.won} af ${total.settled}` : ""}</span>
+            </div>
+            <div className="mt-1 text-sm text-ink-2">Vi regnede med {pct(total.expectedRate)}</div>
+          </Tile>
+          <Tile label="Ramte pr. dag" foot="Søjlen er andelen, der gik hjem. Stregen er det, vi regnede med.">
+            {chartDays.length ? <HitBars days={chartDays} /> : <div className="text-sm text-ink-2">Ingen afgjorte bets endnu.</div>}
+          </Tile>
+          <Tile label="Gevinst, 100 kr pr. bet" foot={`Kun bets med odds (${total.withOdds}). Afkast ${roiLabel(total)}.`}>
+            <div className={`num text-2xl font-extrabold tracking-[-0.02em] sm:text-3xl ${total.withOdds ? (total.profit >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>
+              {total.withOdds ? kr(total.profit) : "—"}
+            </div>
+            {total.withOdds > 0 && total.withOdds < ROI_MIN && <div className="mt-1 text-sm text-muted">For få bets til at sige noget sikkert</div>}
+          </Tile>
+          <Tile label="Gevinst pr. dag" foot="Over stregen er plus, under er minus.">
+            {chartDays.length ? <ProfitBars days={chartDays} /> : <div className="text-sm text-ink-2">Ingen afgjorte bets endnu.</div>}
+          </Tile>
+        </div>
       </header>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-        {[
-          { v: total.settled ? `${total.won} af ${total.settled}` : "—", l: "gik hjem" },
-          { v: total.settled ? pct(total.won / total.settled) : "—", l: "ramte" },
-          { v: pct(total.expectedRate), l: "vi regnede med" },
-          { v: total.withOdds ? kr(total.profit) : "—", l: "ved 100 kr pr. bet", tone: total.withOdds ? (total.profit >= 0 ? "text-good" : "text-serious") : "" },
-          {
-            v: total.withOdds ? roiLabel(total).replace(" (for få bets)", "") : "—",
-            l: total.withOdds && total.withOdds < ROI_MIN ? `afkast, for få bets (${total.withOdds})` : `afkast (${total.withOdds} bets med odds)`,
-            tone: !total.withOdds || total.withOdds < ROI_MIN ? "text-muted" : total.roi >= 0 ? "text-good" : "text-serious",
-          },
-        ].map((x) => (
-          <div key={x.l} className="rounded-[20px] border border-line bg-surface px-4 py-3">
-            <div className={`num text-xl font-semibold ${x.tone ?? ""}`}>{x.v}</div>
-            <div className="text-xs text-muted">{x.l}</div>
-          </div>
-        ))}
-      </div>
 
       <section className="rounded-[20px] border border-line bg-surface px-5 py-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">

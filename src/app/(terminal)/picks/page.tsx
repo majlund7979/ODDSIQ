@@ -24,6 +24,7 @@ import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { livePicks } from "@/lib/live/scores";
 import { LiveNow } from "@/components/picks/LiveNow";
 import { MyCoupon } from "@/components/picks/MyCoupon";
+import { GoodSingles, Overview } from "@/components/picks/Overview";
 import { compareBooks, isFriendly, oddsMove, STAKE_VERSION } from "@/lib/picks-advice";
 import { openBetKeys } from "@/lib/real/friend-bets";
 import { AdviceRow, OddsMoveTag, RiskBadge, type SaveTarget } from "@/components/picks/Advice";
@@ -513,7 +514,7 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-2xl font-extrabold tracking-[-0.02em]">Dagens kuponer</h2>
+        <h2 className="text-2xl font-extrabold tracking-[-0.02em]">Dagens kuponforslag</h2>
         <span className="text-sm text-muted">Alle bets på en kupon skal gå hjem</span>
       </div>
       {coupons.length === 0 ? (
@@ -682,7 +683,9 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   const shots: ShotBoard | null =
     tab !== "skud" ? null : DEMO_MODE ? demoShotBoard(rows, t.now, t.pickContext) : await realShotBoard(db(), rows, t.now, t.pickContext);
   const sPicks = shots ? topShotPicks(shots.picks, count) : [];
-  const recent = tab === "bedste" ? summarise(history.filter((p) => p.category === "bedste" && p.kickoff >= t.now - 7 * 86_400_000)) : null;
+  const week = history.filter((p) => p.category === "bedste" && p.kickoff >= t.now - 7 * 86_400_000 && p.kickoff < t.now);
+  const upcoming = rows.filter((r) => r.sportId === "football" && r.status === "scheduled" && r.kickoff > t.now).map((r) => r.kickoff);
+  const nextKickoff = upcoming.length ? Math.min(...upcoming) : null;
   const href = (type: string, n: number) => {
     const qs = new URLSearchParams({ ...(type !== "bedste" ? { type } : {}), ...(n !== 10 ? { antal: String(n) } : {}) }).toString();
     return qs ? `/picks?${qs}` : "/picks";
@@ -703,15 +706,29 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <header className="rounded-[28px] border border-line bg-gradient-to-br from-accent/15 to-surface px-6 py-6 sm:px-10 sm:py-10">
+      <header className="rounded-[28px] border border-line bg-gradient-to-br from-accent/15 to-surface px-4 py-5 sm:px-10 sm:py-10">
         <div className="text-sm font-medium text-muted">{today.charAt(0).toUpperCase() + today.slice(1)}</div>
         <h1 className="display mt-2 text-[36px] text-ink sm:text-6xl">{tab === "bedste" ? "Dagens bedste bets" : tabLabel}</h1>
-        <p className="mt-3 max-w-2xl text-[16px] leading-relaxed text-ink-2 sm:mt-4 sm:text-[17px]">De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste.</p>
-        <p className="mt-3 text-sm text-muted">
-          <span className="num">{scope.matches}</span> kampe i <span className="num">{scope.leagues}</span> {scope.leagues === 1 ? "liga" : "ligaer"} analyseret · odds opdateret kl.{" "}
-          <span className="num">{clock(t.feedTime)}</span>
-          <span className="hidden sm:inline"> · procenterne bliver mere præcise, når holdopstillingen er meldt, typisk en time før kampstart</span>
-        </p>
+        <p className="mt-3 hidden max-w-2xl text-[16px] leading-relaxed text-ink-2 sm:mt-4 sm:block sm:text-[17px]">De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste.</p>
+        {tab === "bedste" ? (
+          <div className="mt-4 sm:mt-6">
+            <Overview
+              top={picks[0] ? { outcome: picks[0].outcome, match: picks[0].row.match, league: picks[0].row.league, kickoff: picks[0].row.kickoff, probability: picks[0].probability, odds: picks[0].row.bestOdds } : null}
+              matches={scope.matches}
+              leagues={scope.leagues}
+              nextKickoff={nextKickoff}
+              feedTime={t.feedTime}
+              week={week}
+              source={t.dataLabel}
+            />
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-muted">
+            <span className="num">{scope.matches}</span> kampe i <span className="num">{scope.leagues}</span> {scope.leagues === 1 ? "liga" : "ligaer"} analyseret · odds opdateret kl.{" "}
+            <span className="num">{clock(t.feedTime)}</span>
+          </p>
+        )}
+        <p className="mt-4 hidden text-xs text-muted sm:block">Procenterne bliver mere præcise, når holdopstillingen er meldt, typisk en time før kampstart.</p>
       </header>
 
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10">
@@ -778,35 +795,40 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
           </div>
         )}
 
+        {tab === "bedste" && <LiveNow type={tab} initial={live} />}
+
         {tab === "bedste" && <CouponCard coupons={coupons(couponPool)} />}
 
-        {tab === "bedste" && recent && recent.settled > 0 && (
-          <Link href="/picks/resultater" className="flex flex-wrap items-center justify-between gap-2 rounded-[20px] bg-lime-soft px-5 py-4 text-[15px] text-accent hover:brightness-125">
-            <span>
-              Sidste 7 dage: <span className="font-semibold">{recent.won} af {recent.settled}</span> bets gik hjem ({Math.round((recent.won / recent.settled) * 100)} %)
-              {recent.withOdds > 0 && (
-                <>
-                  {" · "}
-                  <span className={recent.profit >= 0 ? "text-good" : "text-serious"}>
-                    {recent.profit >= 0 ? "+" : "−"}
-                    {Math.round(Math.abs(recent.profit) * 100)} kr
-                  </span>{" "}
-                  ved 100 kr pr. bet
-                </>
-              )}
-            </span>
-            <span className="font-semibold underline underline-offset-2">Se alle resultater</span>
-          </Link>
+        {tab === "bedste" && (
+          <GoodSingles
+            rows={picks.slice(0, 5).map((p) => ({
+              key: p.row.selectionId,
+              eventId: p.row.eventId,
+              outcome: p.outcome,
+              match: p.row.match,
+              league: p.row.league,
+              kickoff: p.row.kickoff,
+              probability: p.probability,
+              odds: p.row.bestOdds,
+              value: p.value,
+            }))}
+          />
         )}
+
 
 
         <div className="lg:hidden">
           <HitRates learning={allLearning} labels={TABS.filter((x) => x.id !== "straffe")} current={tab} days={LEARN_DAYS} source={t.dataLabel} returns={new Map(TABS.map((x) => [x.id, summarise(history.filter((h) => h.category === x.id))]))} />
         </div>
 
-        <LiveNow type={tab} initial={live} />
+        {tab !== "bedste" && <LiveNow type={tab} initial={live} />}
 
-        {tab === "bedste" && <h2 className="text-2xl font-extrabold tracking-[-0.02em]">Top {count} enkeltbets</h2>}
+        {tab === "bedste" && (
+          <div className="flex flex-wrap items-baseline justify-between gap-2 pt-2">
+            <h2 className="text-2xl font-extrabold tracking-[-0.02em]">Alle {count} enkeltbets med analyse</h2>
+            <span className="text-sm text-muted">Tryk &quot;Hvorfor?&quot; for begrundelsen</span>
+          </div>
+        )}
       {EXTRA[tab] ? (
         xPicks.length === 0 ? (
           <Empty title="Ingen kampe at vise lige nu" text="Der er ingen fodboldkampe med en analyse de næste 24 timer. Kig forbi igen senere." />
