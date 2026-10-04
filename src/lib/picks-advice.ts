@@ -27,7 +27,9 @@ export const DEFAULT_BANKROLL = 1000;
 export const KELLY_FRACTION = 0.25;
 /** Never more than this share of the bankroll on one bet. */
 export const STAKE_CAP = 0.05;
-export const STAKE_VERSION = "kvart-kelly-v1";
+export const STAKE_VERSION = "kvart-kelly-v2";
+/** Small fixed stake shown when the odds pay less than fair odds (Mads, 2026-10-04: "spil ikke" felt wrong on a best-bets page). */
+export const NO_VALUE_SHARE = 0.01;
 
 export interface StakeAdvice {
   /** Share of the bankroll to stake; 0 means no bet. */
@@ -43,7 +45,7 @@ export const kelly = (p: number, odds: number) => (p * odds - 1) / (odds - 1);
 
 /**
  * Stake by quarter Kelly (Mads, 2026-10-03): a quarter of the Kelly share, capped at 5 % of the bankroll.
- * When the odds pay less than our fair odds, Kelly says don't bet, so the share is 0.
+ * When the odds pay less than our fair odds, Kelly says don't bet; we then suggest a small fixed 1 % and say why.
  * Without bookmaker odds, falls back to 3 / 2 / 1 % by risk level.
  */
 export function stakeAdvice(p: number, odds: number | null): StakeAdvice {
@@ -54,11 +56,12 @@ export function stakeAdvice(p: number, odds: number | null): StakeAdvice {
     return { share: base, note: `${pct(base)} af puljen`, reason: `Ingen bookmakerodds endnu, så indsatsen følger risikoen: ${risk.label} giver ${pct(base)} af puljen.` };
   }
   const k = kelly(p, odds);
+  const dec = (x: number) => x.toFixed(2).replace(".", ",");
   if (k <= 0)
     return {
-      share: 0,
-      note: "ingen værdi i oddsen",
-      reason: `Oddsen ${odds.toFixed(2).replace(".", ",")} betaler mindre end vores fair odds ${(1 / p).toFixed(2).replace(".", ",")}, så kvart-Kelly siger: spil ikke.`,
+      share: NO_VALUE_SHARE,
+      note: `${pct(NO_VALUE_SHARE)} af puljen, ingen værdi i oddsen`,
+      reason: `Fair odds ${dec(1 / p)}, bedste odds ${dec(odds)}. Oddsen betaler mindre, end chancen er værd, så kvart-Kelly giver 0. Spiller du alligevel, så hold det på ${pct(NO_VALUE_SHARE)} af puljen.`,
     };
   const share = Math.min(STAKE_CAP, k * KELLY_FRACTION);
   const capped = share < k * KELLY_FRACTION;
@@ -137,3 +140,6 @@ export function compareBooks(quotes: { book: string; odds: number }[] | undefine
     bestOverMedian: list[0].odds / median - 1,
   };
 }
+
+/** Friendlies are less predictable (rotation, low stakes), so their picks carry a warning. */
+export const isFriendly = (league: string) => /friendl|venskab/i.test(league);

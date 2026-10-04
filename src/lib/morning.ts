@@ -31,7 +31,7 @@ export function morningText(picks: Pick[], now: number, siteUrl: string, dataLab
     return [
       `${i + 1}. ${p.outcome} (${Math.round(p.probability * 100)} %, ${riskOf(p.probability).label.toLowerCase()})`,
       `   ${p.row.match.replace(" vs ", " – ")} · ${p.row.league} · ${kickoff(p.row.kickoff, now)}`,
-      `   Bedste odds ${dec(p.row.bestOdds)} hos ${p.row.bestBook} · forslag: ${s.share ? `${pctOf(s.share)} af puljen` : "spil ikke (ingen værdi)"}${m ? ` · odds ${m.direction === "down" ? "faldet" : "steget"} ${Math.round(m.size * 100)} %` : ""}`,
+      `   Bedste odds ${dec(p.row.bestOdds)} hos ${p.row.bestBook} · forslag: ${pctOf(s.share)} af puljen${s.note.includes("ingen værdi") ? " (ingen værdi)" : ""}${m ? ` · odds ${m.direction === "down" ? "faldet" : "steget"} ${Math.round(m.size * 100)} %` : ""}`,
     ].join("\n");
   });
   return `${lines.join("\n\n")}\n\nSe hele analysen: ${siteUrl}/picks\n\nProcenterne er skøn, ikke garantier. Spil kun for penge, du har råd til at tabe. 18+.\nKilde: ${dataLabel}.\nSlå mailen fra under Vennerligaen: ${siteUrl}/picks/liga`;
@@ -51,7 +51,7 @@ export function morningHtml(picks: Pick[], now: number, siteUrl: string, dataLab
 <b>${Math.round(p.probability * 100)} %</b> chance ·
 <span style="color:${RISK_COLOR[r.level]};font-weight:600">● ${r.label}</span> ·
 odds ${dec(p.row.bestOdds)} (${esc(p.row.bestBook)}) ·
-forslag ${s.share ? `${pctOf(s.share)} af puljen` : "spil ikke (ingen værdi)"}${m ? ` · odds ${m.direction === "down" ? "↓ faldet" : "↑ steget"} ${Math.round(m.size * 100)} %` : ""}
+forslag ${pctOf(s.share)} af puljen${s.note.includes("ingen værdi") ? " (ingen værdi)" : ""}${m ? ` · odds ${m.direction === "down" ? "↓ faldet" : "↑ steget"} ${Math.round(m.size * 100)} %` : ""}
 </div></td></tr>`;
     })
     .join("");
