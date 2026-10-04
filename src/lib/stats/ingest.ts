@@ -8,6 +8,7 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { matchTeam } from "@/lib/model/teams";
 import { seasonFor } from "./api-football";
 import { STATS_LEAGUES } from "./leagues";
+import { storeLineups } from "./lineups";
 import type { PlayerSeason, StatsFeed, StatsFixture, StatsQuota } from "./types";
 
 const MIN = 60_000;
@@ -105,12 +106,7 @@ export async function ingestStats(
       if (!left()) break;
       const lineups = spend(await feed.lineups(w.f));
       if (lineups.length < 2) continue; // not published yet; tried again next run
-      for (const l of lineups) {
-        const data = { team: l.team, formation: l.formation, coach: l.coach, startXI: l.startXI as object[], substitutes: l.substitutes as object[], fetchedAt: new Date(now) };
-        await prisma.teamLineup.upsert({ where: { fixtureId_side: { fixtureId: w.id, side: l.side } }, create: { fixtureId: w.id, side: l.side, ...data }, update: data });
-      }
-      await prisma.statsFixture.update({ where: { id: w.id }, data: { lineupsAt: new Date(now) } });
-      await prisma.event.update({ where: { id: w.eventId }, data: { lineupConfirmedAt: new Date(now) } });
+      await storeLineups(prisma, w.id, w.eventId, lineups, now);
       s.lineups++;
     }
     for (const w of injuryJobs.sort(byKickoff)) {
