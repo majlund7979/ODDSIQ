@@ -5,7 +5,8 @@
 
 import type { PrismaClient } from "@/generated/prisma/client";
 import { claimSlot } from "@/lib/stats/lineups";
-import { configuredAfOddsFeed, configuredFeed } from "./config";
+import { ApiFootballOddsFeed } from "./api-football-odds";
+import { afOddsConfig, configuredFeed } from "./config";
 import { competitionsToSettle, settleLeague, SETTLE_AFTER_MS } from "./ingest";
 import type { OddsFeed } from "./types";
 
@@ -38,10 +39,14 @@ export async function settleFeed(prisma: PrismaClient, feed: OddsFeed, prefix: s
 /** Settles finished matches from both odds feeds; null when another visit had this interval's slot. */
 export async function settleOnVisit(prisma: PrismaClient, now = Date.now()): Promise<VisitSettleSummary[] | null> {
   const feeds: [OddsFeed, string][] = [];
-  const af = configuredAfOddsFeed();
-  if (af) feeds.push([af, "apf"]);
+  const af = afOddsConfig();
+  if (af.enabled) {
+    // Only the competitions waiting for a result: API-Football's season lookup is one call per competition.
+    const keys = (await competitionsToSettle(prisma, "apf", now)).filter((k) => af.keys.includes(k));
+    if (keys.length) feeds.push([new ApiFootballOddsFeed({ apiKey: process.env.STATS_API_KEY!, keys }), "apf"]);
+  }
   const toa = configuredFeed();
-  if (toa) feeds.push([toa, "toa"]);
+  if (toa && (await competitionsToSettle(prisma, "toa", now)).length) feeds.push([toa, "toa"]);
   if (!feeds.length || !(await claimSlot(prisma, "results:visit", SETTLE_VISIT_INTERVAL_MS, now))) return null;
   const out: VisitSettleSummary[] = [];
   for (const [feed, prefix] of feeds) out.push(await settleFeed(prisma, feed, prefix, now));

@@ -174,6 +174,7 @@ export async function GET(req: Request): Promise<Response> {
       return `${e.kickoff.toISOString().slice(11, 16)} ${e.id} ${e.homeTeam.name}-${e.awayTeam.name} confirmed=${e.lineupConfirmedAt?.toISOString().slice(11, 16) ?? "-"} ${fx}`;
     });
     const visit = await prisma.playerStatsSync.findUnique({ where: { id: "lineups:visit" } });
+    const resultsVisit = await prisma.playerStatsSync.findUnique({ where: { id: "results:visit" } });
     // The "Ramte, sidste 7 dage" tile: every recorded "bedste" pick of the last week and how it settled.
     const week = (await readRecordedPicks(prisma, now, 7)).filter((p) => p.category === "bedste");
     const settled = week.filter((p) => p.result);
@@ -184,7 +185,7 @@ export async function GET(req: Request): Promise<Response> {
       open: week.length - settled.length,
       rows: week.map((p) => `${p.day} ${p.match} | ${p.outcome} ${Math.round(p.probability * 100)}% ${p.odds ?? "-"} → ${p.result ?? "uafgjort"}`),
     };
-    return Response.json({ picksWeek, lineupsVisitAt: visit?.fetchedAt.toISOString() ?? null, lineupsNear, ...out });
+    return Response.json({ picksWeek, resultsVisitAt: resultsVisit?.fetchedAt.toISOString() ?? null, lineupsVisitAt: visit?.fetchedAt.toISOString() ?? null, lineupsNear, ...out });
   } catch (e) {
     out.lineupsError = message(e);
   }
