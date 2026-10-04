@@ -160,5 +160,22 @@ export async function GET(req: Request): Promise<Response> {
       }),
     };
   }
+  // Lineups for matches around kickoff: whether each is matched to an API-Football fixture and has lineups stored.
+  try {
+    const near = await prisma.event.findMany({
+      where: { kickoff: { gte: new Date(now - 30 * 60_000), lte: new Date(now + 3 * 3_600_000) } },
+      orderBy: { kickoff: "asc" },
+      take: 25,
+      include: { homeTeam: true, awayTeam: true, statsFixtures: { include: { lineups: { select: { side: true } } } } },
+    });
+    const lineupsNear = near.map((e) => {
+      const fx = e.statsFixtures.map((f) => `${f.id} lineupsAt=${f.lineupsAt?.toISOString().slice(11, 16) ?? "-"} sides=${f.lineups.length}`).join(" | ") || "no fixture";
+      return `${e.kickoff.toISOString().slice(11, 16)} ${e.id} ${e.homeTeam.name}-${e.awayTeam.name} confirmed=${e.lineupConfirmedAt?.toISOString().slice(11, 16) ?? "-"} ${fx}`;
+    });
+    const visit = await prisma.playerStatsSync.findUnique({ where: { id: "lineups:visit" } });
+    return Response.json({ lineupsVisitAt: visit?.fetchedAt.toISOString() ?? null, lineupsNear, ...out });
+  } catch (e) {
+    out.lineupsError = message(e);
+  }
   return Response.json(out);
 }
