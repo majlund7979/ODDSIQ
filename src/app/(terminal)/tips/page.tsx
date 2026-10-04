@@ -70,7 +70,7 @@ function Table({ rows, me, empty }: { rows: Standing[]; me?: string; empty: stri
           const model = r.userId === MODEL_ID;
           if (!model) place++;
           return (
-            <tr key={r.userId} className={`border-t border-line ${r.userId === me ? "bg-accent/5" : ""} ${model ? "text-ink-2" : ""}`}>
+            <tr key={r.userId} className={`border-t border-line ${r.userId === me ? "bg-lime-soft/60" : ""} ${model ? "text-ink-2" : ""}`}>
               <td className="px-4 py-2 text-muted">{model ? "" : place}</td>
               <td className="max-w-[9rem] truncate px-1 py-2 font-sans font-medium">
                 {model ? <span className="italic">Modellen</span> : r.name}
@@ -123,7 +123,7 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
         <header className="space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight">Ugens tips</h1>
+              <h1 className="display text-[40px] text-accent sm:text-5xl">Ugens tips</h1>
               <p className="mt-2 max-w-xl text-[15px] text-ink-2">
                 Tip 1, X eller 2 på ugens kampe og dyst mod vennerne. Et rigtigt tip giver point efter, hvor usandsynligt det var: oddsen, da du tippede. En favorit til 1,40 giver 1,4 point, en outsider til 4,50 giver 4,5 point (højst {MAX_TIP_POINTS}). Du kan ændre dit tip, indtil kampen starter.
               </p>
@@ -157,8 +157,8 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
         )}
 
         {open.length > 0 && user && (
-          <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-sm">
-            <span className="num shrink-0 rounded-full bg-accent/15 px-2.5 py-1 text-xs font-semibold text-accent">
+          <div className="flex items-center gap-3 rounded-[20px] border border-line bg-surface px-4 py-3 text-sm">
+            <span className="num shrink-0 rounded-full bg-lime-soft px-2.5 py-1 text-xs font-semibold text-accent">
               {tippedOpen}/{open.length}
             </span>
             <span className="text-ink-2">
@@ -168,7 +168,7 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
         )}
 
         {matches.length === 0 ? (
-          <div className="rounded-2xl border border-line bg-surface px-5 py-10 text-center text-sm text-ink-2">
+          <div className="rounded-[20px] border border-line bg-surface px-5 py-10 text-center text-sm text-ink-2">
             {week.start > t.now ? "Kampene i denne uge er ikke klar endnu." : week.end <= t.now ? "Siden har ikke kampene fra denne uge længere." : "Der er ingen kampe klar endnu."} Kampene kommer på, når oddsene er klar, typisk dagen
             før.
           </div>
@@ -185,7 +185,7 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
                     const counts = tipCounts(weekTips, m.eventId);
                     const n = counts.home + counts.draw + counts.away;
                     return (
-                      <li key={m.eventId} id={m.eventId} className="rounded-2xl border border-line bg-surface p-4">
+                      <li key={m.eventId} id={m.eventId} className="rounded-[20px] border border-line bg-surface p-4">
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-3 sm:flex-nowrap">
                           <div className="min-w-0 flex-1">
                             <div className="truncate font-medium">
@@ -249,7 +249,7 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
       <aside className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
         {shownWinner && (
           <section className="rounded-2xl border border-warning/40 bg-warning/10 p-5">
-            <div className="text-xs font-semibold tracking-wide text-warning uppercase">Ugens vinder · {weekLabel(weekById(shownWinner.week)!)}</div>
+            <div className="text-[13px] font-semibold text-warning">Ugens vinder · {weekLabel(weekById(shownWinner.week)!)}</div>
             <div className="mt-2 text-2xl font-semibold">{shownWinner.winners.map((w) => w.name).join(" og ")}</div>
             <div className="mt-1 text-sm text-ink-2">
               {shownWinner.winners[0].points.toFixed(1).replace(".", ",")} point · {shownWinner.winners[0].correct} rigtige af {shownWinner.winners[0].settled}
@@ -257,7 +257,7 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
           </section>
         )}
 
-        <section id="stilling" className="scroll-mt-20 overflow-hidden rounded-2xl border border-line bg-surface">
+        <section id="stilling" className="scroll-mt-20 overflow-hidden rounded-[20px] border border-line bg-surface">
           <div className="flex items-baseline justify-between border-b border-line px-4 py-3">
             <span className="text-sm font-semibold">Stillingen</span>
             <span className="text-xs text-muted">{weekLabel(week)}</span>
@@ -269,7 +269,7 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
         </section>
 
         {stats.length > 0 && (
-          <section className="rounded-2xl border border-line bg-surface">
+          <section className="rounded-[20px] border border-line bg-surface">
             <div className="border-b border-line px-4 py-3 text-sm font-semibold">Sjove stats</div>
             <ul className="divide-y divide-line">
               {stats.map((s) => (
@@ -285,7 +285,7 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
           </section>
         )}
 
-        <section className="overflow-hidden rounded-2xl border border-line bg-surface">
+        <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
           <div className="border-b border-line px-4 py-3 text-sm font-semibold">Hele tiden</div>
           <Table rows={allTime} me={user?.id} empty="Ingen tips endnu." />
           {winners.length > 0 && (

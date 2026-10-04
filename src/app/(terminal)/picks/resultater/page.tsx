@@ -51,7 +51,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
         <Link href="/picks" className="text-sm text-muted hover:text-ink">
           ← Dagens bedste bets
         </Link>
-        <h1 className="text-3xl font-semibold tracking-tight">Resultater</h1>
+        <h1 className="display text-[40px] text-accent sm:text-5xl">Resultater</h1>
         <p className="max-w-2xl text-[15px] text-ink-2">Sådan gik de bets, siden viste de sidste 7 dage. Hvert bet tælles første gang, det blev vist.</p>
       </header>
 
@@ -67,14 +67,14 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
             tone: !total.withOdds || total.withOdds < ROI_MIN ? "text-muted" : total.roi >= 0 ? "text-good" : "text-serious",
           },
         ].map((x) => (
-          <div key={x.l} className="rounded-2xl border border-line bg-surface px-4 py-3">
+          <div key={x.l} className="rounded-[20px] border border-line bg-surface px-4 py-3">
             <div className={`num text-xl font-semibold ${x.tone ?? ""}`}>{x.v}</div>
             <div className="text-xs text-muted">{x.l}</div>
           </div>
         ))}
       </div>
 
-      <section className="rounded-2xl border border-line bg-surface px-5 py-4">
+      <section className="rounded-[20px] border border-line bg-surface px-5 py-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-sm font-semibold">Slog vi lukkeoddsen? <span className="font-normal text-muted">{CATEGORY_LABEL[type]}</span></h2>
           <span className={`num text-xl font-semibold ${total.withClose ? (total.clv >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{total.withClose ? signedPct(total.clv) : "—"}</span>
@@ -91,7 +91,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
         </p>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-line bg-surface">
+      <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
         <div className="border-b border-line px-5 py-3 text-sm font-semibold">Alle bet-typer</div>
         <table className="w-full text-sm">
           <thead>
@@ -133,7 +133,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
         </p>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-line bg-surface">
+      <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
         <div className="border-b border-line px-5 py-3">
           <h2 className="text-sm font-semibold">Holder procenterne?</h2>
           <p className="mt-1 text-xs text-ink-2">Går vores 70 %-bets hjem 70 % af gangene? Alle bet-typer, sidste {LEARN_DAYS} dage.</p>
@@ -184,7 +184,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
 
       <h2 className="text-lg font-semibold">{CATEGORY_LABEL[type]}, dag for dag</h2>
       {days.length === 0 ? (
-        <div className="rounded-2xl border border-line bg-surface px-6 py-10 text-center text-sm text-ink-2">
+        <div className="rounded-[20px] border border-line bg-surface px-6 py-10 text-center text-sm text-ink-2">
           Ingen afgjorte bets endnu. Resultaterne kommer, når de første kampe er spillet.
         </div>
       ) : (
@@ -192,7 +192,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
           const list = picks.filter((p) => p.day === day);
           const s = summarise(list);
           return (
-            <section key={day} className="overflow-hidden rounded-2xl border border-line bg-surface">
+            <section key={day} className="overflow-hidden rounded-[20px] border border-line bg-surface">
               <div className="flex items-baseline justify-between border-b border-line px-5 py-3">
                 <span className="font-semibold">{dayLabel(day)}</span>
                 <span className="text-sm text-ink-2">{s.settled ? `${s.won} af ${s.settled} gik hjem` : "afventer"}</span>

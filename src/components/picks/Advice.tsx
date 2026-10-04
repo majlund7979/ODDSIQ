@@ -61,7 +61,7 @@ export function AdviceRow({ p, odds, eventId, save, leg }: { p: number; odds: nu
         (save.signedIn ? (
           <SaveBet eventId={eventId} category={save.category} odds={odds} share={s.share} back={save.back} saved={save.saved} />
         ) : (
-          <a href={`/login?next=${encodeURIComponent(save.back)}`} className="rounded-md border border-line-strong px-3 py-1 text-sm text-ink-2 hover:text-ink">
+          <a href={`/login?next=${encodeURIComponent(save.back)}`} className="rounded-full border border-accent/30 px-3.5 py-1 text-sm font-semibold text-accent hover:bg-lime-soft">
             Log ind for at gemme
           </a>
         ))}

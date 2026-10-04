@@ -5,7 +5,7 @@ import type { AuthState } from "@/app/auth-actions";
 
 export function AuthForm({ action, submitLabel, next, passwordHint }: { action: (s: AuthState, f: FormData) => Promise<AuthState>; submitLabel: string; next: string; passwordHint?: string }) {
   const [state, formAction, pending] = useActionState(action, {});
-  const input = "mt-1.5 w-full rounded-xl border border-line-strong bg-surface-2 px-3.5 py-3 text-[15px] outline-none transition-colors placeholder:text-muted focus:border-accent";
+  const input = "mt-1.5 w-full rounded-[10px] border border-line-strong bg-surface px-3.5 py-3 text-[15px] outline-none transition-colors placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-lime";
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="next" value={next} />
@@ -23,7 +23,7 @@ export function AuthForm({ action, submitLabel, next, passwordHint }: { action: 
           {state.error}
         </p>
       )}
-      <button type="submit" disabled={pending} className="w-full rounded-xl bg-accent px-3 py-3 text-[15px] font-semibold text-page transition-opacity hover:opacity-90 disabled:opacity-60">
+      <button type="submit" disabled={pending} className="w-full rounded-full bg-lime px-3 py-3 text-[16px] font-semibold text-accent transition-colors hover:bg-[#8fdc5c] disabled:opacity-60">
         {pending ? "Et øjeblik…" : submitLabel}
       </button>
     </form>

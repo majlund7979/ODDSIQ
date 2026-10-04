@@ -52,9 +52,9 @@ function Gauge({ p }: { p: number }) {
   const pct = Math.round(p * 100);
   return (
     <div className="w-24 shrink-0 text-center">
-      <div className="num text-3xl font-semibold leading-none text-ink">{pct}%</div>
+      <div className="num text-[34px] font-extrabold leading-none tracking-[-0.03em] text-accent">{pct}%</div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-3" aria-hidden>
-        <div className={`h-full rounded-full ${p >= 0.7 ? "bg-good" : "bg-accent"}`} style={{ width: `${pct}%` }} />
+        <div className={`h-full rounded-full ${p >= 0.7 ? "bg-good" : "bg-forest-2/70"}`} style={{ width: `${pct}%` }} />
       </div>
       <div className="mt-1.5 text-[11px] text-muted">chance</div>
     </div>
@@ -65,7 +65,7 @@ function Gauge({ p }: { p: number }) {
 function CardTop({ rank, league, kickoff, probability, now }: { rank: number; league: string; kickoff: number; probability: number; now: number }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-      <span className="num flex h-6 w-6 items-center justify-center rounded-full bg-surface-3 text-[12px] font-semibold text-ink">{rank}</span>
+      <span className="num flex h-6 w-6 items-center justify-center rounded-full bg-accent text-[12px] font-bold text-white">{rank}</span>
       <span>{league}</span>
       <span aria-hidden>·</span>
       <span>{kickoffLabel(kickoff, now)}</span>
@@ -85,7 +85,7 @@ function CardTop({ rank, league, kickoff, probability, now }: { rank: number; le
 function NewsBlock({ home, away }: { home: string; away: string }) {
   return (
     <div className="space-y-2.5 border-t border-line pt-5 md:col-span-2">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">Nyheder om holdene</div>
+      <div className="text-[13px] font-semibold text-accent">Nyheder om holdene</div>
       <TeamNews home={home} away={away} />
     </div>
   );
@@ -93,7 +93,7 @@ function NewsBlock({ home, away }: { home: string; away: string }) {
 
 function MoreToggle() {
   return (
-    <summary className="flex cursor-pointer list-none items-center justify-center gap-2 border-t border-line px-5 py-3 text-sm font-medium text-ink-2 hover:bg-surface-2 hover:text-ink">
+    <summary className="flex cursor-pointer list-none items-center justify-center gap-2 border-t border-line px-5 py-3 text-sm font-semibold text-accent hover:bg-surface-2">
       <span className="group-open:hidden">Hvorfor? Se analysen</span>
       <span className="hidden group-open:inline">Skjul analysen</span>
       <span className="transition-transform group-open:rotate-180" aria-hidden>
@@ -104,7 +104,7 @@ function MoreToggle() {
 }
 
 function FormRow({ team, games }: { team: string; games: FormGame[] }) {
-  const tone = { V: "bg-good text-page", U: "bg-surface-3 text-ink-2", T: "bg-critical text-ink" };
+  const tone = { V: "bg-good text-white", U: "bg-surface-3 text-ink-2", T: "bg-critical text-white" };
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="truncate text-ink-2">{team}</span>
@@ -129,7 +129,7 @@ function BookTable({ quotes, fairOdds, marketOnly }: { quotes: Pick["row"]["quot
     <Fact label="Odds hos bookmakerne">
       <ul className="divide-y divide-line rounded-lg border border-line">
         {c.rows.map((r) => (
-          <li key={r.book} className={`flex items-center justify-between gap-3 px-3 py-1.5 ${r.best ? "bg-accent/10" : ""}`}>
+          <li key={r.book} className={`flex items-center justify-between gap-3 px-3 py-1.5 ${r.best ? "bg-lime-soft" : ""}`}>
             <span className="truncate">{r.book}</span>
             <span className="flex shrink-0 items-center gap-2">
               {r.best && <span className="text-[11px] font-semibold text-accent">Bedst</span>}
@@ -149,7 +149,7 @@ function BookTable({ quotes, fairOdds, marketOnly }: { quotes: Pick["row"]["quot
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">{label}</div>
+      <div className="text-[13px] font-semibold text-accent">{label}</div>
       <div className="text-sm">{children}</div>
     </div>
   );
@@ -159,7 +159,7 @@ function LearningNote({ l }: { l: CategoryLearning }) {
   const n = l.hitRate.n;
   const pct = (x: number) => `${Math.round(x * 100)} %`;
   return (
-    <div className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink-2">
+    <div className="rounded-[20px] bg-surface-2 px-5 py-4 text-sm text-ink-2">
       <span className="font-semibold text-ink">Modellen lærer af sine resultater. </span>
       {l.learning ? (
         <>
@@ -192,7 +192,7 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
   return (
     <div className="grid gap-6 border-t border-line px-5 py-5 md:grid-cols-2">
       <div className="space-y-2 md:col-span-2">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">Hvorfor dette bet</div>
+        <div className="text-[13px] font-semibold text-accent">Hvorfor dette bet</div>
         {explainPick(p).map((s, k) => (
           <p key={k} className="text-[15px] leading-relaxed text-ink-2">
             {s}
@@ -200,7 +200,7 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
         ))}
       </div>
       <div className="space-y-3">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">Sådan er procenten regnet ud</div>
+        <div className="text-[13px] font-semibold text-accent">Sådan er procenten regnet ud</div>
         <ul className="space-y-3">
           {p.factors.map((f) => (
             <li key={f.label} className="space-y-1">
@@ -287,16 +287,16 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
 function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: number; save: SaveTarget | null }) {
   const [home, away] = p.row.match.split(" vs ");
   return (
-    <article className="overflow-hidden rounded-2xl border border-line bg-surface">
+    <article className="overflow-hidden rounded-[20px] border border-line bg-surface">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
           <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} probability={p.probability} now={now} />
-          <h2 className="text-lg font-semibold leading-tight sm:text-xl">
+          <h2 className="text-xl font-bold leading-tight tracking-[-0.01em] sm:text-[22px]">
             {home} <span className="text-muted">–</span> {away}
           </h2>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted">Vores bud</span>
-            <span className="rounded-lg bg-accent/15 px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
+            <span className="rounded-full bg-lime-soft px-3.5 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
             {p.value && <span className="rounded-full border border-good/40 bg-good/10 px-2 py-0.5 text-[11px] font-semibold text-good">Værdi</span>}
             <OddsMoveTag row={p.row} />
             {p.lineupsConfirmed ? (
@@ -311,8 +311,8 @@ function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: number; 
         </div>
         <div className="flex items-center gap-5">
           <Gauge p={p.probability} />
-          <div className="min-w-[88px] rounded-lg border border-line bg-surface-2 px-3 py-2 text-center">
-            <div className="text-[10px] uppercase tracking-wider text-muted">Bedste odds</div>
+          <div className="min-w-[96px] rounded-2xl bg-surface-2 px-3 py-2.5 text-center">
+            <div className="text-[11px] font-medium text-muted">Bedste odds</div>
             <div className="num text-2xl font-semibold">{dec(p.row.bestOdds)}</div>
             <div className="truncate text-[11px] text-ink-2">{p.row.bestBook}</div>
           </div>
@@ -333,15 +333,15 @@ function CountCard({ p, rank, now, save }: { p: CountPick; rank: number; now: nu
   const leagueAvg = f.league.homeMean + f.league.awayMean;
   const vs = Math.round(f.suggestion.vsLeague * 100);
   return (
-    <article className="overflow-hidden rounded-2xl border border-line bg-surface">
+    <article className="overflow-hidden rounded-[20px] border border-line bg-surface">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
           <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} probability={p.probability} now={now} />
-          <h2 className="text-lg font-semibold leading-tight sm:text-xl">
+          <h2 className="text-xl font-bold leading-tight tracking-[-0.01em] sm:text-[22px]">
             {home} <span className="text-muted">–</span> {away}
           </h2>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-lg bg-accent/15 px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
+            <span className="rounded-full bg-lime-soft px-3.5 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
             <span className="text-sm text-ink-2">
               Forventet <span className="num font-semibold text-ink">{dec(f.expected.total, 1)}</span> · {vs === 0 ? "som ligasnittet" : `${Math.abs(vs)} % ${vs > 0 ? "over" : "under"} ligasnittet`}
             </span>
@@ -349,8 +349,8 @@ function CountCard({ p, rank, now, save }: { p: CountPick; rank: number; now: nu
         </div>
         <div className="flex items-center gap-5">
           <Gauge p={p.probability} />
-          <div className="min-w-[96px] rounded-lg border border-line bg-surface-2 px-3 py-2 text-center">
-            <div className="text-[10px] uppercase tracking-wider text-muted">Linjen</div>
+          <div className="min-w-[96px] rounded-2xl bg-surface-2 px-3 py-2.5 text-center">
+            <div className="text-[11px] font-medium text-muted">Linjen</div>
             <div className="num text-2xl font-semibold">{lineLabel(f.fairLine)}</div>
             <div className="text-[11px] text-ink-2">fair odds {dec(p.fairOdds)}</div>
           </div>
@@ -456,27 +456,27 @@ function CountCard({ p, rank, now, save }: { p: CountPick; rank: number; now: nu
 function ExtraCard({ p, rank, now, save }: { p: ExtraPick; rank: number; now: number; save: SaveTarget | null }) {
   const [home, away] = p.row.match.split(" vs ");
   return (
-    <article className="overflow-hidden rounded-2xl border border-line bg-surface">
+    <article className="overflow-hidden rounded-[20px] border border-line bg-surface">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
           <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} probability={p.probability} now={now} />
-          <h2 className="text-lg font-semibold leading-tight sm:text-xl">
+          <h2 className="text-xl font-bold leading-tight tracking-[-0.01em] sm:text-[22px]">
             {home} <span className="text-muted">–</span> {away}
           </h2>
-          <span className="inline-block rounded-lg bg-accent/15 px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
+          <span className="inline-block rounded-lg bg-lime-soft px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
         </div>
         <div className="flex items-center gap-5">
           <Gauge p={p.probability} />
           {p.best && (
-            <div className="min-w-[96px] rounded-lg border border-line bg-surface-2 px-3 py-2 text-center">
-              <div className="text-[10px] uppercase tracking-wider text-muted">Bedste odds</div>
+            <div className="min-w-[96px] rounded-2xl bg-surface-2 px-3 py-2.5 text-center">
+              <div className="text-[11px] font-medium text-muted">Bedste odds</div>
               <div className="num text-2xl font-semibold">{dec(p.best.odds)}</div>
               <div className="truncate text-[11px] text-ink-2">{p.best.book}</div>
               {p.best.odds * p.probability > 1 && <div className="mt-1 rounded-full bg-good/15 px-2 py-0.5 text-[10px] font-semibold text-good">Værdi</div>}
             </div>
           )}
-          <div className="min-w-[96px] rounded-lg border border-line bg-surface-2 px-3 py-2 text-center">
-            <div className="text-[10px] uppercase tracking-wider text-muted">Fair odds</div>
+          <div className="min-w-[96px] rounded-2xl bg-surface-2 px-3 py-2.5 text-center">
+            <div className="text-[11px] font-medium text-muted">Fair odds</div>
             <div className="num text-2xl font-semibold">{dec(p.fairOdds)}</div>
             <div className="text-[11px] text-ink-2">spil over denne</div>
           </div>
@@ -513,30 +513,30 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-xl font-semibold">Dagens kuponer</h2>
-        <span className="text-xs text-muted">Alle bets på en kupon skal gå hjem</span>
+        <h2 className="text-2xl font-extrabold tracking-[-0.02em]">Dagens kuponer</h2>
+        <span className="text-sm text-muted">Alle bets på en kupon skal gå hjem</span>
       </div>
       {coupons.length === 0 ? (
-        <p className="rounded-2xl border border-line bg-surface px-5 py-6 text-sm text-ink-2">Der er ikke nok kampe i dag til en kupon. Kig forbi igen senere.</p>
+        <p className="rounded-[20px] border border-line bg-surface px-5 py-6 text-sm text-ink-2">Der er ikke nok kampe i dag til en kupon. Kig forbi igen senere.</p>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid items-start gap-4 md:grid-cols-2">
           {coupons.map((c) => (
-            <article key={c.picks.length} className="flex flex-col overflow-hidden rounded-2xl border border-accent/40 bg-gradient-to-b from-accent/10 to-surface">
+            <article key={c.picks.length} className="flex flex-col overflow-hidden rounded-[20px] bg-lime-soft text-accent">
               <div className="flex items-end justify-between gap-3 px-5 pt-5">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-accent">{c.picks.length} bets</div>
-                  <div className="text-xs text-muted">{c.kind === "odds" ? `Samlet odds mindst ${dec(COUPON_MIN_ODDS, 1)}` : "Valgt efter værdi og sandsynlighed"}</div>
-                  <div className="num mt-1 text-3xl font-semibold">{dec(c.odds)}</div>
-                  <div className="text-xs text-muted">samlet odds</div>
+                  <div className="text-[13px] font-bold text-accent">{c.picks.length} bets</div>
+                  <div className="text-xs text-accent/70">{c.kind === "odds" ? `Samlet odds mindst ${dec(COUPON_MIN_ODDS, 1)}` : "Valgt efter værdi og sandsynlighed"}</div>
+                  <div className="num mt-2 text-[40px] font-extrabold leading-none tracking-[-0.03em]">{dec(c.odds)}</div>
+                  <div className="mt-1 text-xs text-accent/70">samlet odds</div>
                 </div>
                 <div className="text-right">
-                  <div className="num text-2xl font-semibold">{Math.round(c.probability * 100)}%</div>
-                  <div className="text-xs text-muted">chance for at alle går hjem</div>
+                  <div className="num text-[28px] font-extrabold leading-none tracking-[-0.02em]">{Math.round(c.probability * 100)}%</div>
+                  <div className="mt-1 text-xs text-accent/70">chance for at alle går hjem</div>
                 </div>
               </div>
-              <ul className="mt-4 flex-1 divide-y divide-line border-t border-line">
+              <ul className="mx-3 mt-4 divide-y divide-line rounded-2xl bg-surface text-ink">
                 {c.picks.map((p) => (
-                  <li key={p.row.selectionId} className="flex items-center justify-between gap-3 px-5 py-2.5">
+                  <li key={p.row.selectionId} className="flex items-center justify-between gap-3 px-4 py-2.5">
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium">
                         {p.outcome}
@@ -550,10 +550,10 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
                   </li>
                 ))}
               </ul>
-              <div className="border-t border-line bg-surface-2/60 px-5 py-2.5 text-sm text-ink-2">
-                100 kr giver <span className="num font-semibold text-ink">{Math.round(c.odds * 100)} kr</span>, hvis alle går hjem
+              <div className="px-5 py-3.5 text-sm text-accent/80">
+                100 kr giver <span className="num font-bold text-accent">{Math.round(c.odds * 100)} kr</span>, hvis alle går hjem
                 {c.kind === "value" && (
-                  <span className="mt-1 block text-xs text-muted">
+                  <span className="mt-1 block text-xs text-accent/70">
                     Værdi i {c.valueLegs} af {c.picks.length} bets
                     {c.valueLegs === 0 ? " (ingen af dagens bets har værdi, så kuponen tager de mest sandsynlige)" : c.valueLegs < c.picks.length ? ", resten er dagens mest sandsynlige" : ""}. Estimeret tilbagebetaling i snit:{" "}
                     <span className="num">{Math.round(c.expectedReturn * 100)} kr</span> pr. 100 kr (vores sandsynlighed × odds, ikke en garanti).
@@ -580,26 +580,26 @@ function ShotCard({ p, rank, now }: { p: ShotPick; rank: number; now: number }) 
       </span>
     );
   return (
-    <article className="overflow-hidden rounded-2xl border border-line bg-surface">
+    <article className="overflow-hidden rounded-[20px] border border-line bg-surface">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
           <CardTop rank={rank} league={p.league} kickoff={p.kickoff} probability={p.probability} now={now} />
           <div>
-            <h2 className="text-lg font-semibold leading-tight sm:text-xl">{p.player}</h2>
+            <h2 className="text-xl font-bold leading-tight tracking-[-0.01em] sm:text-[22px]">{p.player}</h2>
             <div className="mt-1 text-sm text-ink-2">
               {p.team} mod {p.opponent}
               {p.position && <span className="text-muted"> · {POSITION_LABEL[p.position] ?? p.position}</span>}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-lg bg-accent/15 px-3 py-1.5 text-[15px] font-semibold text-accent">Mindst 1 skud på mål</span>
+            <span className="rounded-full bg-lime-soft px-3.5 py-1.5 text-[15px] font-semibold text-accent">Mindst 1 skud på mål</span>
             {start}
           </div>
         </div>
         <div className="flex items-center gap-5">
           <Gauge p={p.probability} />
-          <div className="min-w-[96px] rounded-lg border border-line bg-surface-2 px-3 py-2 text-center">
-            <div className="text-[10px] uppercase tracking-wider text-muted">Fair odds</div>
+          <div className="min-w-[96px] rounded-2xl bg-surface-2 px-3 py-2.5 text-center">
+            <div className="text-[11px] font-medium text-muted">Fair odds</div>
             <div className="num text-2xl font-semibold">{dec(p.fairOdds)}</div>
             <div className="text-[11px] text-ink-2">tag kun højere</div>
           </div>
@@ -650,7 +650,7 @@ const TAB_GROUPS = [
 
 function Empty({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-2xl border border-line bg-surface px-6 py-12 text-center">
+    <div className="rounded-[20px] bg-surface-2 px-6 py-12 text-center">
       <div className="text-lg font-semibold">{title}</div>
       <p className="mx-auto mt-2 max-w-md text-sm text-ink-2">{text}</p>
     </div>
@@ -702,13 +702,25 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   };
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[230px_minmax(0,1fr)]">
+    <div className="space-y-6 lg:space-y-8">
+      <header className="rounded-[28px] bg-accent px-6 py-6 text-white sm:px-10 sm:py-10">
+        <div className="text-sm font-medium text-white/70">{today.charAt(0).toUpperCase() + today.slice(1)}</div>
+        <h1 className="display mt-2 text-[36px] text-lime sm:text-6xl">{tab === "bedste" ? "Dagens bedste bets" : tabLabel}</h1>
+        <p className="mt-3 max-w-2xl text-[16px] leading-relaxed text-white/90 sm:mt-4 sm:text-[17px]">De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste.</p>
+        <p className="mt-3 text-sm text-white/70">
+          <span className="num">{scope.matches}</span> kampe i <span className="num">{scope.leagues}</span> {scope.leagues === 1 ? "liga" : "ligaer"} analyseret · odds opdateret kl.{" "}
+          <span className="num">{clock(t.feedTime)}</span>
+          <span className="hidden sm:inline"> · procenterne bliver mere præcise, når holdopstillingen er meldt, typisk en time før kampstart</span>
+        </p>
+      </header>
+
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10">
       {/* Left: everything you choose. On phones it collapses to one row of buttons. */}
-      <aside className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
+      <aside className="min-w-0 space-y-4 lg:sticky lg:top-24 lg:space-y-6 lg:self-start">
         <nav aria-label="Bet-type" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:block lg:space-y-5 lg:overflow-visible lg:px-0">
           {TAB_GROUPS.map((g) => (
             <div key={g.title} className="contents lg:block">
-              <div className="mb-1.5 hidden px-3 text-[11px] font-semibold uppercase tracking-wider text-muted lg:block">{g.title}</div>
+              <div className="mb-1.5 hidden px-3 text-xs font-semibold text-muted lg:block">{g.title}</div>
               {g.tabs.map((x) => {
                 const h = hit(x.id);
                 const active = x.id === tab;
@@ -719,55 +731,49 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
                     scroll={false}
                     aria-current={active ? "page" : undefined}
                     title={h ? `Træfprocent ${Math.round(h.value * 100)} % i ${h.n} afgjorte bets, sidste ${LEARN_DAYS} dage (historisk)` : undefined}
-                    className={`flex shrink-0 items-center justify-between gap-3 whitespace-nowrap rounded-full border px-4 py-2 text-sm lg:rounded-xl lg:border-0 lg:px-3 ${
-                      active ? "border-accent bg-accent/15 font-medium text-accent" : "border-line bg-surface text-ink-2 hover:text-ink lg:bg-transparent lg:hover:bg-surface-2"
+                    className={`flex shrink-0 items-center justify-between gap-3 whitespace-nowrap rounded-full border px-4 py-2 text-[15px] font-medium lg:border-0 lg:px-4 ${
+                      active ? "border-lime bg-lime font-semibold text-accent" : "border-line bg-surface text-ink-2 hover:text-accent lg:bg-transparent lg:hover:bg-surface-2"
                     }`}
                   >
                     {x.label}
-                    {h && <span className={`num hidden text-xs lg:inline ${active ? "text-accent" : "text-muted"}`}>{Math.round(h.value * 100)}%</span>}
+                    {h && <span className={`num hidden text-xs lg:inline ${active ? "text-accent/80" : "text-muted"}`}>{Math.round(h.value * 100)}%</span>}
                   </Link>
                 );
               })}
             </div>
           ))}
         </nav>
-        <p className="hidden px-3 text-[11px] leading-relaxed text-muted lg:block">Tallet er træfprocenten de sidste {LEARN_DAYS} dage (historisk).</p>
+        <p className="hidden px-4 text-xs leading-relaxed text-muted lg:block">Tallet er træfprocenten de sidste {LEARN_DAYS} dage (historisk).</p>
 
-        <div className="flex flex-wrap items-center gap-3 lg:block lg:space-y-3 lg:rounded-2xl lg:border lg:border-line lg:bg-surface lg:p-4">
-          <nav aria-label="Antal bets" className="flex rounded-xl border border-line bg-surface p-1 lg:bg-surface-2">
+        <div className="flex flex-wrap items-center gap-3 lg:block lg:space-y-3 lg:rounded-[20px] lg:bg-surface-2 lg:p-4">
+          <nav aria-label="Antal bets" className="flex rounded-full bg-surface-2 p-1 lg:bg-surface-3">
             {PICK_COUNTS.map((n) => (
               <Link
                 key={n}
                 href={href(tab, n)}
                 scroll={false}
                 aria-current={n === count ? "page" : undefined}
-                className={`flex-1 whitespace-nowrap rounded-lg px-4 py-1.5 text-center text-sm font-medium ${n === count ? "bg-accent text-page" : "text-ink-2 hover:text-ink"}`}
+                className={`flex-1 whitespace-nowrap rounded-full px-4 py-1.5 text-center text-sm font-semibold ${n === count ? "bg-accent text-white" : "text-ink-2 hover:text-accent"}`}
               >
                 Top {n}
               </Link>
             ))}
           </nav>
           <BankrollInput />
-          <p className="basis-full text-xs text-muted">
-            Indsatsforslag efter kvart-Kelly: en fjerdedel af det, Kelly-formlen giver ud fra chance og odds, højst 5 % af puljen. Er oddsen lavere end vores fair odds, er
-            der ingen værdi, og forslaget er en lille fast indsats på 1 %. Skøn, {STAKE_VERSION}.
-          </p>
+          <details className="basis-full text-xs text-muted">
+            <summary className="cursor-pointer font-medium text-accent underline underline-offset-2">Sådan regner vi indsatsen</summary>
+            <p className="mt-1.5 leading-relaxed">
+              Indsatsforslag efter kvart-Kelly: en fjerdedel af det, Kelly-formlen giver ud fra chance og odds, højst 5 % af puljen. Er oddsen lavere end vores fair odds, er
+              der ingen værdi, og forslaget er en lille fast indsats på 1 %. Skøn, {STAKE_VERSION}.
+            </p>
+          </details>
         </div>
       </aside>
 
       <div className="min-w-0 space-y-6">
-        <header className="space-y-2">
-          <div className="text-sm text-muted">{today.charAt(0).toUpperCase() + today.slice(1)}</div>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{tab === "bedste" ? "Dagens bedste bets" : tabLabel}</h1>
-          <p className="max-w-2xl text-[15px] text-ink-2">De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste.</p>
-          <p className="text-xs text-muted">
-            <span className="num">{scope.matches}</span> kampe i <span className="num">{scope.leagues}</span> {scope.leagues === 1 ? "liga" : "ligaer"} analyseret · odds opdateret kl.{" "}
-            <span className="num">{clock(t.feedTime)}</span>
-          </p>
-        </header>
 
         {q.gemt && SAVED_FLASH[q.gemt] && (
-          <div role="status" className={`rounded-2xl border px-4 py-3 text-sm ${q.gemt === "ok" ? "border-good/40 bg-good/10 text-good" : "border-warning/40 bg-warning/10 text-warning"}`}>
+          <div role="status" className={`rounded-[20px] border px-4 py-3 text-sm ${q.gemt === "ok" ? "border-good/40 bg-good/10 text-good" : "border-warning/40 bg-warning/10 text-warning"}`}>
             {SAVED_FLASH[q.gemt]} {q.gemt === "ok" && <Link href="/picks/liga" className="underline">Se vennerligaen</Link>}
           </div>
         )}
@@ -775,7 +781,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         {tab === "bedste" && <CouponCard coupons={coupons(couponPool)} />}
 
         {tab === "bedste" && recent && recent.settled > 0 && (
-          <Link href="/picks/resultater" className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-good/30 bg-good/5 px-4 py-3 text-sm hover:bg-good/10">
+          <Link href="/picks/resultater" className="flex flex-wrap items-center justify-between gap-2 rounded-[20px] bg-lime-soft px-5 py-4 text-[15px] text-accent hover:bg-[#d4f0c1]">
             <span>
               Sidste 7 dage: <span className="font-semibold">{recent.won} af {recent.settled}</span> bets gik hjem ({Math.round((recent.won / recent.settled) * 100)} %)
               {recent.withOdds > 0 && (
@@ -789,17 +795,10 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
                 </>
               )}
             </span>
-            <span className="text-ink-2">Se alle resultater →</span>
+            <span className="font-semibold underline underline-offset-2">Se alle resultater</span>
           </Link>
         )}
 
-        <p className="flex items-start gap-2.5 rounded-2xl border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-ink-2">
-          <span aria-hidden className="mt-px text-accent">ⓘ</span>
-          <span>
-            <span className="font-medium text-ink">Bets bliver mere præcise, når holdopstillingen er meldt.</span> Den kommer typisk en time før kampstart. Kig forbi igen tæt
-            på kampstart, eller hold øje med mærket &quot;Opstilling bekræftet&quot;.
-          </span>
-        </p>
 
         <div className="lg:hidden">
           <HitRates learning={allLearning} labels={TABS.filter((x) => x.id !== "straffe")} current={tab} days={LEARN_DAYS} source={t.dataLabel} returns={new Map(TABS.map((x) => [x.id, summarise(history.filter((h) => h.category === x.id))]))} />
@@ -807,7 +806,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
 
         <LiveNow type={tab} initial={live} />
 
-        {tab === "bedste" && <h2 className="text-xl font-semibold">Top {count} enkeltbets</h2>}
+        {tab === "bedste" && <h2 className="text-2xl font-extrabold tracking-[-0.02em]">Top {count} enkeltbets</h2>}
       {EXTRA[tab] ? (
         xPicks.length === 0 ? (
           <Empty title="Ingen kampe at vise lige nu" text="Der er ingen fodboldkampe med en analyse de næste 24 timer. Kig forbi igen senere." />
@@ -886,7 +885,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
 
       {learned && tab !== "straffe" && <LearningNote l={learned} />}
 
-      <section className="grid gap-4 rounded-2xl border border-line bg-surface p-5 text-sm text-ink-2 md:grid-cols-3">
+      <section className="grid gap-5 rounded-[28px] bg-surface-2 p-6 text-sm leading-relaxed text-ink-2 md:grid-cols-3">
         <div>
           <div className="mb-1 font-semibold text-ink">Hvad vi analyserer</div>
           Kampresultater og holdstyrke (Elo), forventede mål, xG-form, skader og karantæner, startopstillinger, form, indbyrdes opgør, bookmakernes odds,
@@ -907,6 +906,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         </p>
       </section>
       </div>
+    </div>
     </div>
   );
 }

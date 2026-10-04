@@ -5,10 +5,10 @@ import { fmtInt, fmtPeriod } from "@/lib/format";
 
 export function Panel({ title, right, children, className = "", id }: { title?: ReactNode; right?: ReactNode; children: ReactNode; className?: string; id?: string }) {
   return (
-    <section id={id} className={`scroll-mt-4 min-w-0 rounded-md border border-line bg-surface ${className}`}>
+    <section id={id} className={`scroll-mt-4 min-w-0 overflow-hidden rounded-[20px] border border-line bg-surface ${className}`}>
       {(title || right) && (
-        <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-2">{title}</h2>
+        <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+          <h2 className="text-[15px] font-bold text-accent">{title}</h2>
           {right && <div className="text-xs text-muted">{right}</div>}
         </header>
       )}
@@ -30,7 +30,7 @@ const toneClass: Record<Tone, string> = {
 
 export function Badge({ children, tone = "neutral", className = "" }: { children: ReactNode; tone?: Tone; className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-1 rounded border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider ${toneClass[tone]} ${className}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${toneClass[tone]} ${className}`}>
       {children}
     </span>
   );
@@ -74,11 +74,11 @@ export function MetricContextLine({ m, className = "" }: { m: Metric<unknown>; c
 
 export function StatTile({ label, value, m, hint }: { label: string; value: ReactNode; m?: Metric<unknown>; hint?: ReactNode }) {
   return (
-    <div className="rounded-md border border-line bg-surface px-4 py-3">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+    <div className="rounded-[20px] bg-surface-2 px-5 py-4">
+      <div className="text-[13px] font-semibold text-muted">
         {m ? <Tip text={m.definition}>{label}</Tip> : label}
       </div>
-      <div className="mt-1.5 text-2xl font-medium">{value}</div>
+      <div className="mt-1.5 text-[28px] font-extrabold tracking-[-0.02em] text-accent">{value}</div>
       {m ? <MetricContextLine m={m} className="mt-1" /> : hint && <p className="mt-1 text-[11px] text-muted">{hint}</p>}
     </div>
   );
@@ -86,10 +86,10 @@ export function StatTile({ label, value, m, hint }: { label: string; value: Reac
 
 export function PageHeader({ title, subtitle, right }: { title: string; subtitle?: ReactNode; right?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-4">
+    <div className="flex flex-wrap items-end justify-between gap-4 pb-2">
       <div>
-        <h1 className="text-lg font-semibold tracking-[0.08em] uppercase">{title}</h1>
-        {subtitle && <p className="mt-1 max-w-3xl text-sm text-ink-2">{subtitle}</p>}
+        <h1 className="display text-3xl text-accent sm:text-4xl">{title}</h1>
+        {subtitle && <p className="mt-3 max-w-3xl text-[16px] leading-relaxed text-ink-2">{subtitle}</p>}
       </div>
       {right}
     </div>
@@ -106,7 +106,7 @@ export function LinkTabs({ items, active, label }: { items: { id: string; label:
           href={t.href}
           scroll={false}
           aria-current={t.id === active ? "page" : undefined}
-          className={`rounded px-2 py-1 text-xs ${t.id === active ? "bg-surface-3 text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`}
+          className={`rounded-full px-3 py-1.5 text-sm font-medium ${t.id === active ? "bg-accent text-white" : "text-ink-2 hover:bg-surface-2 hover:text-accent"}`}
         >
           {t.label}
         </Link>

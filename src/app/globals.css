@@ -1,30 +1,35 @@
 @import "tailwindcss";
 
-/* Oddsanalyse theme. Dark by design, slate-blue surfaces; chart colours follow the validated
-   reference palette (dark steps), status colours are reserved for state. */
+/* Oddsanalyse theme. Light and calm: white canvas, deep moss green for brand and dark
+   sections, a lime highlight used sparingly (primary buttons, active menu). Flat: hairline
+   borders instead of drop shadows. Status colours are reserved for state and keep AA contrast
+   on white. */
 :root {
-  color-scheme: dark;
-  --page: #0b1016;
-  --surface: #121921;
-  --surface-2: #18212b;
-  --surface-3: #212c38;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.15);
-  --text: #f1f4f8;
-  --text-2: #b9c3ce;
-  --muted: #7f8b98;
-  --grid: #263240;
-  --axis: #344252;
-  --accent: #3b8cf0;
+  color-scheme: light;
+  --page: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f4f6f1;
+  --surface-3: #e8ebe6;
+  --border: rgba(14, 15, 12, 0.12);
+  --border-strong: rgba(14, 15, 12, 0.24);
+  --text: #0e0f0c;
+  --text-2: #454745;
+  --muted: #6a6c6a;
+  --grid: #e8ebe6;
+  --axis: #c9cdc5;
+  --accent: #163300; /* forest: brand, links, active text */
+  --lime: #9fe870; /* highlight fill, always with forest text */
+  --lime-soft: #e2f6d5; /* pale green wash for soft highlight surfaces */
+  --forest-2: #054d28;
 
-  --series-market: #3987e5; /* slot 1 blue */
-  --series-model: #d95926; /* slot 2 orange */
-  --series-3: #199e70; /* slot 3 aqua */
+  --series-market: #0b4c72; /* slot 1 blue */
+  --series-model: #c4501f; /* slot 2 orange */
+  --series-3: #12805a; /* slot 3 aqua */
 
-  --good: #2bb663;
-  --warning: #fab219;
-  --serious: #ec835a;
-  --critical: #d03b3b;
+  --good: #1f7a33;
+  --warning: #8a5a00;
+  --serious: #b4481c;
+  --critical: #cb272f;
 }
 
 @theme inline {
@@ -38,14 +43,17 @@
   --color-ink-2: var(--text-2);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
+  --color-lime: var(--lime);
+  --color-lime-soft: var(--lime-soft);
+  --color-forest-2: var(--forest-2);
   --color-market: var(--series-market);
   --color-model: var(--series-model);
   --color-good: var(--good);
   --color-warning: var(--warning);
   --color-serious: var(--serious);
   --color-critical: var(--critical);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-inter);
 }
 
 html,
@@ -55,17 +63,17 @@ body {
 }
 
 body {
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
 }
 
 .num {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
 }
 
 ::selection {
-  background: rgba(57, 135, 229, 0.35);
+  background: var(--lime);
 }
 
 /* Hover tooltips for metric definitions (keyboard accessible via focus). */
@@ -80,9 +88,9 @@ body {
   left: 0;
   width: min(320px, 80vw);
   padding: 10px 12px;
-  background: var(--surface-3);
+  background: var(--surface);
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: 10px;
   color: var(--text-2);
   font-size: 12px;
   line-height: 1.45;
@@ -90,9 +98,16 @@ body {
   text-transform: none;
   letter-spacing: normal;
   white-space: normal;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 }
 .tip:hover > .tip-body,
 .tip:focus-within > .tip-body {
   display: block;
+}
+
+/* Display headlines: heavy and tight, as in the reference style. */
+.display {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
 }

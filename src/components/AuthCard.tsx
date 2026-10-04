@@ -4,15 +4,15 @@ import { Logo } from "./Logo";
 /** The login and signup box: logo, the two tabs, and the form. */
 export function AuthCard({ mode, next, notice, inviteOnly, children }: { mode: "login" | "signup"; next: string; notice?: string; inviteOnly: boolean; children: React.ReactNode }) {
   const q = next !== "/picks" ? `?next=${encodeURIComponent(next)}` : "";
-  const tab = (active: boolean) => `flex-1 rounded-lg py-2 text-center text-sm font-medium ${active ? "bg-surface-3 text-ink" : "text-ink-2 hover:text-ink"}`;
+  const tab = (active: boolean) => `flex-1 rounded-full py-2 text-center text-sm font-semibold ${active ? "bg-accent text-white" : "text-accent/80 hover:text-accent"}`;
   return (
     <div className="space-y-6">
-      <div className="flex flex-col items-center gap-3 text-center">
+      <div className="flex flex-col items-start gap-3">
         <Logo />
         <p className="text-sm text-ink-2">Dagens bedste fodbold-bets. {inviteOnly ? "Kun for inviterede venner." : "Log ind eller opret en gratis konto."}</p>
       </div>
-      <div className="rounded-2xl border border-line bg-surface p-6 shadow-2xl shadow-black/30">
-        <div className="mb-5 flex gap-1 rounded-xl bg-surface-2 p-1">
+      <div className="rounded-[28px] border border-line bg-surface p-6">
+        <div className="mb-5 flex gap-1 rounded-full bg-surface-2 p-1">
           <Link href={`/login${q}`} aria-current={mode === "login" ? "page" : undefined} className={tab(mode === "login")}>
             Log ind
           </Link>

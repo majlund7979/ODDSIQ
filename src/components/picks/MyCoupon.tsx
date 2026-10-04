@@ -14,9 +14,9 @@ export function MyCoupon() {
   const m = couponMath(legs);
   if (!m) return null;
   return (
-    <section className="sticky bottom-20 z-20 overflow-hidden rounded-2xl border border-accent/40 bg-surface shadow-lg lg:bottom-4">
+    <section className="sticky bottom-24 z-20 overflow-hidden rounded-[20px] border border-line bg-surface shadow-[0_10px_32px_rgba(0,0,0,0.15)] lg:bottom-4">
       <div className="flex items-center justify-between border-b border-line px-5 py-2.5">
-        <span className="text-sm font-semibold">
+        <span className="text-[15px] font-bold text-accent">
           Din kupon · {m.legs} {m.legs === 1 ? "bet" : "bets"}
         </span>
         <button type="button" onClick={clearLegs} className="text-xs text-muted hover:text-ink">
