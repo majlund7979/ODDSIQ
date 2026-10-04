@@ -7,6 +7,7 @@ import { DataSourceNotConfiguredError, DEMO_MODE } from "@/lib/data";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { configuredStatsFeed } from "@/lib/stats/config";
 import { refreshLineupsOnVisit } from "@/lib/stats/lineups";
+import { settleOnVisit } from "@/lib/providers/settle-on-visit";
 import { ALERT_TYPES, marketAlerts, type MarketAlert } from "@/lib/demo/alerts";
 import { BOOKMAKERS } from "@/lib/demo/catalog";
 import { demoPersonal, type PersonalCtx } from "@/lib/demo/personal";
@@ -89,8 +90,9 @@ async function liveSnapshot(now: number, fresh: boolean): Promise<RealSnapshot> 
         rebuilding = null;
       }));
   if (latest && now - latest.at < FRESH_MS) return latest.snap;
-  // Lineups near kickoff, after the response; the next snapshot shows them.
+  // Lineups near kickoff and results of finished matches, after the response; the next snapshot shows them.
   after(() => lineupsOnVisit(now));
+  after(() => resultsOnVisit(now));
   if (latest && now - latest.at < STALE_MS) {
     const stale = latest.snap;
     after(() => rebuild().catch(() => undefined));
@@ -105,6 +107,11 @@ async function lineupsOnVisit(now: number): Promise<void> {
   const s = await refreshLineupsOnVisit(db(), feed, now).catch(() => null);
   // New lineups change the picks, so the next visit gets a fresh snapshot.
   if (s?.fetched) latest = null;
+}
+
+async function resultsOnVisit(now: number): Promise<void> {
+  const s = await settleOnVisit(db(), now).catch(() => null);
+  if (s?.some((x) => x.results > 0)) latest = null;
 }
 
 /** `fresh` skips every cache, for the data runs that have just written new odds and results. */

@@ -236,28 +236,10 @@ export async function ingest(prisma: PrismaClient, feed: OddsFeed, opts: IngestO
         }
       }
 
-      // Results cost credits, so only ask when a stored event has kicked off and is unsettled.
-      const pending = await prisma.event.count({ where: { leagueId, status: { not: "finished" }, kickoff: { lt: new Date(settleBefore), gt: new Date(now - 3 * DAY) } } });
-      if (pending > 0) {
-        const res = await feed.results(key, 3);
-        quota = res.quota;
-        for (const r of res.data) {
-          if (r.homeScore === null || r.awayScore === null || r.kickoff > now) continue;
-          const ids = feedIds(prefix, r);
-          const ev = await prisma.event.findUnique({ where: { id: ids.eventId }, select: { status: true, markets: { select: { type: true, selections: { select: { id: true } } } } } });
-          if (!ev || ev.status === "finished") continue;
-          await prisma.scoreUpdate.create({ data: { eventId: ids.eventId, observedAt: new Date(now), homeScore: r.homeScore, awayScore: r.awayScore, completed: r.completed } });
-          scores++;
-          if (!r.completed) continue;
-          await prisma.event.update({ where: { id: ids.eventId }, data: { status: "finished", homeScore: r.homeScore, awayScore: r.awayScore } });
-          for (const m of ev.markets) {
-            for (const sel of MARKET_SELECTIONS[m.type as FeedMarketType] ?? []) {
-              await prisma.selection.update({ where: { id: ids.selectionId(m.type as FeedMarketType, sel) }, data: { result: settle(m.type, sel, r.homeScore, r.awayScore) } });
-            }
-          }
-          results++;
-        }
-      }
+      const settled = await settleLeague(prisma, feed, prefix, key, now, settleBefore);
+      if (settled.quota) quota = settled.quota;
+      scores += settled.scores;
+      results += settled.results;
     }
   } catch (e) {
     // Keep the last line: database errors carry a long code excerpt before the cause.
@@ -275,6 +257,46 @@ export async function ingest(prisma: PrismaClient, feed: OddsFeed, opts: IngestO
     update: { status: error ? "degraded" : "ok", ...(error ? {} : { lastSyncAt: finishedAt }) },
   });
   return { runId: run.id.toString(), competitions: opts.competitionKeys, events, snapshots, inPlay, scores, results, oddsFetched: fetchKeys, oddsSkipped: opts.competitionKeys.filter((k) => !fetchKeys.includes(k)), unknown, quota, error };
+}
+
+/**
+ * Results for one competition: asks the feed only when a stored event has kicked off before
+ * `settleBefore` (and within three days) and is unsettled, since results cost credits.
+ */
+export async function settleLeague(prisma: PrismaClient, feed: OddsFeed, prefix: string, key: string, now: number, settleBefore: number): Promise<{ scores: number; results: number; quota: FeedQuota | null }> {
+  const out = { scores: 0, results: 0, quota: null as FeedQuota | null };
+  const leagueId = `${prefix}-${key}`;
+  const pending = await prisma.event.count({ where: { leagueId, status: { not: "finished" }, kickoff: { lt: new Date(settleBefore), gt: new Date(now - 3 * DAY) } } });
+  if (pending === 0) return out;
+  const res = await feed.results(key, 3);
+  out.quota = res.quota;
+  for (const r of res.data) {
+    if (r.homeScore === null || r.awayScore === null || r.kickoff > now) continue;
+    const ids = feedIds(prefix, r);
+    const ev = await prisma.event.findUnique({ where: { id: ids.eventId }, select: { status: true, markets: { select: { type: true, selections: { select: { id: true } } } } } });
+    if (!ev || ev.status === "finished") continue;
+    await prisma.scoreUpdate.create({ data: { eventId: ids.eventId, observedAt: new Date(now), homeScore: r.homeScore, awayScore: r.awayScore, completed: r.completed } });
+    out.scores++;
+    if (!r.completed) continue;
+    await prisma.event.update({ where: { id: ids.eventId }, data: { status: "finished", homeScore: r.homeScore, awayScore: r.awayScore } });
+    for (const m of ev.markets) {
+      for (const sel of MARKET_SELECTIONS[m.type as FeedMarketType] ?? []) {
+        await prisma.selection.update({ where: { id: ids.selectionId(m.type as FeedMarketType, sel) }, data: { result: settle(m.type, sel, r.homeScore, r.awayScore) } });
+      }
+    }
+    out.results++;
+  }
+  return out;
+}
+
+/** Competitions (keys without the prefix) with a stored event over and still unsettled. */
+export async function competitionsToSettle(prisma: PrismaClient, prefix: string, now: number): Promise<string[]> {
+  const rows = await prisma.event.findMany({
+    where: { leagueId: { startsWith: `${prefix}-` }, status: { not: "finished" }, kickoff: { lt: new Date(now - SETTLE_AFTER_MS), gt: new Date(now - 3 * DAY) } },
+    select: { leagueId: true },
+    distinct: ["leagueId"],
+  });
+  return rows.map((r) => r.leagueId.slice(prefix.length + 1));
 }
 
 /** A football match, half-time and stoppage included, is over well within this. */
