@@ -79,3 +79,23 @@ export async function refreshLineups(prisma: PrismaClient, feed: StatsFeed, opts
   }
   return s;
 }
+
+/** A page visit checks for lineups at most this often. */
+export const LINEUP_VISIT_INTERVAL_MS = 4 * MIN;
+const VISIT_SYNC_ID = "lineups:visit";
+
+/**
+ * GitHub runs the ten-minute schedule late or not at all (on 2026-10-04 the
+ * lineup job ran once in an hour and a half), so visits also look for lineups.
+ * Claiming the slot is one conditional write, so only one server instance
+ * calls the provider per interval; returns null when another visit already did.
+ */
+export async function refreshLineupsOnVisit(prisma: PrismaClient, feed: StatsFeed, now = Date.now()): Promise<LineupRefreshSummary | null> {
+  const before = new Date(now - LINEUP_VISIT_INTERVAL_MS);
+  const claimed = await prisma.playerStatsSync.updateMany({ where: { id: VISIT_SYNC_ID, fetchedAt: { lt: before } }, data: { fetchedAt: new Date(now) } });
+  if (claimed.count === 0) {
+    const created = await prisma.playerStatsSync.createMany({ data: [{ id: VISIT_SYNC_ID, fetchedAt: new Date(now) }], skipDuplicates: true });
+    if (created.count === 0) return null;
+  }
+  return refreshLineups(prisma, feed, { now, maxRequests: 10 });
+}
