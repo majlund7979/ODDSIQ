@@ -8,6 +8,7 @@ import { demoFriendBets } from "@/lib/demo/friends";
 import { betProfit, displayName, LEAGUE_PERIODS, leagueTable, monthStart, type FriendBet } from "@/lib/friends";
 import { CATEGORY_LABEL } from "@/lib/pick-categories";
 import { readFriendBets } from "@/lib/real/friend-bets";
+import { readFriendCoupons } from "@/lib/real/friend-coupons";
 import { terminal } from "@/lib/terminal";
 import { Tile } from "@/components/picks/Overview";
 
@@ -34,7 +35,10 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
   const period = LEAGUE_PERIODS.find((p) => p.id === q.periode)?.id ?? "maaned";
   const since = period === "maaned" ? monthStart(t.now) : null;
   const profile = user ? await db().user.findUnique({ where: { id: user.id }, select: { displayName: true, morningEmail: true, email: true } }) : null;
-  const bets = DEMO_MODE ? demoFriendBets(t.now).filter((b) => since === null || b.kickoff >= since) : ACCOUNTS_ENABLED ? await readFriendBets(db(), t.now, since) : [];
+  const singles = DEMO_MODE ? demoFriendBets(t.now).filter((b) => since === null || b.kickoff >= since) : ACCOUNTS_ENABLED ? await readFriendBets(db(), t.now, since) : [];
+  // Played coupons are real account data, so they show in demo mode too.
+  const coupons = ACCOUNTS_ENABLED ? await readFriendCoupons(db(), t.now, since) : [];
+  const bets = [...singles, ...coupons].sort((a, b) => b.kickoff - a.kickoff);
   const table = leagueTable(bets);
   const recent = bets.slice(0, RECENT);
   const back = `/picks/liga${period !== "maaned" ? `?periode=${period}` : ""}`;
@@ -55,7 +59,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
           <div>
             <h1 className="display text-[40px] text-ink sm:text-5xl">Vennerligaen</h1>
             <p className="mt-2 max-w-2xl text-[15px] text-ink-2">
-              Gem de bets, du spiller, med &quot;Gem bet&quot; på Dagens bedste bets. Her kan I se, hvem der rammer flest, og hvem der tjener mest.
+              Gem de bets, du spiller, med &quot;Gem bet&quot; eller &quot;Spil kupon&quot; på Dagens bedste bets. Her kan I se, hvem der rammer flest, og hvem der tjener mest.
             </p>
           </div>
           <nav aria-label="Periode" className="flex rounded-full border border-line bg-surface p-1">
@@ -184,28 +188,53 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
         ) : (
           <ul className="divide-y divide-line">
             {recent.map((b) => (
-              <li key={b.id} className="flex items-center gap-3 px-5 py-2.5">
+              <li key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-2.5">
                 <Mark r={b.result} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">
-                    {b.name} · {b.outcome}
+                {b.legs ? (
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2 text-sm font-medium">
+                      <span className="truncate">{b.name}</span>
+                      <span className="shrink-0 rounded-full border border-accent/40 bg-lime-soft px-1.5 text-[10px] font-semibold text-accent">Kupon · {b.outcome}</span>
+                    </span>
+                    <span className="block truncate text-xs text-muted">
+                      {pct(b.probability)} chance for alle · sidste kamp {when(b.kickoff)}
+                    </span>
                   </span>
-                  <span className="block truncate text-xs text-muted">
-                    {b.match.replace(" vs ", " – ")} · {CATEGORY_LABEL[b.category] ?? b.category} · {when(b.kickoff)}
+                ) : (
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">
+                      {b.name} · {b.outcome}
+                    </span>
+                    <span className="block truncate text-xs text-muted">
+                      {b.match.replace(" vs ", " – ")} · {CATEGORY_LABEL[b.category] ?? b.category} · {when(b.kickoff)}
+                    </span>
                   </span>
-                </span>
+                )}
                 <span className="num shrink-0 text-right text-sm">
                   {b.stake} kr{b.odds ? ` · ${dec(b.odds)}` : ""}
                   {b.result && b.odds ? <span className={`block text-xs ${b.result === "won" ? "text-good" : "text-serious"}`}>{kr(betProfit(b))}</span> : null}
                 </span>
-                {user && b.userId === user.id && b.kickoff > t.now && (
+                {user && b.userId === user.id && (b.legs ? b.legs.every((l) => l.kickoff > t.now) : b.kickoff > t.now) && (
                   <form action={deleteBet}>
                     <input type="hidden" name="id" value={b.id} />
                     <input type="hidden" name="back" value={back} />
-                    <button type="submit" className="text-xs text-muted hover:text-critical" aria-label="Slet bet">
+                    <button type="submit" className="text-xs text-muted hover:text-critical" aria-label={b.legs ? "Slet kupon" : "Slet bet"}>
                       Slet
                     </button>
                   </form>
+                )}
+                {b.legs && (
+                  <ul className="w-full min-w-0 basis-full space-y-1 border-l-2 border-line pl-3 sm:ml-9 sm:w-auto">
+                    {b.legs.map((l, i) => (
+                      <li key={i} className="flex items-center gap-2 text-xs">
+                        <span className={l.result === "won" ? "text-good" : l.result === "lost" ? "text-critical" : "text-muted"}>{l.result === "won" ? "✓" : l.result === "lost" ? "✗" : "…"}</span>
+                        <span className="min-w-0 flex-1 truncate">
+                          <span className="font-medium text-ink">{l.outcome}</span> <span className="text-muted">{l.match.replace(" vs ", " – ")} · {when(l.kickoff)}</span>
+                        </span>
+                        <span className="num shrink-0 text-muted">{pct(l.probability)}</span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </li>
             ))}
