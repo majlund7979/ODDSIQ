@@ -3,7 +3,7 @@ export interface NavItem {
   label: string;
   /** Short label for the mobile tab bar. */
   short: string;
-  icon: "bets" | "tips" | "results" | "news" | "league" | "friends" | "admin" | "account";
+  icon: "bets" | "search" | "tips" | "results" | "news" | "league" | "friends" | "admin" | "account";
   /** False keeps it out of the phone tab bar (it is linked from Min konto instead). */
   mobile?: false;
 }
@@ -11,6 +11,7 @@ export interface NavItem {
 /** The site's menu. The old terminal pages were removed; their URLs redirect to /picks (next.config.ts). */
 export const SIMPLE_NAV: NavItem[] = [
   { href: "/picks", label: "Dagens bets", short: "Bets", icon: "bets" },
+  { href: "/picks/spillere", label: "Søg hold", short: "Hold", icon: "search" },
   { href: "/tips", label: "Ugens tips", short: "Tips", icon: "tips" },
   { href: "/picks/resultater", label: "Vores resultater", short: "Resultater", icon: "results" },
   { href: "/nyheder", label: "Nyheder", short: "Nyheder", icon: "news" },
