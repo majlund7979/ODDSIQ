@@ -51,7 +51,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
         <Link href="/picks" className="text-sm text-muted hover:text-ink">
           ← Dagens bedste bets
         </Link>
-        <h1 className="display text-[40px] text-accent sm:text-5xl">Resultater</h1>
+        <h1 className="display text-[40px] text-ink sm:text-5xl">Resultater</h1>
         <p className="max-w-2xl text-[15px] text-ink-2">Sådan gik de bets, siden viste de sidste 7 dage. Hvert bet tælles første gang, det blev vist.</p>
       </header>
 

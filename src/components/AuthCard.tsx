@@ -4,7 +4,7 @@ import { Logo } from "./Logo";
 /** The login and signup box: logo, the two tabs, and the form. */
 export function AuthCard({ mode, next, notice, inviteOnly, children }: { mode: "login" | "signup"; next: string; notice?: string; inviteOnly: boolean; children: React.ReactNode }) {
   const q = next !== "/picks" ? `?next=${encodeURIComponent(next)}` : "";
-  const tab = (active: boolean) => `flex-1 rounded-full py-2 text-center text-sm font-semibold ${active ? "bg-accent text-white" : "text-accent/80 hover:text-accent"}`;
+  const tab = (active: boolean) => `flex-1 rounded-full py-2 text-center text-sm font-semibold ${active ? "bg-accent text-white" : "text-ink-2 hover:text-ink"}`;
   return (
     <div className="space-y-6">
       <div className="flex flex-col items-start gap-3">

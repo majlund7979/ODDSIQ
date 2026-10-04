@@ -1,10 +1,10 @@
 export default function SiteLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <section className="flex flex-col justify-end bg-accent px-6 pt-14 pb-10 text-white lg:justify-center lg:px-16">
+      <section className="flex flex-col justify-end border-b border-line bg-[radial-gradient(ellipse_at_top_left,rgba(59,140,240,0.22),transparent_65%)] px-6 pt-14 pb-10 lg:border-r lg:border-b-0 lg:justify-center lg:px-16">
         <div className="max-w-md space-y-5">
-          <h1 className="display text-5xl text-lime sm:text-6xl">Dagens bedste bets, forklaret.</h1>
-          <ul className="space-y-2 text-[17px] text-white/85">
+          <h1 className="display text-5xl text-ink sm:text-6xl">Dagens bedste bets, forklaret.</h1>
+          <ul className="space-y-2 text-[17px] text-ink-2">
             <li>Chancen for hvert bet i procent, med begrundelse.</li>
             <li>Bedste odds hos bookmakerne, og om der er værdi.</li>
             <li>Alle resultater vises, også de tabte.</li>

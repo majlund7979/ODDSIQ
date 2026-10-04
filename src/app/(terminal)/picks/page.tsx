@@ -52,9 +52,9 @@ function Gauge({ p }: { p: number }) {
   const pct = Math.round(p * 100);
   return (
     <div className="w-24 shrink-0 text-center">
-      <div className="num text-[34px] font-extrabold leading-none tracking-[-0.03em] text-accent">{pct}%</div>
+      <div className="num text-[34px] font-extrabold leading-none tracking-[-0.03em] text-ink">{pct}%</div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-3" aria-hidden>
-        <div className={`h-full rounded-full ${p >= 0.7 ? "bg-good" : "bg-forest-2/70"}`} style={{ width: `${pct}%` }} />
+        <div className={`h-full rounded-full ${p >= 0.7 ? "bg-good" : "bg-accent"}`} style={{ width: `${pct}%` }} />
       </div>
       <div className="mt-1.5 text-[11px] text-muted">chance</div>
     </div>
@@ -85,7 +85,7 @@ function CardTop({ rank, league, kickoff, probability, now }: { rank: number; le
 function NewsBlock({ home, away }: { home: string; away: string }) {
   return (
     <div className="space-y-2.5 border-t border-line pt-5 md:col-span-2">
-      <div className="text-[13px] font-semibold text-accent">Nyheder om holdene</div>
+      <div className="text-[13px] font-semibold text-ink-2">Nyheder om holdene</div>
       <TeamNews home={home} away={away} />
     </div>
   );
@@ -149,7 +149,7 @@ function BookTable({ quotes, fairOdds, marketOnly }: { quotes: Pick["row"]["quot
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <div className="text-[13px] font-semibold text-accent">{label}</div>
+      <div className="text-[13px] font-semibold text-ink-2">{label}</div>
       <div className="text-sm">{children}</div>
     </div>
   );
@@ -192,7 +192,7 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
   return (
     <div className="grid gap-6 border-t border-line px-5 py-5 md:grid-cols-2">
       <div className="space-y-2 md:col-span-2">
-        <div className="text-[13px] font-semibold text-accent">Hvorfor dette bet</div>
+        <div className="text-[13px] font-semibold text-ink-2">Hvorfor dette bet</div>
         {explainPick(p).map((s, k) => (
           <p key={k} className="text-[15px] leading-relaxed text-ink-2">
             {s}
@@ -200,7 +200,7 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
         ))}
       </div>
       <div className="space-y-3">
-        <div className="text-[13px] font-semibold text-accent">Sådan er procenten regnet ud</div>
+        <div className="text-[13px] font-semibold text-ink-2">Sådan er procenten regnet ud</div>
         <ul className="space-y-3">
           {p.factors.map((f) => (
             <li key={f.label} className="space-y-1">
@@ -521,17 +521,17 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
       ) : (
         <div className="grid items-start gap-4 md:grid-cols-2">
           {coupons.map((c) => (
-            <article key={c.picks.length} className="flex flex-col overflow-hidden rounded-[20px] bg-lime-soft text-accent">
+            <article key={c.picks.length} className="flex flex-col overflow-hidden rounded-[20px] border border-accent/40 bg-lime-soft">
               <div className="flex items-end justify-between gap-3 px-5 pt-5">
                 <div>
                   <div className="text-[13px] font-bold text-accent">{c.picks.length} bets</div>
-                  <div className="text-xs text-accent/70">{c.kind === "odds" ? `Samlet odds mindst ${dec(COUPON_MIN_ODDS, 1)}` : "Valgt efter værdi og sandsynlighed"}</div>
+                  <div className="text-xs text-muted">{c.kind === "odds" ? `Samlet odds mindst ${dec(COUPON_MIN_ODDS, 1)}` : "Valgt efter værdi og sandsynlighed"}</div>
                   <div className="num mt-2 text-[40px] font-extrabold leading-none tracking-[-0.03em]">{dec(c.odds)}</div>
-                  <div className="mt-1 text-xs text-accent/70">samlet odds</div>
+                  <div className="mt-1 text-xs text-muted">samlet odds</div>
                 </div>
                 <div className="text-right">
                   <div className="num text-[28px] font-extrabold leading-none tracking-[-0.02em]">{Math.round(c.probability * 100)}%</div>
-                  <div className="mt-1 text-xs text-accent/70">chance for at alle går hjem</div>
+                  <div className="mt-1 text-xs text-muted">chance for at alle går hjem</div>
                 </div>
               </div>
               <ul className="mx-3 mt-4 divide-y divide-line rounded-2xl bg-surface text-ink">
@@ -550,10 +550,10 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
                   </li>
                 ))}
               </ul>
-              <div className="px-5 py-3.5 text-sm text-accent/80">
-                100 kr giver <span className="num font-bold text-accent">{Math.round(c.odds * 100)} kr</span>, hvis alle går hjem
+              <div className="px-5 py-3.5 text-sm text-ink-2">
+                100 kr giver <span className="num font-bold text-ink">{Math.round(c.odds * 100)} kr</span>, hvis alle går hjem
                 {c.kind === "value" && (
-                  <span className="mt-1 block text-xs text-accent/70">
+                  <span className="mt-1 block text-xs text-muted">
                     Værdi i {c.valueLegs} af {c.picks.length} bets
                     {c.valueLegs === 0 ? " (ingen af dagens bets har værdi, så kuponen tager de mest sandsynlige)" : c.valueLegs < c.picks.length ? ", resten er dagens mest sandsynlige" : ""}. Estimeret tilbagebetaling i snit:{" "}
                     <span className="num">{Math.round(c.expectedReturn * 100)} kr</span> pr. 100 kr (vores sandsynlighed × odds, ikke en garanti).
@@ -703,11 +703,11 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <header className="rounded-[28px] bg-accent px-6 py-6 text-white sm:px-10 sm:py-10">
-        <div className="text-sm font-medium text-white/70">{today.charAt(0).toUpperCase() + today.slice(1)}</div>
-        <h1 className="display mt-2 text-[36px] text-lime sm:text-6xl">{tab === "bedste" ? "Dagens bedste bets" : tabLabel}</h1>
-        <p className="mt-3 max-w-2xl text-[16px] leading-relaxed text-white/90 sm:mt-4 sm:text-[17px]">De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste.</p>
-        <p className="mt-3 text-sm text-white/70">
+      <header className="rounded-[28px] border border-line bg-gradient-to-br from-accent/15 to-surface px-6 py-6 sm:px-10 sm:py-10">
+        <div className="text-sm font-medium text-muted">{today.charAt(0).toUpperCase() + today.slice(1)}</div>
+        <h1 className="display mt-2 text-[36px] text-ink sm:text-6xl">{tab === "bedste" ? "Dagens bedste bets" : tabLabel}</h1>
+        <p className="mt-3 max-w-2xl text-[16px] leading-relaxed text-ink-2 sm:mt-4 sm:text-[17px]">De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste.</p>
+        <p className="mt-3 text-sm text-muted">
           <span className="num">{scope.matches}</span> kampe i <span className="num">{scope.leagues}</span> {scope.leagues === 1 ? "liga" : "ligaer"} analyseret · odds opdateret kl.{" "}
           <span className="num">{clock(t.feedTime)}</span>
           <span className="hidden sm:inline"> · procenterne bliver mere præcise, når holdopstillingen er meldt, typisk en time før kampstart</span>
@@ -781,7 +781,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         {tab === "bedste" && <CouponCard coupons={coupons(couponPool)} />}
 
         {tab === "bedste" && recent && recent.settled > 0 && (
-          <Link href="/picks/resultater" className="flex flex-wrap items-center justify-between gap-2 rounded-[20px] bg-lime-soft px-5 py-4 text-[15px] text-accent hover:bg-[#d4f0c1]">
+          <Link href="/picks/resultater" className="flex flex-wrap items-center justify-between gap-2 rounded-[20px] bg-lime-soft px-5 py-4 text-[15px] text-accent hover:brightness-125">
             <span>
               Sidste 7 dage: <span className="font-semibold">{recent.won} af {recent.settled}</span> bets gik hjem ({Math.round((recent.won / recent.settled) * 100)} %)
               {recent.withOdds > 0 && (

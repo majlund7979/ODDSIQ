@@ -46,7 +46,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
         </Link>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="display text-[40px] text-accent sm:text-5xl">Vennerligaen</h1>
+            <h1 className="display text-[40px] text-ink sm:text-5xl">Vennerligaen</h1>
             <p className="mt-2 max-w-2xl text-[15px] text-ink-2">
               Gem de bets, du spiller, med &quot;Gem bet&quot; på Dagens bedste bets. Her kan I se, hvem der rammer flest, og hvem der tjener mest.
             </p>
@@ -192,7 +192,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
               <input type="checkbox" name="morningEmail" defaultChecked={profile.morningEmail} className="h-4 w-4 accent-[var(--accent)]" />
               Send mig dagens top 5 på mail hver morgen
             </label>
-            <button type="submit" className="rounded-full bg-lime px-4 py-1.5 text-sm font-semibold text-accent hover:bg-[#8fdc5c]">
+            <button type="submit" className="rounded-full bg-lime px-4 py-1.5 text-sm font-semibold text-accent hover:brightness-125">
               Gem
             </button>
           </form>

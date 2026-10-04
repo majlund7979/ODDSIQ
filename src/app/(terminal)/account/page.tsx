@@ -26,7 +26,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <h1 className="display text-[40px] text-accent sm:text-5xl">Min konto</h1>
+      <h1 className="display text-[40px] text-ink sm:text-5xl">Min konto</h1>
       {billing && NOTICE[billing] && <p className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink-2">{NOTICE[billing]}</p>}
 
       <section className="flex items-center gap-4 rounded-[20px] border border-line bg-surface p-5">
