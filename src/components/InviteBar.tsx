@@ -44,7 +44,7 @@ export function InviteBar({ count }: { count: number | null }) {
           <span className="flex items-center gap-1.5 pr-1 text-sm text-ink-2" title={`Live tal: ${count} konti oprettet i alt, fra vores database.`}>
             {people}
             <span className="num font-semibold text-ink">{count}</span>
-            <span className="hidden xl:inline">tilmeldt</span>
+            <span className="hidden 2xl:inline">tilmeldt</span>
           </span>
         )}
         <button

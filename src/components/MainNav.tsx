@@ -6,6 +6,12 @@ import type { NavItem } from "./nav";
 
 const ICONS: Record<NavItem["icon"], React.ReactNode> = {
   bets: <path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7L12 3z" />,
+  search: (
+    <>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="M15.5 15.5L21 21" />
+    </>
+  ),
   tips: (
     <>
       <rect x="3" y="4" width="18" height="16" rx="2.5" />
@@ -51,7 +57,7 @@ function activeHref(pathname: string, items: NavItem[]) {
 export function TopNav({ items }: { items: NavItem[] }) {
   const active = activeHref(usePathname(), items);
   return (
-    <nav aria-label="Menu" className="hidden items-center gap-1 rounded-full bg-surface-2 p-1 lg:flex">
+    <nav aria-label="Menu" className="hidden items-center gap-1 rounded-full bg-surface-2 p-1 xl:flex">
       {items.map((i) => (
         <Link
           key={i.href}
@@ -70,7 +76,7 @@ export function TopNav({ items }: { items: NavItem[] }) {
 export function BottomNav({ items }: { items: NavItem[] }) {
   const active = activeHref(usePathname(), items);
   return (
-    <nav aria-label="Menu" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-page pb-[env(safe-area-inset-bottom)] lg:hidden">
+    <nav aria-label="Menu" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-page pb-[env(safe-area-inset-bottom)] xl:hidden">
       <div className="mx-auto flex max-w-md">
         {items.filter((i) => i.mobile !== false).map((i) => (
           <Link
@@ -79,7 +85,7 @@ export function BottomNav({ items }: { items: NavItem[] }) {
             aria-current={i.href === active ? "page" : undefined}
             className={`flex flex-1 flex-col items-center gap-1 py-2 text-[11px] font-semibold ${i.href === active ? "text-accent" : "text-muted"}`}
           >
-            <span className={`flex h-8 w-14 items-center justify-center rounded-full ${i.href === active ? "bg-lime" : ""}`}>
+            <span className={`flex h-8 w-12 items-center justify-center rounded-full ${i.href === active ? "bg-lime" : ""}`}>
               <Icon name={i.icon} />
             </span>
             {i.short}
