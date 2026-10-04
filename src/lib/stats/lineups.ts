@@ -91,11 +91,14 @@ const VISIT_SYNC_ID = "lineups:visit";
  * calls the provider per interval; returns null when another visit already did.
  */
 export async function refreshLineupsOnVisit(prisma: PrismaClient, feed: StatsFeed, now = Date.now()): Promise<LineupRefreshSummary | null> {
-  const before = new Date(now - LINEUP_VISIT_INTERVAL_MS);
-  const claimed = await prisma.playerStatsSync.updateMany({ where: { id: VISIT_SYNC_ID, fetchedAt: { lt: before } }, data: { fetchedAt: new Date(now) } });
-  if (claimed.count === 0) {
-    const created = await prisma.playerStatsSync.createMany({ data: [{ id: VISIT_SYNC_ID, fetchedAt: new Date(now) }], skipDuplicates: true });
-    if (created.count === 0) return null;
-  }
+  if (!(await claimSlot(prisma, VISIT_SYNC_ID, LINEUP_VISIT_INTERVAL_MS, now))) return null;
   return refreshLineups(prisma, feed, { now, maxRequests: 10 });
+}
+
+/** True for the one caller that gets slot `id` this interval (one conditional write; first use creates it). */
+export async function claimSlot(prisma: PrismaClient, id: string, intervalMs: number, now: number): Promise<boolean> {
+  const claimed = await prisma.playerStatsSync.updateMany({ where: { id, fetchedAt: { lt: new Date(now - intervalMs) } }, data: { fetchedAt: new Date(now) } });
+  if (claimed.count > 0) return true;
+  const created = await prisma.playerStatsSync.createMany({ data: [{ id, fetchedAt: new Date(now) }], skipDuplicates: true });
+  return created.count > 0;
 }
