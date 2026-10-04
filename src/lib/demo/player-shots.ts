@@ -30,7 +30,11 @@ export function demoSquad(team: string, now: number): PlayerSeason[] {
     const appearances = Math.min(games, lineups + Math.round(rng.next() * 2));
     const minutes = lineups * (70 + Math.round(rng.next() * 20)) + (appearances - lineups) * 20;
     const shotsOn = Math.round(((rate * (0.6 + rng.next() * 0.8)) * minutes) / 90);
-    return { playerId: i + 1, name: `DEMO ${team} nr. ${number}`, position, appearances, lineups, minutes, shotsOn, shotsTotal: shotsOn * 2, goals: Math.round(shotsOn * 0.35), injured: false };
+    // Drawn after the shots so the shots-on-target picks stay the same as before.
+    const assists = Math.round((position === "Goalkeeper" ? 0 : position === "Defender" ? 0.5 : 1.5) * rng.next() * (minutes / 450));
+    const foulsCommitted = Math.round((position === "Goalkeeper" ? 0.1 : position === "Attacker" ? 1 : 1.4) * (0.6 + rng.next() * 0.8) * (minutes / 90));
+    const foulsDrawn = Math.round((position === "Goalkeeper" ? 0.1 : position === "Defender" ? 0.6 : 1.3) * (0.6 + rng.next() * 0.8) * (minutes / 90));
+    return { playerId: i + 1, name: `DEMO ${team} nr. ${number}`, position, appearances, lineups, minutes, shotsOn, shotsTotal: shotsOn * 2, goals: Math.round(shotsOn * 0.35), assists, foulsCommitted, foulsDrawn, injured: false };
   });
 }
 

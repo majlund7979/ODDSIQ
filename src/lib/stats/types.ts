@@ -44,6 +44,10 @@ export interface PlayerSeason {
   shotsOn: number;
   shotsTotal: number;
   goals: number;
+  /** Season totals for the team search; older rows and feeds without them count 0. */
+  assists?: number;
+  foulsCommitted?: number;
+  foulsDrawn?: number;
   injured: boolean;
 }
 

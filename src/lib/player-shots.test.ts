@@ -88,8 +88,8 @@ describe("squad statistics from API-Football", () => {
       39,
     );
     expect(out).toEqual([
-      { playerId: 1, name: "A. One", position: "Attacker", appearances: 5, lineups: 4, minutes: 410, shotsOn: 7, shotsTotal: 9, goals: 2, injured: false },
-      { playerId: 2, name: "B. Two", position: "Attacker", appearances: 5, lineups: 4, minutes: 200, shotsOn: 0, shotsTotal: 9, goals: 2, injured: true },
+      { playerId: 1, name: "A. One", position: "Attacker", appearances: 5, lineups: 4, minutes: 410, shotsOn: 7, shotsTotal: 9, goals: 2, assists: 0, foulsCommitted: 0, foulsDrawn: 0, injured: false },
+      { playerId: 2, name: "B. Two", position: "Attacker", appearances: 5, lineups: 4, minutes: 200, shotsOn: 0, shotsTotal: 9, goals: 2, assists: 0, foulsCommitted: 0, foulsDrawn: 0, injured: true },
     ]);
   });
 });
