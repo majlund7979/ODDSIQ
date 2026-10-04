@@ -51,13 +51,13 @@ function activeHref(pathname: string, items: NavItem[]) {
 export function TopNav({ items }: { items: NavItem[] }) {
   const active = activeHref(usePathname(), items);
   return (
-    <nav aria-label="Menu" className="hidden items-center gap-1 rounded-full bg-surface-2 p-1 md:flex">
+    <nav aria-label="Menu" className="hidden items-center gap-1 rounded-full bg-surface-2 p-1 lg:flex">
       {items.map((i) => (
         <Link
           key={i.href}
           href={i.href}
           aria-current={i.href === active ? "page" : undefined}
-          className={`rounded-full px-4 py-2 text-[15px] font-semibold transition-colors ${i.href === active ? "bg-lime text-accent" : "text-ink-2 hover:bg-surface-3 hover:text-ink"}`}
+          className={`whitespace-nowrap rounded-full px-3 py-2 text-sm font-semibold transition-colors 2xl:px-4 2xl:text-[15px] ${i.href === active ? "bg-lime text-accent" : "text-ink-2 hover:bg-surface-3 hover:text-ink"}`}
         >
           {i.label}
         </Link>
@@ -70,7 +70,7 @@ export function TopNav({ items }: { items: NavItem[] }) {
 export function BottomNav({ items }: { items: NavItem[] }) {
   const active = activeHref(usePathname(), items);
   return (
-    <nav aria-label="Menu" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-page pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav aria-label="Menu" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-page pb-[env(safe-area-inset-bottom)] lg:hidden">
       <div className="mx-auto flex max-w-md">
         {items.filter((i) => i.mobile !== false).map((i) => (
           <Link
