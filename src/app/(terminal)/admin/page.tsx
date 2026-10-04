@@ -51,7 +51,7 @@ export default async function AdminPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="display text-[40px] text-accent sm:text-5xl">Admin</h1>
+        <h1 className="display text-[40px] text-ink sm:text-5xl">Admin</h1>
         <p className="mt-2 text-[15px] text-ink-2">Kun du kan se denne side. Her er alle, der har oprettet en konto på Oddsanalyse.</p>
       </header>
 

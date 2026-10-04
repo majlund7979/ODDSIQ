@@ -57,7 +57,7 @@ export function TopNav({ items }: { items: NavItem[] }) {
           key={i.href}
           href={i.href}
           aria-current={i.href === active ? "page" : undefined}
-          className={`rounded-full px-4 py-2 text-[15px] font-semibold transition-colors ${i.href === active ? "bg-lime text-accent" : "text-accent/80 hover:bg-surface-3 hover:text-accent"}`}
+          className={`rounded-full px-4 py-2 text-[15px] font-semibold transition-colors ${i.href === active ? "bg-lime text-accent" : "text-ink-2 hover:bg-surface-3 hover:text-ink"}`}
         >
           {i.label}
         </Link>

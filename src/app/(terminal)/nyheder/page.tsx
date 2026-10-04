@@ -16,7 +16,7 @@ export default async function NewsPage({ searchParams }: { searchParams: Promise
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <header className="space-y-2">
-        <h1 className="display text-[40px] text-accent sm:text-5xl">Nyheder</h1>
+        <h1 className="display text-[40px] text-ink sm:text-5xl">Nyheder</h1>
         <p className="text-[15px] text-ink-2">Seneste fodboldnyheder fra ligaerne, vi analyserer. Tryk på en overskrift for at læse hele artiklen.</p>
       </header>
       <nav aria-label="Liga" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">

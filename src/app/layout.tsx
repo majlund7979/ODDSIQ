@@ -1,21 +1,22 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Oddsanalyse · Dagens bedste bets",
   description: "Dagens bedste fodbold-bets, analyseret. Kun for inviterede venner.",
   applicationName: "Oddsanalyse",
-  appleWebApp: { capable: true, title: "Oddsanalyse", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Oddsanalyse", statusBarStyle: "black-translucent" },
 };
 
-export const viewport: Viewport = { themeColor: "#ffffff" };
+export const viewport: Viewport = { themeColor: "#0b1016" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="da" className={inter.variable}>
+    <html lang="da" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="min-h-screen">{children}</body>
     </html>
   );

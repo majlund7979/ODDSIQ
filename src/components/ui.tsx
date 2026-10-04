@@ -8,7 +8,7 @@ export function Panel({ title, right, children, className = "", id }: { title?: 
     <section id={id} className={`scroll-mt-4 min-w-0 overflow-hidden rounded-[20px] border border-line bg-surface ${className}`}>
       {(title || right) && (
         <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
-          <h2 className="text-[15px] font-bold text-accent">{title}</h2>
+          <h2 className="text-[15px] font-bold text-ink">{title}</h2>
           {right && <div className="text-xs text-muted">{right}</div>}
         </header>
       )}
@@ -78,7 +78,7 @@ export function StatTile({ label, value, m, hint }: { label: string; value: Reac
       <div className="text-[13px] font-semibold text-muted">
         {m ? <Tip text={m.definition}>{label}</Tip> : label}
       </div>
-      <div className="mt-1.5 text-[28px] font-extrabold tracking-[-0.02em] text-accent">{value}</div>
+      <div className="mt-1.5 text-[28px] font-extrabold tracking-[-0.02em] text-ink">{value}</div>
       {m ? <MetricContextLine m={m} className="mt-1" /> : hint && <p className="mt-1 text-[11px] text-muted">{hint}</p>}
     </div>
   );
@@ -88,7 +88,7 @@ export function PageHeader({ title, subtitle, right }: { title: string; subtitle
   return (
     <div className="flex flex-wrap items-end justify-between gap-4 pb-2">
       <div>
-        <h1 className="display text-3xl text-accent sm:text-4xl">{title}</h1>
+        <h1 className="display text-3xl text-ink sm:text-4xl">{title}</h1>
         {subtitle && <p className="mt-3 max-w-3xl text-[16px] leading-relaxed text-ink-2">{subtitle}</p>}
       </div>
       {right}

@@ -28,7 +28,7 @@ export function SaveBet({ eventId, category, odds, share, back, saved }: { event
           Odds du fik
           <input name="odds" inputMode="decimal" defaultValue={odds ? dec(odds) : ""} placeholder="fx 1,85" className="num block w-full rounded-[10px] border border-line-strong bg-surface px-2 py-1.5 text-sm text-ink" />
         </label>
-        <button type="submit" className="rounded-full bg-lime px-4 py-1.5 text-sm font-semibold text-accent hover:bg-[#8fdc5c]">
+        <button type="submit" className="rounded-full bg-lime px-4 py-1.5 text-sm font-semibold text-accent hover:brightness-125">
           {saved ? "Opdater" : "Gem i vennerligaen"}
         </button>
         <p className="basis-full text-[11px] text-muted">Dine venner kan se det. Uden odds tæller det kun i træfprocenten.</p>

@@ -123,7 +123,7 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
         <header className="space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="display text-[40px] text-accent sm:text-5xl">Ugens tips</h1>
+              <h1 className="display text-[40px] text-ink sm:text-5xl">Ugens tips</h1>
               <p className="mt-2 max-w-xl text-[15px] text-ink-2">
                 Tip 1, X eller 2 på ugens kampe og dyst mod vennerne. Et rigtigt tip giver point efter, hvor usandsynligt det var: oddsen, da du tippede. En favorit til 1,40 giver 1,4 point, en outsider til 4,50 giver 4,5 point (højst {MAX_TIP_POINTS}). Du kan ændre dit tip, indtil kampen starter.
               </p>

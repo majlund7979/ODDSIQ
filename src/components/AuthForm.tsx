@@ -23,7 +23,7 @@ export function AuthForm({ action, submitLabel, next, passwordHint }: { action: 
           {state.error}
         </p>
       )}
-      <button type="submit" disabled={pending} className="w-full rounded-full bg-lime px-3 py-3 text-[16px] font-semibold text-accent transition-colors hover:bg-[#8fdc5c] disabled:opacity-60">
+      <button type="submit" disabled={pending} className="w-full rounded-full bg-lime px-3 py-3 text-[16px] font-semibold text-accent transition-colors hover:brightness-125 disabled:opacity-60">
         {pending ? "Et øjeblik…" : submitLabel}
       </button>
     </form>

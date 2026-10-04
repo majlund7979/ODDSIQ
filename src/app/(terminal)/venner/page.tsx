@@ -19,7 +19,7 @@ export default async function FriendsPage() {
   return (
     <div className="mx-auto max-w-xl space-y-5">
       <header className="space-y-2">
-        <h1 className="display text-[40px] text-accent sm:text-5xl">Venner</h1>
+        <h1 className="display text-[40px] text-ink sm:text-5xl">Venner</h1>
         <p className="text-[15px] text-ink-2">
           {inviteOnly()
             ? "Kun dem på listen kan oprette en konto og se bets. Skriv din vens email herunder, og send vedkommende linket."

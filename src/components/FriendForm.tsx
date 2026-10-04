@@ -16,7 +16,7 @@ export function FriendForm() {
         <input name="name" placeholder="Navn (valgfrit)" aria-label="Navn" className={input} />
         <input name="email" type="email" required placeholder="vens@email.dk" aria-label="Email" className={input} />
       </div>
-      <button type="submit" disabled={pending} className="w-full rounded-full bg-lime px-4 py-2.5 text-[15px] font-semibold text-accent hover:bg-[#8fdc5c] disabled:opacity-60">
+      <button type="submit" disabled={pending} className="w-full rounded-full bg-lime px-4 py-2.5 text-[15px] font-semibold text-accent hover:brightness-125 disabled:opacity-60">
         {pending ? "Et øjeblik…" : "Inviter ven"}
       </button>
       {state.error && <p className="text-sm text-serious">{state.error}</p>}
