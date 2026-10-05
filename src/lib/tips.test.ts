@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { funStats, tipPoints, MODEL_ID, modelTips, nextWeek, previousWeek, standings, weekById, weekMatches, weekOf, weekWinners, type Tip, type TipRow } from "./tips";
+import { dayById, dayOf, funStats, tipPoints, MODEL_ID, modelTips, nextDay, nextWeek, previousDay, previousWeek, standings, weekById, weekMatches, weekOf, weekWinners, type Tip, type TipRow } from "./tips";
 
 describe("weeks in Danish time", () => {
   it("runs Monday to Sunday and names the ISO week", () => {
@@ -116,5 +116,22 @@ describe("standings, winners and fun stats", () => {
     expect(stats.model).toMatchObject({ detail: "1 gang rigtigt, hvor modellen tog fejl" });
     expect(stats.skarp).toBeUndefined(); // nobody has five settled tips yet
     expect(funStats([])).toEqual([]);
+  });
+});
+
+describe("days", () => {
+  it("runs midnight to midnight in Copenhagen, across the clock change", () => {
+    const d = dayOf(Date.UTC(2026, 9, 5, 21, 30)); // 23:30 in Copenhagen
+    expect(d.id).toBe("2026-10-05");
+    expect(d.start).toBe(Date.UTC(2026, 9, 4, 22));
+    expect(d.end).toBe(Date.UTC(2026, 9, 5, 22));
+    expect(dayOf(Date.UTC(2026, 9, 5, 22, 30)).id).toBe("2026-10-06");
+    // 25 October 2026 has 25 hours.
+    const long = dayById("2026-10-25")!;
+    expect(long.end - long.start).toBe(25 * 3_600_000);
+    expect(nextDay(long).id).toBe("2026-10-26");
+    expect(previousDay(long).id).toBe("2026-10-24");
+    expect(dayById("2026-02-30")).toBeNull();
+    expect(dayById("x")).toBeNull();
   });
 });

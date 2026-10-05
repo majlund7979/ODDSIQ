@@ -75,6 +75,31 @@ export function weekById(id: string): Week | null {
 export const previousWeek = (w: Week) => weekOf(w.start - 12 * 3_600_000);
 export const nextWeek = (w: Week) => weekOf(w.end + 12 * 3_600_000);
 
+/** A calendar day in Copenhagen: "2026-10-05", midnight to midnight. */
+export interface Day {
+  id: string;
+  start: number;
+  end: number;
+}
+
+export function dayOf(ms: number): Day {
+  const id = new Date(ms).toLocaleDateString("en-CA", { timeZone: TZ });
+  const [y, m, d] = id.split("-").map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + 1));
+  return { id, start: cphMidnight(y, m, d), end: cphMidnight(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate()) };
+}
+
+/** A day by its id, or null when the id is malformed. */
+export function dayById(id: string): Day | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(id);
+  if (!m) return null;
+  const d = dayOf(cphMidnight(+m[1], +m[2], +m[3]) + 12 * 3_600_000);
+  return d.id === id ? d : null;
+}
+
+export const previousDay = (d: Day) => dayOf(d.start - 12 * 3_600_000);
+export const nextDay = (d: Day) => dayOf(d.end + 12 * 3_600_000);
+
 /** The 1X2 market row fields the game needs (a subset of MarketRow). */
 export interface TipRow {
   eventId: string;
