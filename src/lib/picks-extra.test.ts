@@ -102,4 +102,13 @@ describe("goal markets from expected goals", () => {
     // With too few matches left after the 2-bet coupon, the 3-bet coupon is left out.
     expect(coupons(pool.slice(0, 4)).map((c) => c.kind)).toEqual(["odds"]);
   });
+
+  it("builds the 2-bet coupon from value bets when two of them reach 2.0", () => {
+    const pk = (id: string, p: number, o: number) => ({ probability: p, row: { bestOdds: o, eventId: id } }) as Pick;
+    // a and b are the likeliest pair over 2.0 but neither is a value bet (odds × chance below 1); c and d are.
+    const pool = [pk("a", 0.75, 1.3), pk("b", 0.62, 1.6), pk("c", 0.61, 1.7), pk("d", 0.6, 1.8)];
+    const [two] = coupons(pool);
+    expect(two.picks.map((p) => p.row.eventId)).toEqual(["c", "d"]);
+    expect(two.valueLegs).toBe(2);
+  });
 });

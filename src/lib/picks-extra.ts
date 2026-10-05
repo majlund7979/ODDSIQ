@@ -199,7 +199,7 @@ function coupon(picks: Pick[], kind: Coupon["kind"]): Coupon {
  * Assumes the matches are independent; left out when no pair reaches the odds.
  */
 export function oddsCoupon(pool: Pick[], n = 2, minOdds = COUPON_MIN_ODDS): Coupon | null {
-  const cands = pool.filter((p) => p.row.bestOdds > 1).slice(0, 15);
+  const cands = pool.filter((p) => p.row.bestOdds > 1).sort((a, b) => b.probability - a.probability).slice(0, 25);
   let best: Pick[] | null = null;
   let bestP = -1;
   const walk = (start: number, chosen: Pick[]) => {
@@ -237,11 +237,12 @@ export function valueCoupon(pool: Pick[], n = 3): Coupon | null {
 }
 
 /**
- * Today's coupons: 2 bets with combined odds of at least 2.0, and 3 bets by value and chance.
- * The 3-bet coupon only uses matches the 2-bet coupon leaves out, so the two never share a bet.
+ * Today's coupons from every bet type (couponCandidates): the likeliest value bets, one per match.
+ * 2 bets with combined odds of at least 2.0 (from value bets only while two of them reach it), and 3 bets by
+ * value, then chance. The 3-bet coupon only uses matches the 2-bet coupon leaves out, so the two never share a bet.
  */
 export function coupons(pool: Pick[]): Coupon[] {
-  const two = oddsCoupon(pool);
+  const two = oddsCoupon(pool.filter(isValue)) ?? oddsCoupon(pool);
   const used = new Set(two?.picks.map((p) => p.row.eventId));
   const three = valueCoupon(pool.filter((p) => !used.has(p.row.eventId)));
   return [two, three].filter((c): c is Coupon => c !== null);
@@ -286,6 +287,7 @@ export function goalSpec(r: MarketRow): string {
   if (r.marketType === "OU15") return `OU:${r.side}:1.5`;
   if (r.marketType === "OU25") return `OU:${r.side}:2.5`;
   if (r.marketType === "BTTS") return `BTTS:${r.side}`;
+  if (r.marketType === "DC") return `DC:${r.side.toUpperCase()}`;
   return `${r.marketType}:${r.side}`;
 }
 
