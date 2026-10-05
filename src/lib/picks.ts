@@ -395,20 +395,20 @@ const isBttsYes = (a: Analysed) => a.row.marketType === "BTTS" && a.row.side ===
 
 /**
  * "Begge hold scorer" needs both teams to score, so a 3–0 loses it. When another bet in the match (a result, over 1,5
- * or over 2,5 mål) is priced about the same and pays more on average (chance × odds), that bet is the better buy.
+ * or over 2,5 mål) is priced about the same and goes home more often, that bet is the better buy: we always pick the
+ * highest chance, not the best price (Mads, 2026-10-05).
  * Returns the best such bet, or null when begge hold scorer holds its own. Market-only leagues have no view of
  * our own to compare with, so they are left alone.
  */
 export function bttsAlternative(list: Analysed[]): GoalAlt | null {
   const btts = list.find(isBttsYes);
   if (!btts || btts.marketOnly || !(btts.row.bestOdds > 1)) return null;
-  const own = btts.probability * btts.row.bestOdds;
   let best: GoalAlt | null = null;
   for (const a of list) {
     if (a === btts || a.row.marketType === "BTTS" || !(a.row.bestOdds > 1)) continue;
     const ratio = Math.max(a.row.bestOdds, btts.row.bestOdds) / Math.min(a.row.bestOdds, btts.row.bestOdds);
     const alt = altOf(a);
-    if (ratio <= SIMILAR_ODDS && alt.ret > own && (!best || alt.ret > best.ret)) best = alt;
+    if (ratio <= SIMILAR_ODDS && alt.probability > btts.probability && (!best || alt.probability > best.probability)) best = alt;
   }
   return best;
 }
@@ -595,6 +595,6 @@ export function countPicks(rows: MarketRow[], now: number, count: number, stat: 
       strength: strengthOf(s.probability),
     });
   }
-  // Matches that differ most from a normal league match first: that is where the analysis says the most.
-  return [...seen.values()].sort((a, b) => Math.abs(b.forecast.suggestion.vsLeague) - Math.abs(a.forecast.suggestion.vsLeague) || a.row.kickoff - b.row.kickoff).slice(0, count);
+  // The likeliest suggestions first (Mads, 2026-10-05: the highest hit rate, every time).
+  return [...seen.values()].sort((a, b) => b.probability - a.probability || a.row.kickoff - b.row.kickoff).slice(0, count);
 }

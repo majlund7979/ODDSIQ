@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MarketRow } from "@/lib/demo/store";
 import { dailyPicks } from "./picks";
-import { coupons, goalsCoupon, rocketCoupon, ROCKET_MIN_CHANCE, doubleChancePicks, oddsCoupon, valueCoupon, halfTime, scoreGrid, settle, summarise } from "./picks-extra";
+import { coupons, goalsCoupon, rocketCoupon, ROCKET_MIN_CHANCE, doubleChancePicks, oddsCoupon, chanceCoupon, halfTime, scoreGrid, settle, summarise } from "./picks-extra";
 import type { Pick } from "./picks";
 
 const none = { goals: null, ht: null, corners: null, cards: null, fouls: null };
@@ -72,19 +72,14 @@ describe("goal markets from expected goals", () => {
     expect(two.kind).toBe("odds");
   });
 
-  it("builds the 3-bet coupon from value bets first, with no odds minimum", () => {
-    const pk = (id: string, p: number, o: number, marketOnly = false) => ({ probability: p, marketOnly, row: { bestOdds: o, eventId: id } }) as Pick;
-    // a and b are likely but priced below fair odds; c, d and e are value bets (odds × chance > 1); f is value by the market only.
-    const pool = [pk("a", 0.85, 1.1), pk("b", 0.8, 1.2), pk("c", 0.7, 1.5), pk("d", 0.6, 1.8), pk("e", 0.45, 2.4), pk("f", 0.75, 1.5, true)];
-    const three = valueCoupon(pool)!;
-    expect(three.picks.map((p) => p.row.eventId)).toEqual(["c", "d", "e"]);
-    expect(three.valueLegs).toBe(3);
-    expect(three.expectedReturn).toBeCloseTo(0.7 * 0.6 * 0.45 * 1.5 * 1.8 * 2.4);
-    // With one value bet, the likeliest other picks fill the coupon, and no match appears twice.
-    const one = valueCoupon([pk("a", 0.85, 1.1), pk("a", 0.84, 1.1), pk("b", 0.8, 1.2), pk("c", 0.7, 1.5)])!;
-    expect(one.picks.map((p) => p.row.eventId)).toEqual(["a", "b", "c"]);
-    expect(one.valueLegs).toBe(1);
-    expect(one.odds).toBeLessThan(2);
+  it("builds the 3-bet coupon from the likeliest bet per match, never value first", () => {
+    const pk = (id: string, p: number, o: number) => ({ probability: p, row: { bestOdds: o, eventId: id } }) as Pick;
+    // c, d and e pay more than their chance is worth, but a, b and c are likelier: the coupon takes those.
+    const pool = [pk("a", 0.85, 1.1), pk("a", 0.84, 1.15), pk("b", 0.8, 1.2), pk("c", 0.7, 1.5), pk("d", 0.6, 1.8), pk("e", 0.45, 2.4)];
+    const three = chanceCoupon(pool)!;
+    expect(three.kind).toBe("chance");
+    expect(three.picks.map((p) => [p.row.eventId, p.probability])).toEqual([["a", 0.85], ["b", 0.8], ["c", 0.7]]);
+    expect(chanceCoupon(pool.slice(0, 3))).toBeNull();
   });
 
   it("leaves out a coupon nothing can fill, and never repeats a match", () => {
@@ -98,17 +93,17 @@ describe("goal markets from expected goals", () => {
     const pool = [pk("a", 0.85, 1.2), pk("b", 0.8, 1.25), pk("c", 0.7, 1.5), pk("d", 0.62, 1.7), pk("e", 0.5, 2.1), pk("f", 0.55, 1.9)];
     const [two, three] = coupons(pool);
     expect(two.picks.map((p) => p.row.eventId)).toEqual(["a", "d"]);
-    expect(three.picks.map((p) => p.row.eventId)).toEqual(["c", "f", "e"]);
+    expect(three.picks.map((p) => p.row.eventId)).toEqual(["b", "c", "f"]);
     // With too few matches left after the 2-bet coupon, the 3-bet coupon is left out.
     expect(coupons(pool.slice(0, 4)).map((c) => c.kind)).toEqual(["odds", "rocket"]);
   });
 
-  it("builds Raketten from bets of 65 % or more, taking the highest odds per match", () => {
+  it("builds Raketten from the likeliest bet per match, all at 65 % or more", () => {
     const pk = (id: string, p: number, o: number) => ({ probability: p, row: { bestOdds: o, eventId: id, marketType: "1X2", side: "home" } }) as Pick;
     const pool = [pk("a", 0.85, 1.15), pk("a", 0.7, 1.4), pk("b", 0.8, 1.25), pk("c", 0.66, 1.5), pk("d", 0.64, 1.6)];
     const r = rocketCoupon(pool)!;
     expect(r.kind).toBe("rocket");
-    expect(r.picks.map((p) => [p.row.eventId, p.row.bestOdds])).toEqual([["b", 1.25], ["a", 1.4], ["c", 1.5]]);
+    expect(r.picks.map((p) => [p.row.eventId, p.row.bestOdds])).toEqual([["a", 1.15], ["b", 1.25], ["c", 1.5]]);
     expect(r.picks.every((p) => p.probability >= ROCKET_MIN_CHANCE)).toBe(true);
     expect(rocketCoupon(pool.slice(0, 3))).toBeNull();
   });
@@ -120,12 +115,12 @@ describe("goal markets from expected goals", () => {
     expect(goalsCoupon(pool.slice(0, 4))).toBeNull();
   });
 
-  it("builds the 2-bet coupon from value bets when two of them reach 2.0", () => {
+  it("builds the 2-bet coupon from the likeliest pair reaching 2.0, value or not", () => {
     const pk = (id: string, p: number, o: number) => ({ probability: p, row: { bestOdds: o, eventId: id } }) as Pick;
-    // a and b are the likeliest pair over 2.0 but neither is a value bet (odds × chance below 1); c and d are.
+    // a and b are the likeliest pair over 2.0 though neither is a value bet; c and d would be.
     const pool = [pk("a", 0.75, 1.3), pk("b", 0.62, 1.6), pk("c", 0.61, 1.7), pk("d", 0.6, 1.8)];
     const [two] = coupons(pool);
-    expect(two.picks.map((p) => p.row.eventId)).toEqual(["c", "d"]);
-    expect(two.valueLegs).toBe(2);
+    expect(two.picks.map((p) => p.row.eventId)).toEqual(["a", "b"]);
   });
+
 });
