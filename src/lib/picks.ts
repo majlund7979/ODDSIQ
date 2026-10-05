@@ -15,6 +15,7 @@ import type { MarketRow } from "@/lib/demo/store";
 import type { CountForecast, CountForecasts, CountStat } from "@/lib/model/match-stats";
 import type { HistMatch } from "@/lib/model/openfootball";
 import { teamKey } from "@/lib/model/teams";
+import { TOP_SCORER_MODEL, type TopScorer } from "@/lib/top-scorer";
 import { AF_PREDICTION_MODEL, AF_PREDICTION_WEIGHT, flooredPercent, type AfPrediction } from "@/lib/stats/af-predictions";
 import { CLUBELO_MODEL, CLUBELO_WEIGHT, clubEloProbs, type ClubEloPair } from "@/lib/stats/clubelo";
 import type { TeamNews } from "@/lib/stats/news";
@@ -57,6 +58,8 @@ export interface PickContext {
   clubElo?: ClubEloPair | null;
   /** API-Football's own percentages and team comparison for the match. */
   afPrediction?: AfPrediction | null;
+  /** Each team's top scorer: missing or not, and his recent form (moves over/under 1,5 and 2,5 mål). */
+  scorers?: { home: TopScorer | null; away: TopScorer | null; source?: string };
 }
 
 export interface FormGame {
@@ -74,6 +77,8 @@ export interface PickInsights {
   clubElo: ClubEloPair | null;
   /** API-Football's percentages and comparison; on a market-only 1X2 pick they move the probability before ClubElo does. */
   afPrediction: AfPrediction | null;
+  /** Both teams' top scorers; on over/under 1,5 and 2,5 mål they move the probability (see the factors). */
+  scorers: { home: TopScorer | null; away: TopScorer | null; source?: string } | null;
   form: { home: FormGame[]; away: FormGame[] } | null;
   h2h: { home: number; draw: number; away: number; games: { date: number; score: string }[] } | null;
   /** Change in the best odds since the market opened; negative means the price shortened. */
@@ -233,6 +238,16 @@ export function absences(news: TeamNews | null) {
   return out;
 }
 
+/** One top scorer's effect in words, for the factor list. */
+function scorerNote(t: TopScorer): string {
+  const who = `${t.name} (${t.goals} mål, ${Math.round(t.share * 100)} % af holdets)`;
+  if (t.status === "out") return `${who} mangler`;
+  if (t.status === "doubtful") return `${who} er tvivlsom`;
+  if (t.status === "bench") return `${who} er ikke i startopstillingen`;
+  const r = t.recent!;
+  return `${who} har ${r.goals} mål i de seneste ${r.matches} kampe, ${r.ratio >= 1 ? "bedre" : "dårligere"} end sæsonens snit`;
+}
+
 const signedPp = (pp: number) => `${pp >= 0 ? "+" : "−"}${Math.abs(pp).toFixed(1).replace(".", ",")} pp`;
 
 /** Both lineups are stored, from the match's team news or (without a model forecast) the event itself. */
@@ -248,7 +263,7 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
     const lineupsConfirmed = lineupsIn(row, ctx);
     const club = ctx?.clubElo ?? null;
     const af = ctx?.afPrediction ?? null;
-    const insights: PickInsights = { expectedGoals: null, elo: null, clubElo: club, afPrediction: af, form: null, h2h: null, movement: row.movement, lineupsConfirmed };
+    const insights: PickInsights = { expectedGoals: null, elo: null, clubElo: club, afPrediction: af, scorers: ctx?.scorers ?? null, form: null, h2h: null, movement: row.movement, lineupsConfirmed };
     const market = row.marketProbability;
     if (af && row.marketType === "1X2") {
       // API-Football compares the teams on all their matches, across competitions: a minority share next to the market.
@@ -280,6 +295,8 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
   if (ctx?.expectedGoals) {
     const base = ctx.expectedGoals;
     const news = ctx.news;
+    const goalLine = row.marketType === "OU15" || row.marketType === "OU25";
+    const scorers = ctx.scorers;
     let lambda = base.home;
     let mu = base.away;
     const ref = goalsProbability(row.marketType, row.side, lambda, mu);
@@ -298,7 +315,9 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
         factors.push({ label: "xG-form", pp: d * 100, detail: `seneste ${Math.min(f.home.n, f.away.n)} kampe: ${f.home.xgFor.toFixed(1)} mod ${f.away.xgFor.toFixed(1)} xG` });
       }
 
-      const abs = absences(news);
+      // On the goal lines the top scorers get their own factor below, so the general absences leave them out.
+      const scorerNames = new Set(goalLine ? [scorers?.home?.injuryPlayer, scorers?.away?.injuryPlayer].filter((x): x is string => !!x) : []);
+      const abs = absences(scorerNames.size ? { ...news, injuries: news.injuries.filter((i) => !scorerNames.has(i.player)) } : news);
       const h = Math.min(abs.home.weight, MAX_ABSENCES);
       const a = Math.min(abs.away.weight, MAX_ABSENCES);
       if (h + a > 0) {
@@ -315,6 +334,18 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
         factors.push({ label: "Skader og karantæner", pp: 0, detail: "ingen vigtige afbud meldt" });
       }
       if (lineupsConfirmed) factors.push({ label: "Startopstilling", pp: null, detail: "bekræftet" });
+    }
+
+    if (ref !== null && goalLine && scorers && (scorers.home || scorers.away)) {
+      const fh = scorers.home?.factor ?? 1;
+      const fa = scorers.away?.factor ?? 1;
+      if (fh !== 1 || fa !== 1) {
+        const d = goalsProbability(row.marketType, row.side, lambda * fh, mu * fa)! - goalsProbability(row.marketType, row.side, lambda, mu)!;
+        lambda *= fh;
+        mu *= fa;
+        p += d;
+        factors.push({ label: "Topscorere", pp: d * 100, detail: `${[scorers.home, scorers.away].filter((x): x is TopScorer => !!x && x.factor !== 1).map(scorerNote).join("; ")} (skøn, ${TOP_SCORER_MODEL})` });
+      } else factors.push({ label: "Topscorere", pp: 0, detail: `${[scorers.home, scorers.away].filter((x): x is TopScorer => !!x).map((t) => `${t.name} (${t.goals} mål)`).join(" og ")} spiller og scorer som normalt` });
     }
   }
 
@@ -336,6 +367,7 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
     elo: t ? { home: Math.round(t.homeElo), away: Math.round(t.awayElo) } : null,
     clubElo: ctx?.clubElo ?? null,
     afPrediction: ctx?.afPrediction ?? null,
+    scorers: ctx?.scorers ?? null,
     form: t ? { home: recentForm(t.home, t.history), away: recentForm(t.away, t.history) } : null,
     h2h: t ? headToHead(t.home, t.away, t.history) : null,
     movement: row.movement,
