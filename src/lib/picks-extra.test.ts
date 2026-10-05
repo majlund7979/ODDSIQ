@@ -92,4 +92,14 @@ describe("goal markets from expected goals", () => {
     expect(coupons([pk("a", 0.9, 1.1), pk("b", 0.9, 1.1)])).toEqual([]);
     expect(coupons([pk("a", 0.6, 1.6), pk("a", 0.5, 1.9)])).toEqual([]);
   });
+
+  it("never puts the same match on both coupons", () => {
+    const pk = (id: string, p: number, o: number) => ({ probability: p, row: { bestOdds: o, eventId: id } }) as Pick;
+    const pool = [pk("a", 0.85, 1.2), pk("b", 0.8, 1.25), pk("c", 0.7, 1.5), pk("d", 0.62, 1.7), pk("e", 0.5, 2.1), pk("f", 0.55, 1.9)];
+    const [two, three] = coupons(pool);
+    expect(two.picks.map((p) => p.row.eventId)).toEqual(["a", "d"]);
+    expect(three.picks.map((p) => p.row.eventId)).toEqual(["c", "f", "e"]);
+    // With too few matches left after the 2-bet coupon, the 3-bet coupon is left out.
+    expect(coupons(pool.slice(0, 4)).map((c) => c.kind)).toEqual(["odds"]);
+  });
 });
