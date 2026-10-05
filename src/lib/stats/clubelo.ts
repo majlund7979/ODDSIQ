@@ -113,6 +113,10 @@ const DAY = 86_400_000;
 const RETRY_MS = 3_600_000;
 let memo: { day: number; ratings: ClubRating[] } | null = null;
 let failedAt = -Infinity;
+let lastError: string | null = null;
+
+/** Why the last fetch failed, for Diagnose. */
+export const clubEloLastError = () => lastError;
 
 /** Today's ratings (yesterday's while ClubElo cannot be reached); null without any. Cached for the day on this server and in Next's data cache. */
 export async function clubEloRatings(now: number): Promise<{ date: number; ratings: ClubRating[] } | null> {
@@ -126,13 +130,20 @@ export async function clubEloRatings(now: number): Promise<{ date: number; ratin
       next: { revalidate: 86_400 },
       signal: AbortSignal.timeout(4000),
     } as RequestInit);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      lastError = `HTTP ${res.status}`;
+      return null;
+    }
     const ratings = parseClubElo(await res.text());
-    if (!ratings.length) return null;
+    if (!ratings.length) {
+      lastError = "empty CSV";
+      return null;
+    }
     memo = { day, ratings };
     failedAt = -Infinity;
     return { date: day, ratings };
-  } catch {
+  } catch (e) {
+    lastError = e instanceof Error ? `${e.name}: ${e.message} ${(e.cause as Error | undefined)?.message ?? ""}`.trim() : String(e);
     return null;
   }
 }
