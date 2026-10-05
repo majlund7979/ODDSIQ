@@ -2,7 +2,7 @@
 // API) translate their responses into these; ingestion only sees these.
 
 /** DC = double chance: 1x (home or draw), x2 (draw or away), 12 (no draw). */
-export type FeedMarketType = "1X2" | "ML" | "OU25" | "BTTS" | "DC";
+export type FeedMarketType = "1X2" | "ML" | "OU15" | "OU25" | "BTTS" | "DC";
 
 export interface FeedCompetition {
   key: string;

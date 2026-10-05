@@ -4,6 +4,7 @@ import type { MarketRow } from "./store";
 
 const SHORT_MARKET: Record<string, string> = {
   "Match Winner": "1X2",
+  "Total Goals 1.5": "O/U 1.5",
   "Total Goals 2.5": "O/U 2.5",
   "Both Teams to Score": "BTTS",
   Moneyline: "Moneyline",

@@ -21,7 +21,7 @@ export interface LeagueModel {
   /** Latest result date the model has seen. */
   dataThrough: number | null;
   /** League frequencies over the last three years, the benchmark for "why" factors. */
-  baseRates: { home: number; draw: number; away: number; over25: number; bttsYes: number };
+  baseRates: { home: number; draw: number; away: number; over15: number; over25: number; bttsYes: number };
   /** Results before asOf, oldest first, for form and head-to-head views. */
   history: HistMatch[];
 }
@@ -44,6 +44,7 @@ export function buildLeagueModel(history: HistMatch[], asOf: number): LeagueMode
     home: share((m) => m.hg > m.ag),
     draw: share((m) => m.hg === m.ag),
     away: share((m) => m.hg < m.ag),
+    over15: share((m) => m.hg + m.ag > 1.5),
     over25: share((m) => m.hg + m.ag > 2.5),
     bttsYes: share((m) => m.hg > 0 && m.ag > 0),
   };

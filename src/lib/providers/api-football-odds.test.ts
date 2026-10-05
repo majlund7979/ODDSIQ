@@ -30,12 +30,13 @@ const odds = (id: number): RawAfOdds => ({
 });
 
 describe("API-Football odds", () => {
-  it("keeps 1X2, over/under 2.5, both teams score and double chance from the kept bookmakers", () => {
+  it("keeps 1X2, over/under 1.5 and 2.5, both teams score and double chance from the kept bookmakers", () => {
     const p = normalizeAfOdds(odds(1));
     expect(p.map((x) => `${x.bookmakerKey} ${x.market} ${x.selection} ${x.odds}`)).toEqual([
       "bet365 1X2 home 1.8",
       "bet365 1X2 draw 3.6",
       "bet365 1X2 away 4.75",
+      "bet365 OU15 over 1.3",
       "bet365 OU25 over 2.05",
       "bet365 OU25 under 1.75",
       "bet365 BTTS yes 1.9",

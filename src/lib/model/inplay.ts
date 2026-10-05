@@ -25,6 +25,8 @@ export interface InPlayForecast {
   home: number;
   draw: number;
   away: number;
+  over15: number;
+  under15: number;
   over25: number;
   under25: number;
 }
@@ -36,6 +38,7 @@ export function inPlayForecast(xg: { home: number; away: number }, minute: numbe
   let home = 0;
   let draw = 0;
   let away = 0;
+  let over15 = 0;
   let over = 0;
   let total = 0;
   for (let x = 0; x <= MAX_GOALS; x++) {
@@ -46,11 +49,12 @@ export function inPlayForecast(xg: { home: number; away: number }, minute: numbe
       if (fh > fa) home += p;
       else if (fh === fa) draw += p;
       else away += p;
+      if (fh + fa > 1.5) over15 += p;
       if (fh + fa > 2.5) over += p;
       total += p;
     }
   }
-  return { home: home / total, draw: draw / total, away: away / total, over25: over / total, under25: 1 - over / total };
+  return { home: home / total, draw: draw / total, away: away / total, over15: over15 / total, under15: 1 - over15 / total, over25: over / total, under25: 1 - over / total };
 }
 
 /**

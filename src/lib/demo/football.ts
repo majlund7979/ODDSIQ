@@ -17,6 +17,7 @@ export interface FootballProbabilities {
   home: number;
   draw: number;
   away: number;
+  over15: number;
   over25: number;
   btts: number;
 }
@@ -28,7 +29,7 @@ export interface FootballProbabilities {
 export function footballProbabilities(lambdaHome: number, lambdaAway: number, score = { home: 0, away: 0 }): FootballProbabilities {
   const ph = poissonPmf(Math.max(lambdaHome, 1e-6));
   const pa = poissonPmf(Math.max(lambdaAway, 1e-6));
-  const r = { home: 0, draw: 0, away: 0, over25: 0, btts: 0 };
+  const r = { home: 0, draw: 0, away: 0, over15: 0, over25: 0, btts: 0 };
   for (let i = 0; i <= MAX_GOALS; i++) {
     for (let j = 0; j <= MAX_GOALS; j++) {
       const p = ph[i] * pa[j];
@@ -37,12 +38,13 @@ export function footballProbabilities(lambdaHome: number, lambdaAway: number, sc
       if (h > a) r.home += p;
       else if (h === a) r.draw += p;
       else r.away += p;
+      if (h + a > 1.5) r.over15 += p;
       if (h + a > 2.5) r.over25 += p;
       if (h > 0 && a > 0) r.btts += p;
     }
   }
   const total = r.home + r.draw + r.away;
-  return { home: r.home / total, draw: r.draw / total, away: r.away / total, over25: r.over25 / total, btts: r.btts / total };
+  return { home: r.home / total, draw: r.draw / total, away: r.away / total, over15: r.over15 / total, over25: r.over25 / total, btts: r.btts / total };
 }
 
 export function expectedGoals(homeAttack: number, homeDefence: number, awayAttack: number, awayDefence: number) {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TeamNews } from "@/components/TeamNews";
 import {
   analysedMatches,
+  BTTS_FORM_GAMES,
   COUNT_CATEGORIES,
   countPicks,
   dailyPicks,
@@ -10,6 +11,7 @@ import {
   marketPicks,
   PICK_COUNTS,
   signedPp,
+  SIMILAR_ODDS,
   type CountPick,
   type FormGame,
   type Pick,
@@ -186,6 +188,49 @@ function LearningNote({ l }: { l: CategoryLearning }) {
   );
 }
 
+/** Over 1,5, over 2,5 and begge hold scorer side by side, and whether begge hold scorer passes the scoring rule. */
+function GoalBets({ p, home, away }: { p: Pick; home: string; away: string }) {
+  const goals = p.goals ?? [];
+  if (!goals.length && !p.scoring) return null;
+  const top = goals.reduce<(typeof goals)[number] | null>((b, g) => (!b || g.ret > b.ret ? g : b), null);
+  const s = p.scoring;
+  return (
+    <Fact label="Mål-bets i kampen">
+      {goals.length > 0 && (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs text-muted">
+              <th className="py-1 font-normal">Bet</th>
+              <th className="py-1 text-right font-normal">Chance</th>
+              <th className="py-1 text-right font-normal">Odds</th>
+              <th className="py-1 text-right font-normal" title="Chance gange odds: hvad 100 kr giver tilbage i snit (skøn)">Tilbage pr. 100 kr</th>
+            </tr>
+          </thead>
+          <tbody className="num">
+            {goals.map((g) => (
+              <tr key={g.outcome} className={`border-t border-line ${g === top && !p.marketOnly ? "text-accent" : ""}`}>
+                <td className="py-1.5 font-sans">{g.outcome}</td>
+                <td className="py-1.5 text-right">{Math.round(g.probability * 100)} %</td>
+                <td className="py-1.5 text-right">{dec(g.odds)}</td>
+                <td className="py-1.5 text-right">{Math.round(g.ret * 100)} kr</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div className="mt-2 text-xs text-ink-2">
+        {s
+          ? `Scoret i de seneste ${s.n} kampe: ${home} ${s.home} gange, ${away} ${s.away} gange. `
+          : "Vi har ikke holdenes seneste kampe for ligaen. "}
+        {s?.every ? "Begge hold har scoret i hver kamp, så begge hold scorer kan foreslås." : `Begge hold scorer foreslås kun, når begge hold har scoret i hver af deres seneste ${BTTS_FORM_GAMES} kampe.`}
+      </div>
+      <div className="mt-1 text-xs text-muted">
+        Tilbage pr. 100 kr er chance gange odds, et skøn. Til odds, der ligger tæt (højst {Math.round((SIMILAR_ODDS - 1) * 100)} % fra hinanden), foreslår vi det bet, der giver mest.
+      </div>
+    </Fact>
+  );
+}
+
 function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
   const move = oddsMove(p.insights.movement, p.row.openingOdds, p.row.currentOdds);
   const i = p.insights;
@@ -278,6 +323,7 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
           </div>
         </Fact>
         <BookTable quotes={p.row.quotes} fairOdds={p.fairOdds} marketOnly={p.marketOnly} />
+        <GoalBets p={p} home={home} away={away} />
         <Fact label="Startopstilling">{i.lineupsConfirmed ? "Bekræftet for begge hold." : "Ikke meldt endnu. Den kommer typisk en time før kampstart, og så bliver procenten mere præcis."}</Fact>
       </div>
       <NewsBlock home={home} away={away} />
@@ -319,6 +365,11 @@ function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: number; 
           </div>
         </div>
       </div>
+      {p.instead && (
+        <div className="border-t border-line bg-surface-2 px-5 py-2.5 text-sm text-ink-2">
+          Bedre spil til næsten samme odds: <span className="font-semibold text-ink">{p.instead.outcome}</span> · {Math.round(p.instead.probability * 100)} % · odds {dec(p.instead.odds)}
+        </div>
+      )}
       <AdviceRow p={p.probability} odds={p.row.bestOdds} eventId={p.row.eventId} save={save} leg={{ key: `${p.row.eventId}|${p.row.selectionId}`, match: p.row.match, outcome: p.outcome, kickoff: p.row.kickoff }} />
       <details className="group">
         <MoreToggle />
@@ -632,6 +683,7 @@ const TABS = [
   { id: "bedste", label: "Bedste bets" },
   { id: "vinder", label: "Hvem vinder" },
   { id: "dobbelt", label: "Dobbeltchance" },
+  { id: "maal15", label: "Over/under 1,5 mål" },
   { id: "maal", label: "Over/under 2,5 mål" },
   { id: "btts", label: "Begge hold scorer" },
   { id: "resultat", label: "Korrekt resultat" },
@@ -644,7 +696,7 @@ const TABS = [
 /** The bet types, grouped so the menu reads like a list rather than a wall of buttons. */
 const TAB_GROUPS = [
   { title: "Kampen", ids: ["bedste", "vinder", "dobbelt", "resultat"] },
-  { title: "Mål", ids: ["maal", "btts", "halvleg"] },
+  { title: "Mål", ids: ["maal15", "maal", "btts", "halvleg"] },
   { title: "Spillere", ids: ["skud"] },
   { title: "Statistik", ids: [...COUNT_CATEGORIES.map((c) => c.id), "straffe"] },
 ].map((g) => ({ ...g, tabs: g.ids.map((id) => TABS.find((x) => x.id === id)!).filter(Boolean) }));

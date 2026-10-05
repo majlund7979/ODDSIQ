@@ -54,7 +54,7 @@ export interface SportEvent {
 }
 
 /** DC = double chance (1x, x2, 12); only real feeds carry it. */
-export type MarketType = "1X2" | "OU25" | "BTTS" | "ML" | "DC";
+export type MarketType = "1X2" | "OU15" | "OU25" | "BTTS" | "ML" | "DC";
 
 export interface Market {
   id: string;

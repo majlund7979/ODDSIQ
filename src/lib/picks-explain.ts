@@ -31,7 +31,8 @@ export function explainPick(p: Pick): string[] {
     const total = xg.home + xg.away;
     const t = p.row.marketType;
     let read: string;
-    if (t === "OU25") read = total >= 2.7 ? "Det peger mod en kamp med mange mål." : total <= 2.3 ? "Det peger mod en tæt kamp med få mål." : "Det ligger tæt på grænsen på 2,5 mål.";
+    if (t === "OU15") read = total >= 2.2 ? "Det peger mod mindst to mål." : total <= 1.8 ? "Det peger mod en kamp med få mål." : "Det ligger tæt på grænsen på 1,5 mål.";
+    else if (t === "OU25") read = total >= 2.7 ? "Det peger mod en kamp med mange mål." : total <= 2.3 ? "Det peger mod en tæt kamp med få mål." : "Det ligger tæt på grænsen på 2,5 mål.";
     else if (t === "BTTS") read = Math.min(xg.home, xg.away) >= 1.1 ? "Begge hold ventes at komme til chancer." : `${xg.home < xg.away ? home : away} ventes at få svært ved at score.`;
     else read = Math.abs(xg.home - xg.away) < 0.25 ? "Holdene ligner hinanden på papiret." : `${xg.home > xg.away ? home : away} ventes at skabe mest.`;
     out.push(`Modellen venter ${dec(xg.home, 1)} mål til ${home} og ${dec(xg.away, 1)} til ${away}, i alt ${dec(total, 1)}. ${read}`);

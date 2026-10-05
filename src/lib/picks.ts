@@ -112,6 +112,45 @@ export interface Pick {
   strength: "Meget stærk" | "Stærk" | "God" | "Middel";
   /** True when the league has no results history, so the pick rests on the bookmakers' prices alone. */
   marketOnly: boolean;
+  /** Over 1,5 mål, over 2,5 mål and begge hold scorer for the same match, side by side. */
+  goals?: GoalAlt[];
+  /** On a "begge hold scorer" pick: another bet in the match at about the same odds that pays more on average. */
+  instead?: GoalAlt;
+  /** In how many of their last BTTS_FORM_GAMES matches each team scored, from the results data; null without it. */
+  scoring?: BothScore | null;
+}
+
+/** Begge hold scorer is only suggested when both teams scored in every one of this many recent matches. */
+export const BTTS_FORM_GAMES = 5;
+
+export interface BothScore {
+  home: number;
+  away: number;
+  /** Matches looked at per team (the smaller of the two when one has fewer). */
+  n: number;
+  /** Both teams scored in all of their last BTTS_FORM_GAMES matches. */
+  every: boolean;
+}
+
+/** How often each team scored in its last matches, from the results history behind the model. */
+export function bothScore(ctx: PickContext | null): BothScore | null {
+  const t = ctx?.teams;
+  if (!t) return null;
+  const h = recentForm(t.home, t.history, BTTS_FORM_GAMES);
+  const a = recentForm(t.away, t.history, BTTS_FORM_GAMES);
+  const scored = (g: FormGame[]) => g.filter((x) => Number(x.score.split("-")[0]) > 0).length;
+  const home = scored(h);
+  const away = scored(a);
+  return { home, away, n: Math.min(h.length, a.length), every: h.length >= BTTS_FORM_GAMES && a.length >= BTTS_FORM_GAMES && home === h.length && away === a.length };
+}
+
+/** One bet in a match, for comparing it with the others. */
+export interface GoalAlt {
+  outcome: string;
+  probability: number;
+  odds: number;
+  /** What 1 kr returns on average at the best odds: chance × odds (estimated). */
+  ret: number;
 }
 
 export function strengthOf(p: number): Pick["strength"] {
@@ -119,6 +158,7 @@ export function strengthOf(p: number): Pick["strength"] {
 }
 
 export function outcomeLabel(r: MarketRow): string {
+  if (r.marketType === "OU15") return r.side === "over" ? "Over 1,5 mål" : "Under 1,5 mål";
   if (r.marketType === "OU25") return r.side === "over" ? "Over 2,5 mål" : "Under 2,5 mål";
   if (r.marketType === "BTTS") return r.side === "yes" ? "Begge hold scorer" : "Ikke begge hold scorer";
   if (r.side === "draw") return "Uafgjort";
@@ -136,12 +176,13 @@ function pmf(k: number, l: number) {
 
 /** Probability of a selection when the teams score Poisson(λ) and Poisson(μ) goals. */
 export function goalsProbability(marketType: string, side: string, lambda: number, mu: number): number | null {
-  if (marketType !== "1X2" && marketType !== "OU25" && marketType !== "BTTS") return null;
+  if (marketType !== "1X2" && marketType !== "OU15" && marketType !== "OU25" && marketType !== "BTTS") return null;
   let p = 0;
   for (let x = 0; x <= 10; x++)
     for (let y = 0; y <= 10; y++) {
       const hit =
         marketType === "1X2" ? (side === "home" ? x > y : side === "away" ? x < y : x === y)
+        : marketType === "OU15" ? (side === "over") === x + y > 1.5
         : marketType === "OU25" ? (side === "over") === x + y > 2.5
         : (side === "yes") === (x > 0 && y > 0);
       if (hit) p += pmf(x, lambda) * pmf(y, mu);
@@ -241,22 +282,92 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
   return { row, probability: final, lineupsConfirmed, factors, insights, marketOnly: false };
 }
 
-/** Markets the daily list ranks. Double chance covers two outcomes, so it has its own tab rather than crowding out single outcomes. */
-const PICK_MARKETS = new Set<string>(["1X2", "OU25", "BTTS"]);
+/**
+ * Markets the daily list ranks. Double chance covers two outcomes and over 1,5 mål is nearly always the likeliest
+ * outcome at very low odds, so both have their own tab rather than crowding out the rest.
+ */
+const PICK_MARKETS: ReadonlySet<string> = new Set(["1X2", "OU25", "BTTS"]);
+/** Markets analysed for every match, to compare bets with each other. */
+const COMPARE_MARKETS: ReadonlySet<string> = new Set(["1X2", "OU15", "OU25", "BTTS"]);
+/** Odds count as "about the same" when the higher is at most this many times the lower. */
+export const SIMILAR_ODDS = 1.25;
 
-export function dailyPicks(rows: MarketRow[], now: number, count: number, context: (eventId: string) => PickContext | null = () => null): Pick[] {
-  const best = new Map<string, NonNullable<ReturnType<typeof analysePick>>>();
-  for (const r of rows) {
-    if (r.sportId !== "football" || r.status !== "scheduled" || r.kickoff <= now || r.kickoff > now + PICK_WINDOW_MS || !PICK_MARKETS.has(r.marketType)) continue;
-    const a = analysePick(r, context(r.eventId));
-    if (!a) continue;
-    const cur = best.get(r.eventId);
-    if (!cur || a.probability > cur.probability) best.set(r.eventId, a);
+type Analysed = NonNullable<ReturnType<typeof analysePick>>;
+
+const altOf = (a: Analysed): GoalAlt => ({ outcome: outcomeLabel(a.row), probability: a.probability, odds: a.row.bestOdds, ret: a.probability * a.row.bestOdds });
+const isBttsYes = (a: Analysed) => a.row.marketType === "BTTS" && a.row.side === "yes";
+
+/**
+ * "Begge hold scorer" needs both teams to score, so a 3–0 loses it. When another bet in the match (a result, over 1,5
+ * or over 2,5 mål) is priced about the same and pays more on average (chance × odds), that bet is the better buy.
+ * Returns the best such bet, or null when begge hold scorer holds its own. Market-only leagues have no view of
+ * our own to compare with, so they are left alone.
+ */
+export function bttsAlternative(list: Analysed[]): GoalAlt | null {
+  const btts = list.find(isBttsYes);
+  if (!btts || btts.marketOnly || !(btts.row.bestOdds > 1)) return null;
+  const own = btts.probability * btts.row.bestOdds;
+  let best: GoalAlt | null = null;
+  for (const a of list) {
+    if (a === btts || a.row.marketType === "BTTS" || !(a.row.bestOdds > 1)) continue;
+    const ratio = Math.max(a.row.bestOdds, btts.row.bestOdds) / Math.min(a.row.bestOdds, btts.row.bestOdds);
+    const alt = altOf(a);
+    if (ratio <= SIMILAR_ODDS && alt.ret > own && (!best || alt.ret > best.ret)) best = alt;
   }
-  return [...best.values()]
-    .sort((a, b) => b.probability - a.probability || a.row.kickoff - b.row.kickoff)
-    .slice(0, count)
-    .map((a) => ({ ...a, outcome: outcomeLabel(a.row), fairOdds: 1 / a.probability, value: !a.marketOnly && a.row.bestOdds * a.probability > 1, strength: strengthOf(a.probability) }));
+  return best;
+}
+
+/** Over 1,5 mål, over 2,5 mål and begge hold scorer for one match, when the feed prices them. */
+function goalAlternatives(list: Analysed[]): GoalAlt[] {
+  const want = [
+    ["OU15", "over"],
+    ["OU25", "over"],
+    ["BTTS", "yes"],
+  ];
+  return want.flatMap(([m, s]) => list.filter((a) => a.row.marketType === m && a.row.side === s && a.row.bestOdds > 1).map(altOf));
+}
+
+export function dailyPicks(
+  rows: MarketRow[],
+  now: number,
+  count: number,
+  context: (eventId: string) => PickContext | null = () => null,
+  markets: ReadonlySet<string> = PICK_MARKETS,
+): Pick[] {
+  const byEvent = new Map<string, Analysed[]>();
+  for (const r of rows) {
+    if (r.sportId !== "football" || r.status !== "scheduled" || r.kickoff <= now || r.kickoff > now + PICK_WINDOW_MS) continue;
+    if (!markets.has(r.marketType) && !COMPARE_MARKETS.has(r.marketType)) continue;
+    const a = analysePick(r, context(r.eventId));
+    if (a) byEvent.set(r.eventId, [...(byEvent.get(r.eventId) ?? []), a]);
+  }
+  // On the mixed list, begge hold scorer gives way to a bet at about the same odds that pays more; on its own tab it stays, with a hint.
+  // Begge hold scorer also needs both teams to have scored in each of their last BTTS_FORM_GAMES matches.
+  const mixed = markets.size > 1;
+  const picks: Pick[] = [];
+  for (const [eventId, list] of byEvent) {
+    const scoring = bothScore(context(eventId));
+    const instead = bttsAlternative(list);
+    let best: Analysed | null = null;
+    for (const a of list) {
+      if (!markets.has(a.row.marketType) || (isBttsYes(a) && (!scoring?.every || (mixed && instead)))) continue;
+      if (!best || a.probability > best.probability) best = a;
+    }
+    if (!best) continue;
+    picks.push({
+      ...best,
+      outcome: outcomeLabel(best.row),
+      fairOdds: 1 / best.probability,
+      value: !best.marketOnly && best.row.bestOdds * best.probability > 1,
+      strength: strengthOf(best.probability),
+      goals: goalAlternatives(list),
+      scoring,
+      ...(isBttsYes(best) && instead ? { instead } : {}),
+    });
+  }
+  return picks
+    .sort((a, b) => Number(Boolean(a.instead)) - Number(Boolean(b.instead)) || b.probability - a.probability || a.row.kickoff - b.row.kickoff)
+    .slice(0, count);
 }
 
 /** Football matches in the pick window that the model has analysed. */
@@ -272,6 +383,7 @@ export { signedPp };
 
 export const GOAL_CATEGORIES = [
   { id: "vinder", label: "Hvem vinder", market: "1X2" },
+  { id: "maal15", label: "Over/under 1,5 mål", market: "OU15" },
   { id: "maal", label: "Over/under 2,5 mål", market: "OU25" },
   { id: "btts", label: "Begge hold scorer", market: "BTTS" },
 ] as const;
@@ -284,12 +396,7 @@ export const COUNT_CATEGORIES: { id: string; label: string; stat: CountStat; uni
 
 /** The best pick per match within one goal market. */
 export function marketPicks(rows: MarketRow[], now: number, count: number, market: string, context: (eventId: string) => PickContext | null = () => null): Pick[] {
-  return dailyPicks(
-    rows.filter((r) => r.marketType === market),
-    now,
-    count,
-    context,
-  );
+  return dailyPicks(rows, now, count, context, new Set([market]));
 }
 
 export interface CountPick {

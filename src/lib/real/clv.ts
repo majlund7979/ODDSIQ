@@ -16,6 +16,7 @@ export function specSelections(eventId: string, spec: string): { ids: string[]; 
     const ids = ["home", "draw", "away"].map((s) => sel("1x2", s));
     return { ids, covers: [ids.indexOf(sel("1x2", a))], quoted: sel("1x2", a) };
   }
+  if (kind === "OU" && b === "1.5" && (a === "over" || a === "under")) return { ids: [sel("ou15", "over"), sel("ou15", "under")], covers: [a === "over" ? 0 : 1], quoted: sel("ou15", a) };
   if (kind === "OU" && b === "2.5" && (a === "over" || a === "under")) return { ids: [sel("ou25", "over"), sel("ou25", "under")], covers: [a === "over" ? 0 : 1], quoted: sel("ou25", a) };
   if (kind === "BTTS" && (a === "yes" || a === "no")) return { ids: [sel("btts", "yes"), sel("btts", "no")], covers: [a === "yes" ? 0 : 1], quoted: sel("btts", a) };
   if (kind === "DC" && ["1X", "X2", "12"].includes(a)) {

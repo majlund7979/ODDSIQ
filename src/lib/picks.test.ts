@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MarketRow } from "@/lib/demo/store";
 import type { TeamNews } from "@/lib/stats/news";
-import { absences, analysePick, countPicks, dailyPicks, marketPicks, goalsProbability, headToHead, MARKET_WEIGHT, outcomeLabel, recentForm, strengthOf } from "./picks";
+import { absences, analysePick, bothScore, countPicks, dailyPicks, marketPicks, goalsProbability, headToHead, MARKET_WEIGHT, outcomeLabel, recentForm, strengthOf } from "./picks";
 
 const now = Date.UTC(2026, 9, 2, 12);
 const row = (o: Partial<MarketRow>): MarketRow =>
@@ -123,5 +123,49 @@ describe("bet types", () => {
     const picks = countPicks([row({ eventId: "e1" }), row({ eventId: "e2" })], now, 5, "corners", ctx);
     expect(picks.map((p) => p.row.eventId)).toEqual(["e2", "e1"]);
     expect(picks[1].outcome).toBe("Over 8,5 hjørnespark");
+  });
+});
+
+describe("begge hold scorer", () => {
+  // Both teams scored in all five of their last matches, unless `blank` names a team that drew a blank in one.
+  const history = (blank?: string) =>
+    Array.from({ length: 6 }, (_, i) => [
+      { league: "E0", season: "2026", date: i * 2, home: "Arsenal", away: `X${i}`, hg: blank === "Arsenal" && i === 5 ? 0 : 2, ag: 1 },
+      { league: "E0", season: "2026", date: i * 2 + 1, home: `Y${i}`, away: "Chelsea", hg: 1, ag: blank === "Chelsea" && i === 4 ? 0 : 1 },
+    ]).flat();
+  const withTeams = (blank?: string) => () => ({ expectedGoals: { home: 1.6, away: 1.3 }, news: null, teams: { home: "Arsenal", away: "Chelsea", homeElo: 1500, awayElo: 1500, history: history(blank) } });
+  const btts = row({ selectionId: "y", marketType: "BTTS", side: "yes", modelProbability: 0.66, marketProbability: 0.66, bestOdds: 1.7 });
+  const win = row({ selectionId: "h", modelProbability: 0.5, marketProbability: 0.5, bestOdds: 2.1 });
+
+  it("is only suggested when both teams scored in each of their last five matches", () => {
+    expect(bothScore(withTeams()())).toMatchObject({ home: 5, away: 5, n: 5, every: true });
+    expect(bothScore(withTeams("Chelsea")())).toMatchObject({ home: 5, away: 4, every: false });
+    expect(dailyPicks([btts, win], now, 5, withTeams())[0].outcome).toBe("Begge hold scorer");
+    expect(dailyPicks([btts, win], now, 5, withTeams("Arsenal"))[0].outcome).toBe("Arsenal vinder");
+    // Without the teams' results (a market-only league) it is never suggested.
+    expect(dailyPicks([btts, win], now, 5, () => ctx(null))[0].outcome).toBe("Arsenal vinder");
+    expect(marketPicks([btts], now, 5, "BTTS", withTeams("Arsenal"))).toEqual([]);
+  });
+
+  it("gives way to over 2,5 mål at about the same odds when that pays more", () => {
+    const over = row({ selectionId: "o", marketType: "OU25", side: "over", modelProbability: 0.64, marketProbability: 0.64, bestOdds: 1.85 });
+    const o15 = row({ selectionId: "o15", marketType: "OU15", side: "over", modelProbability: 0.85, marketProbability: 0.85, bestOdds: 1.2 });
+    // 0.64 × 1.85 = 1.18 beats 0.66 × 1.7 = 1.12, and 1.85 is within 25 % of 1.7.
+    const [p] = dailyPicks([btts, over, o15, win], now, 5, withTeams());
+    expect(p.outcome).toBe("Over 2,5 mål");
+    expect(p.goals!.map((g) => g.outcome)).toEqual(["Over 1,5 mål", "Over 2,5 mål", "Begge hold scorer"]);
+    // On its own tab it stays, with the better bet named.
+    const [b] = marketPicks([btts, over, win], now, 5, "BTTS", withTeams());
+    expect(b.outcome).toBe("Begge hold scorer");
+    expect(b.instead).toMatchObject({ outcome: "Over 2,5 mål", odds: 1.85 });
+    // At very different odds the two are not compared.
+    expect(dailyPicks([btts, { ...over, bestOdds: 2.4, modelProbability: 0.6, marketProbability: 0.6 }], now, 5, withTeams())[0].outcome).toBe("Begge hold scorer");
+  });
+
+  it("keeps over 1,5 mål on its own tab, not the mixed list", () => {
+    const o15 = row({ selectionId: "o15", marketType: "OU15", side: "over", modelProbability: 0.85, marketProbability: 0.85, bestOdds: 1.2 });
+    expect(dailyPicks([o15, win], now, 5)[0].outcome).toBe("Arsenal vinder");
+    expect(marketPicks([o15, win], now, 5, "OU15")[0].outcome).toBe("Over 1,5 mål");
+    expect(goalsProbability("OU15", "over", 1.4, 1.1)).toBeCloseTo(1 - Math.exp(-2.5) * (1 + 2.5), 6);
   });
 });

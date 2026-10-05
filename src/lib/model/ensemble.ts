@@ -1,5 +1,5 @@
 // ODDSIQ football model v1: an equal-weight blend of the Dixon-Coles goals
-// model and Elo for match result (1X2); goals markets (over/under 2.5, both
+// model and Elo for match result (1X2); goals markets (over/under 1.5 and 2.5, both
 // teams to score) come from Dixon-Coles alone. Trained only on match results.
 
 import { modelConsensus, predictionConfidence } from "@/lib/metrics/consensus";
@@ -13,7 +13,7 @@ export const REAL_MODEL = {
   weights: { poisson: 0.5, elo: 0.5 },
   features: ["match results (goals) only", "home advantage", "time-decayed team attack and defence", "Elo rating difference"],
   notes:
-    "Equal-weight blend of Dixon-Coles and Elo for 1X2; Dixon-Coles alone for over/under 2.5 and both teams to score. Refitted on the last three seasons of results before every prediction. Uses no lineups, injuries, xG or market prices.",
+    "Equal-weight blend of Dixon-Coles and Elo for 1X2; Dixon-Coles alone for over/under 1.5 and 2.5 and both teams to score. Refitted on the last three seasons of results before every prediction. Uses no lineups, injuries, xG or market prices.",
 };
 
 export const UNCERTAINTY_NOTE =
@@ -22,7 +22,7 @@ export const UNCERTAINTY_NOTE =
 export type Outcome1x2 = "home" | "draw" | "away";
 
 export interface SelectionForecast {
-  market: "1X2" | "OU25" | "BTTS";
+  market: "1X2" | "OU15" | "OU25" | "BTTS";
   selection: string;
   probability: number;
   ciLow: number;
@@ -61,6 +61,8 @@ export function forecastMatch(fit: PoissonFit, elo: EloState, ol: OrderedLogit, 
     ["OU25", "under", 1 - g.over25],
     ["BTTS", "yes", g.bttsYes],
     ["BTTS", "no", 1 - g.bttsYes],
+    ["OU15", "over", g.over15],
+    ["OU15", "under", 1 - g.over15],
   ] as const) {
     const ci = interval(p, 0, g.support);
     selections.push({ market, selection: sel, probability: p, ...ci, confidence: predictionConfidence({ ...ci, modelStdevPp: 0, dataQuality: g.unknownTeams.length ? 60 : 100 }), components: { poisson: p, elo: null } });
