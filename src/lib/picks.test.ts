@@ -162,9 +162,10 @@ describe("begge hold scorer", () => {
     expect(dailyPicks([btts, { ...over, bestOdds: 2.4, modelProbability: 0.6, marketProbability: 0.6 }], now, 5, withTeams())[0].outcome).toBe("Begge hold scorer");
   });
 
-  it("keeps over 1,5 mål on its own tab, not the mixed list", () => {
+  it("lets over 1,5 mål onto the mixed list only from odds 1,40", () => {
     const o15 = row({ selectionId: "o15", marketType: "OU15", side: "over", modelProbability: 0.85, marketProbability: 0.85, bestOdds: 1.2 });
     expect(dailyPicks([o15, win], now, 5)[0].outcome).toBe("Arsenal vinder");
+    expect(dailyPicks([{ ...o15, bestOdds: 1.4 }, win], now, 5)[0].outcome).toBe("Over 1,5 mål");
     expect(marketPicks([o15, win], now, 5, "OU15")[0].outcome).toBe("Over 1,5 mål");
     expect(goalsProbability("OU15", "over", 1.4, 1.1)).toBeCloseTo(1 - Math.exp(-2.5) * (1 + 2.5), 6);
   });

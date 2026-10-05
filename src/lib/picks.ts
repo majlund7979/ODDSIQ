@@ -282,11 +282,13 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
   return { row, probability: final, lineupsConfirmed, factors, insights, marketOnly: false };
 }
 
+/** Markets the daily list ranks. Double chance covers two outcomes, so it has its own tab rather than crowding out single outcomes. */
+const PICK_MARKETS: ReadonlySet<string> = new Set(["1X2", "OU15", "OU25", "BTTS"]);
 /**
- * Markets the daily list ranks. Double chance covers two outcomes and over 1,5 mål is nearly always the likeliest
- * outcome at very low odds, so both have their own tab rather than crowding out the rest.
+ * Over/under 1,5 mål on the daily list only from these odds: over 1,5 is nearly always the likeliest outcome, at
+ * around 1,20–1,30, and would otherwise fill the list. Its own tab shows every match.
  */
-const PICK_MARKETS: ReadonlySet<string> = new Set(["1X2", "OU25", "BTTS"]);
+export const OU15_MIN_ODDS = 1.4;
 /** Markets analysed for every match, to compare bets with each other. */
 const COMPARE_MARKETS: ReadonlySet<string> = new Set(["1X2", "OU15", "OU25", "BTTS"]);
 /** Odds count as "about the same" when the higher is at most this many times the lower. */
@@ -351,6 +353,7 @@ export function dailyPicks(
     let best: Analysed | null = null;
     for (const a of list) {
       if (!markets.has(a.row.marketType) || (isBttsYes(a) && (!scoring?.every || (mixed && instead)))) continue;
+      if (mixed && a.row.marketType === "OU15" && !(a.row.bestOdds >= OU15_MIN_ODDS)) continue;
       if (!best || a.probability > best.probability) best = a;
     }
     if (!best) continue;
