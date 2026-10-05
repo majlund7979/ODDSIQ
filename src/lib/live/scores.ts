@@ -37,7 +37,49 @@ export interface LivePick {
   score: [number, number] | null;
   /** How the bet stands on the current score; null when the score cannot settle it (corners, cards, half-time …). */
   state: "won" | "lost" | null;
+  /** How the bet looks right now, for the coloured marker (see liveTone). */
+  tone: LiveTone;
   finished: boolean;
+}
+
+/**
+ * won: settled or can no longer lose · winning: would win if it ended now · neutral: level, e.g. 0-0 on a winner bet ·
+ * behind: worse than level (the other team leads, or goals are missing) · lost: settled or can no longer win ·
+ * unknown: the score cannot tell (corners, cards …).
+ */
+export type LiveTone = "won" | "winning" | "neutral" | "behind" | "lost" | "unknown";
+
+/** The marker for a bet on the current score (Mads, 2026-10-05). Pure. */
+export function liveTone(spec: string, score: [number, number] | null, finished: boolean): LiveTone {
+  const [kind, a, b] = spec.split(":");
+  if (!["1X2", "OU", "BTTS", "DC"].includes(kind)) return "unknown";
+  if (!score) return "neutral";
+  const [h, w] = score;
+  const res = settle(spec, { goals: score, ht: null, corners: null, cards: null, fouls: null });
+  if (finished) return res === "won" ? "won" : res === "lost" ? "lost" : "unknown";
+  if (kind === "OU") {
+    const line = Number(b);
+    const total = h + w;
+    if (a === "over") {
+      if (total > line) return "won";
+      return Math.ceil(line) - total <= 1 ? "neutral" : "behind";
+    }
+    if (total > line) return "lost";
+    return "winning";
+  }
+  if (kind === "BTTS") {
+    const both = h > 0 && w > 0;
+    if (a === "yes") return both ? "won" : "neutral";
+    return both ? "lost" : h + w === 0 ? "winning" : "neutral";
+  }
+  if (kind === "1X2") {
+    if (a === "draw") return h === w ? "winning" : "behind";
+    const lead = a === "home" ? h - w : w - h;
+    return lead > 0 ? "winning" : lead === 0 ? "neutral" : "behind";
+  }
+  // Double chance: 1X, X2 or 12.
+  if (a === "12") return h !== w ? "winning" : "neutral";
+  return res === "won" ? "winning" : "behind";
 }
 
 interface ApiFixture {
@@ -77,11 +119,11 @@ export function findFixture(p: { eventId: string; home: string; away: string; ki
   return fixtures.find((f) => Math.abs(f.kickoff - p.kickoff) <= 20 * MIN && matchTeam(p.home, [f.home]) && matchTeam(p.away, [f.away])) ?? null;
 }
 
-export function liveState(spec: string, f: LiveFixture): Pick<LivePick, "clock" | "score" | "state" | "finished"> {
+export function liveState(spec: string, f: LiveFixture): Pick<LivePick, "clock" | "score" | "state" | "tone" | "finished"> {
   const finished = FINISHED.has(f.status);
   const clock = finished ? "Slut" : f.status === "HT" ? "Pause" : f.minute !== null ? `${f.minute}'` : f.status;
   const state = f.goals ? settle(spec, { goals: f.goals, ht: null, corners: null, cards: null, fouls: null }) : null;
-  return { clock, score: f.goals, state, finished };
+  return { clock, score: f.goals, state, tone: liveTone(spec, f.goals, finished), finished };
 }
 
 /** Recorded picks of one bet type whose matches kicked off within the live window, with their live score. */
