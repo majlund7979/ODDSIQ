@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayFixtures, findFixture, liveState, normalizeFixtures, type LiveFixture } from "./scores";
+import { dayFixtures, findFixture, liveState, liveTone, normalizeFixtures, type LiveFixture } from "./scores";
 
 const K = Date.UTC(2026, 9, 4, 18);
 const fx = (o: Partial<LiveFixture>): LiveFixture => ({ id: "1", home: "Arsenal", away: "Chelsea", kickoff: K, status: "2H", minute: 62, goals: [1, 0], ...o });
@@ -18,7 +18,7 @@ describe("live scores", () => {
   });
 
   it("says how the bet stands on the current score", () => {
-    expect(liveState("1X2:home", fx({}))).toEqual({ clock: "62'", score: [1, 0], state: "won", finished: false });
+    expect(liveState("1X2:home", fx({}))).toEqual({ clock: "62'", score: [1, 0], state: "won", tone: "winning", finished: false });
     expect(liveState("OU:over:2.5", fx({ status: "HT", minute: 45 }))).toMatchObject({ clock: "Pause", state: "lost" });
     expect(liveState("BTTS:no", fx({ status: "FT", minute: 90 }))).toMatchObject({ clock: "Slut", state: "won", finished: true });
     expect(liveState("COUNT:corners:over@9.5", fx({})).state).toBeNull();
@@ -34,5 +34,28 @@ describe("live scores", () => {
     await dayFixtures("k", "2026-10-04", K + 30_000, fetchImpl);
     await dayFixtures("k", "2026-10-04", K + 61_000, fetchImpl);
     expect(calls).toBe(2);
+  });
+});
+
+describe("liveTone", () => {
+  it("colours each bet by how it stands on the score", () => {
+    expect(liveTone("1X2:home", [0, 0], false)).toBe("neutral");
+    expect(liveTone("1X2:home", [1, 0], false)).toBe("winning");
+    expect(liveTone("1X2:home", [0, 1], false)).toBe("behind");
+    expect(liveTone("1X2:home", [0, 1], true)).toBe("lost");
+    expect(liveTone("1X2:home", [2, 1], true)).toBe("won");
+    // Over 2,5: no goal or one goal is behind, two goals is level, three is home already.
+    expect(liveTone("OU:over:2.5", [0, 0], false)).toBe("behind");
+    expect(liveTone("OU:over:2.5", [1, 0], false)).toBe("behind");
+    expect(liveTone("OU:over:2.5", [1, 1], false)).toBe("neutral");
+    expect(liveTone("OU:over:2.5", [2, 1], false)).toBe("won");
+    expect(liveTone("OU:under:2.5", [1, 1], false)).toBe("winning");
+    expect(liveTone("OU:under:2.5", [2, 1], false)).toBe("lost");
+    expect(liveTone("BTTS:yes", [1, 0], false)).toBe("neutral");
+    expect(liveTone("BTTS:yes", [1, 1], false)).toBe("won");
+    expect(liveTone("BTTS:no", [1, 1], false)).toBe("lost");
+    expect(liveTone("DC:1X", [0, 0], false)).toBe("winning");
+    expect(liveTone("DC:1X", [0, 1], false)).toBe("behind");
+    expect(liveTone("COUNT:corners:over@9.5", [0, 0], false)).toBe("unknown");
   });
 });
