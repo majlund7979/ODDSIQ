@@ -1,0 +1,36 @@
+# Survey of what API-Football returns on this plan (coverage flags per
+# competition and the fields of every endpoint), for the prediction engine's
+# data analysis. Run it by hand: Actions → API probe → Run workflow. Spends
+# about 60 requests of the daily allowance and stores nothing. The full answer
+# is saved as the run's "api-probe" artifact.
+
+name: API probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      league:
+        description: API-Football league id for the sample matches (39 = Premier League)
+        default: "39"
+
+jobs:
+  probe:
+    if: vars.SITE_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ask the live site
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          LEAGUE: ${{ inputs.league }}
+        run: |
+          code=$(curl -sS --max-time 90 -o api-probe.json -w '%{http_code}' -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/api-probe?league=${LEAGUE:-39}" || echo 000)
+          echo "HTTP $code"
+          head -c 3000 api-probe.json; echo
+          [ "$code" = 200 ]
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-probe
+          path: api-probe.json
