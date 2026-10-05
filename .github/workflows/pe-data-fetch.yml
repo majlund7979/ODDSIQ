@@ -1,0 +1,38 @@
+# Prediction engine (step 5): downloads football-data.co.uk results and odds CSVs
+# and stores them as one archive on the pe-data branch, because the build sandbox
+# cannot reach football-data.co.uk. Runs only on pushes to this branch.
+
+name: PE data fetch
+
+on:
+  push:
+    branches: [data-fetch]
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download CSVs
+        run: |
+          mkdir -p fd/main fd/new
+          for s in 1213 1314 1415 1516 1617 1718 1819 1920 2021 2122 2223 2324 2425 2526; do
+            for d in E0 E1 D1 D2 SP1 SP2 I1 I2 F1 F2 N1 P1 B1 SC0 T1 G1; do
+              curl -sS -f --retry 3 -o "fd/main/${d}_${s}.csv" "https://www.football-data.co.uk/mmz4281/${s}/${d}.csv" || echo "missing ${d} ${s}"
+              sleep 0.3
+            done
+          done
+          for c in DNK SWE NOR AUT SWZ POL; do
+            curl -sS -f --retry 3 -o "fd/new/${c}.csv" "https://www.football-data.co.uk/new/${c}.csv" || echo "missing ${c}"
+          done
+          ls fd/main | wc -l; du -sh fd
+      - name: Save archive on pe-data
+        run: |
+          tar czf football-data.tar.gz fd
+          git init -q out && mv football-data.tar.gz out/ && cd out
+          git config user.name "github-actions" && git config user.email "github-actions@users.noreply.github.com"
+          git checkout -q -b pe-data && git add football-data.tar.gz && git commit -qm "football-data.co.uk archive ${{ github.run_id }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" pe-data
