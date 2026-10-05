@@ -595,3 +595,13 @@ model PlayerStatsSync {
   id        String   @id
   fetchedAt DateTime
 }
+
+/// API-Football's own view of an upcoming match (/predictions): win percentages and a
+/// home-vs-away comparison of form, attack, defence and more. One row per fixture.
+model FixturePrediction {
+  /// API-Football fixture id
+  fixtureId Int      @id
+  fetchedAt DateTime
+  /// Normalised AfPrediction (src/lib/stats/af-predictions.ts)
+  data      Json
+}

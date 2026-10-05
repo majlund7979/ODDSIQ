@@ -14,6 +14,7 @@ import type { MarketRow } from "@/lib/demo/store";
 import type { CountForecast, CountForecasts, CountStat } from "@/lib/model/match-stats";
 import type { HistMatch } from "@/lib/model/openfootball";
 import { teamKey } from "@/lib/model/teams";
+import { AF_PREDICTION_MODEL, AF_PREDICTION_WEIGHT, flooredPercent, type AfPrediction } from "@/lib/stats/af-predictions";
 import { CLUBELO_MODEL, CLUBELO_WEIGHT, clubEloProbs, type ClubEloPair } from "@/lib/stats/clubelo";
 import type { TeamNews } from "@/lib/stats/news";
 
@@ -42,6 +43,8 @@ export interface PickContext {
   htShare?: { home: number; away: number; n: number } | null;
   /** Both clubs' ClubElo ratings, comparable across leagues. */
   clubElo?: ClubEloPair | null;
+  /** API-Football's own percentages and team comparison for the match. */
+  afPrediction?: AfPrediction | null;
 }
 
 export interface FormGame {
@@ -57,6 +60,8 @@ export interface PickInsights {
   elo: { home: number; away: number } | null;
   /** ClubElo ratings across leagues; on a market-only 1X2 pick they also move the probability (see the factors). */
   clubElo: ClubEloPair | null;
+  /** API-Football's percentages and comparison; on a market-only 1X2 pick they move the probability before ClubElo does. */
+  afPrediction: AfPrediction | null;
   form: { home: FormGame[]; away: FormGame[] } | null;
   h2h: { home: number; draw: number; away: number; games: { date: number; score: string }[] } | null;
   /** Change in the best odds since the market opened; negative means the price shortened. */
@@ -224,8 +229,19 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
     if (!(row.marketProbability > 0 && row.marketProbability < 1)) return null;
     const lineupsConfirmed = lineupsIn(row, ctx);
     const club = ctx?.clubElo ?? null;
-    const insights: PickInsights = { expectedGoals: null, elo: null, clubElo: club, form: null, h2h: null, movement: row.movement, lineupsConfirmed };
+    const af = ctx?.afPrediction ?? null;
+    const insights: PickInsights = { expectedGoals: null, elo: null, clubElo: club, afPrediction: af, form: null, h2h: null, movement: row.movement, lineupsConfirmed };
     const market = row.marketProbability;
+    if (af && row.marketType === "1X2") {
+      // API-Football compares the teams on all their matches, across competitions: a minority share next to the market.
+      const e = flooredPercent(af.percent)[row.side as "home" | "draw" | "away"];
+      const p = clamp((1 - AF_PREDICTION_WEIGHT) * market + AF_PREDICTION_WEIGHT * e);
+      const factors: PickFactor[] = [
+        { label: "Bookmakerne", pp: null, detail: `${pct(market)} uden bookmakernes avance. Vi har ingen kampresultater for ligaen endnu.` },
+        { label: "Holdstyrke (API-Football)", pp: (p - market) * 100, detail: `API-Football giver ${pct(e)} ud fra holdenes form, angreb, forsvar og indbyrdes opgør (skøn, ${AF_PREDICTION_MODEL}); vægtet ${Math.round(AF_PREDICTION_WEIGHT * 100)} %` },
+      ];
+      return { row, probability: p, lineupsConfirmed, factors, insights, marketOnly: true };
+    }
     if (club && row.marketType === "1X2") {
       // Cross-league strength is the one model input we have here; it gets a minority share next to the market.
       const e = clubEloProbs(club.home.elo, club.away.elo)[row.side as "home" | "draw" | "away"];
@@ -293,6 +309,7 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
     expectedGoals: ctx?.expectedGoals ?? null,
     elo: t ? { home: Math.round(t.homeElo), away: Math.round(t.awayElo) } : null,
     clubElo: ctx?.clubElo ?? null,
+    afPrediction: ctx?.afPrediction ?? null,
     form: t ? { home: recentForm(t.home, t.history), away: recentForm(t.away, t.history) } : null,
     h2h: t ? headToHead(t.home, t.away, t.history) : null,
     movement: row.movement,
