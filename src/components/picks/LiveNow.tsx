@@ -8,14 +8,14 @@ import type { LivePick, LiveTone } from "@/lib/live/scores";
 
 const POLL_MS = 60_000;
 
-// Red: lost. Green: home. Light green: on its way home. Yellow: level, e.g. 0-0. Orange: worse than level.
-const TONE: Record<LiveTone, { icon: string; label: (finished: boolean) => string; dot: string; text: string }> = {
-  won: { icon: "✓", label: (f) => (f ? "Gik hjem" : "Gået hjem"), dot: "bg-[#22c55e] text-[#052e16]", text: "text-[#4ade80]" },
-  winning: { icon: "↗", label: () => "På vej hjem", dot: "bg-[#bbf7d0] text-[#14532d]", text: "text-[#bbf7d0]" },
-  neutral: { icon: "–", label: () => "Neutral", dot: "bg-[#facc15] text-[#422006]", text: "text-[#fde047]" },
-  behind: { icon: "↘", label: () => "Bagud", dot: "bg-[#fb923c] text-[#431407]", text: "text-[#fdba74]" },
-  lost: { icon: "✗", label: (f) => (f ? "Tabt" : "Kan ikke gå hjem"), dot: "bg-[#ef4444] text-white", text: "text-[#f87171]" },
-  unknown: { icon: "?", label: () => "Afgøres senere", dot: "bg-surface-3 text-ink-2", text: "text-ink-2" },
+// Green: won. Light green: positive. Yellow: neutral, e.g. 0-0. Orange: negative. Red: lost (Mads, 2026-10-05).
+const TONE: Record<LiveTone, { icon: string; label: string; dot: string }> = {
+  won: { icon: "✓", label: "Vundet", dot: "bg-[#22c55e] text-[#052e16]" },
+  winning: { icon: "↗", label: "Positiv", dot: "bg-[#bbf7d0] text-[#14532d]" },
+  neutral: { icon: "–", label: "Neutral", dot: "bg-[#facc15] text-[#422006]" },
+  behind: { icon: "↘", label: "Negativ", dot: "bg-[#fb923c] text-[#431407]" },
+  lost: { icon: "✗", label: "Tabt", dot: "bg-[#ef4444] text-white" },
+  unknown: { icon: "?", label: "Afgøres senere", dot: "bg-surface-3 text-ink-2" },
 };
 
 export function LiveNow({ type, initial }: { type: string; initial: LivePick[] }) {
@@ -52,9 +52,6 @@ export function LiveNow({ type, initial }: { type: string; initial: LivePick[] }
           const [home, away] = p.match.split(" vs ");
           return (
             <li key={p.key} className="flex items-center gap-3 px-5 py-2.5">
-              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${s.dot}`} aria-hidden>
-                {s.icon}
-              </span>
               <span className="num w-12 shrink-0 text-xs text-muted">{p.clock}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">
@@ -64,7 +61,10 @@ export function LiveNow({ type, initial }: { type: string; initial: LivePick[] }
                   {p.outcome} · {p.league}
                 </span>
               </span>
-              <span className={`shrink-0 text-[11px] font-semibold ${s.text}`}>{s.label(p.finished)}</span>
+              {/* The icon alone; the legend below says what each colour means. */}
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${s.dot}`} role="img" aria-label={s.label} title={s.label}>
+                {s.icon}
+              </span>
             </li>
           );
         })}
@@ -73,7 +73,7 @@ export function LiveNow({ type, initial }: { type: string; initial: LivePick[] }
         {(["won", "winning", "neutral", "behind", "lost"] as LiveTone[]).map((k) => (
           <span key={k} className="flex items-center gap-1.5">
             <span className={`h-2.5 w-2.5 rounded-full ${TONE[k].dot}`} aria-hidden />
-            {k === "won" ? "Gået hjem" : k === "lost" ? "Tabt" : TONE[k].label(false)}
+            {TONE[k].label}
           </span>
         ))}
       </p>
