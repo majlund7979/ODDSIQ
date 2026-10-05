@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TOP_SCORER_MODEL, type TopScorer } from "@/lib/top-scorer";
 import { AF_PREDICTION_MODEL, COMPARISON_LABELS, type AfPrediction } from "@/lib/stats/af-predictions";
 import { CLUBELO_MODEL, clubEloProbs, type ClubEloPair } from "@/lib/stats/clubelo";
 import { TeamNews } from "@/components/TeamNews";
@@ -125,6 +126,44 @@ function FormRow({ team, games }: { team: string; games: FormGame[] }) {
         ))}
       </span>
     </div>
+  );
+}
+
+const SCORER_STATUS: Record<NonNullable<TopScorer["status"]>, { text: string; tone: string }> = {
+  out: { text: "mangler", tone: "text-critical" },
+  doubtful: { text: "tvivlsom", tone: "text-warning" },
+  bench: { text: "ikke i startopstillingen", tone: "text-warning" },
+  starts: { text: "starter", tone: "text-good" },
+};
+
+/** Each team's top scorer: season goals, whether he plays, and his last matches against his season. */
+function ScorersFact({ s, home, away, moves }: { s: NonNullable<Pick["insights"]["scorers"]>; home: string; away: string; moves: boolean }) {
+  const row = (team: string, t: TopScorer | null) =>
+    t && (
+      <li key={team} className="flex flex-wrap items-baseline gap-x-2">
+        <span className="font-medium">{t.name}</span>
+        <span className="text-xs text-muted">{team}</span>
+        <span className="num text-xs text-ink-2">
+          {t.goals} mål på {Math.round(t.minutes / 90)} kampes spilletid · {Math.round(t.share * 100)} % af holdets
+        </span>
+        {t.status && <span className={`text-xs font-semibold ${SCORER_STATUS[t.status].tone}`}>{SCORER_STATUS[t.status].text}</span>}
+        {t.recent && (
+          <span className={`num text-xs ${t.recent.ratio > 1.1 ? "text-good" : t.recent.ratio < 0.9 ? "text-critical" : "text-ink-2"}`}>
+            {t.recent.ratio > 1.1 ? "↑" : t.recent.ratio < 0.9 ? "↓" : "→"} {t.recent.goals} mål i de seneste {t.recent.matches} kampe
+          </span>
+        )}
+      </li>
+    );
+  return (
+    <Fact label="Topscorere">
+      <ul className="space-y-1">
+        {row(home, s.home)}
+        {row(away, s.away)}
+      </ul>
+      <div className="mt-1 text-xs text-muted">
+        {moves ? "Flytter chancen på over/under 1,5 og 2,5 mål: en topscorer der mangler, trækker holdets forventede mål ned, og formen flytter dem lidt" : "Bruges på over/under 1,5 og 2,5 mål"} · skøn, {TOP_SCORER_MODEL} · {s.source ?? "API-Football, alle turneringer"}
+      </div>
+    </Fact>
   );
 }
 
@@ -362,6 +401,7 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
             </span>
           </Fact>
         )}
+        {i.scorers && <ScorersFact s={i.scorers} home={home} away={away} moves={!p.marketOnly && (p.row.marketType === "OU15" || p.row.marketType === "OU25")} />}
         {i.afPrediction && <AfPredictionFact a={i.afPrediction} home={home} away={away} />}
         {i.clubElo && <ClubEloFact c={i.clubElo} home={home} away={away} />}
         {i.form && (

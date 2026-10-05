@@ -15,6 +15,8 @@ import { seasonFor } from "@/lib/stats/api-football";
 import { configuredStatsFeed } from "@/lib/stats/config";
 import { STATS_LEAGUES } from "@/lib/stats/leagues";
 import { refreshPredictions } from "@/lib/stats/af-predictions";
+import { loadScoring, refreshScorerForm } from "@/lib/real/scorers";
+import { topScorer } from "@/lib/top-scorer";
 import { clubEloCovers, clubEloLastError, clubEloRatings, findClub } from "@/lib/stats/clubelo";
 
 export const maxDuration = 60;
@@ -50,6 +52,7 @@ export async function GET(req: Request): Promise<Response> {
     // Filled in at the end; listed here so it lands inside the workflow's 12 000-character annotation.
     clubElo: null,
     afPredictions: null,
+    scorers: null,
   };
   if (!DATABASE_CONFIGURED) return Response.json({ ...out, database: "not configured" });
   const prisma = db();
@@ -192,6 +195,26 @@ export async function GET(req: Request): Promise<Response> {
     } else out.afPredictions = "no STATS_API_KEY or database";
   } catch (e) {
     out.afPredictions = `error ${message(e)}`;
+  }
+  // Top scorers for the goal lines: fetches a couple of teams' last matches, then how many upcoming matches have both teams' numbers.
+  try {
+    const feed = configuredStatsFeed();
+    if (DATABASE_CONFIGURED && feed) {
+      const run = await refreshScorerForm(db(), feed, now, 6);
+      const events = await db().event.findMany({ where: { sportId: "football", status: "scheduled", kickoff: { gt: new Date(now), lte: new Date(now + 86_400_000) } }, select: { id: true } });
+      const scoring = await loadScoring(db(), events.map((e) => e.id), now);
+      const tops = [...scoring.values()].map((s) => [topScorer(s.home.players, s.home.recent, { injuries: [], lineup: null }), topScorer(s.away.players, s.away.recent, { injuries: [], lineup: null })]);
+      out.scorers = {
+        run,
+        matches24h: events.length,
+        withSquads: scoring.size,
+        withBothScorers: tops.filter(([h, a]) => h && a).length,
+        withForm: tops.filter(([h, a]) => h?.recent && a?.recent).length,
+        sample: tops.flat().filter(Boolean).slice(0, 4).map((t) => `${t!.name} ${t!.goals}g form ${t!.recent ? t!.recent.ratio.toFixed(2) : "-"}`),
+      };
+    } else out.scorers = "no STATS_API_KEY or database";
+  } catch (e) {
+    out.scorers = `error ${message(e)}`;
   }
   // Lineups for matches around kickoff: whether each is matched to an API-Football fixture and has lineups stored.
   try {

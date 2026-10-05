@@ -7,6 +7,8 @@ import { DataSourceNotConfiguredError, DEMO_MODE } from "@/lib/data";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { configuredStatsFeed } from "@/lib/stats/config";
 import { refreshLineupsOnVisit } from "@/lib/stats/lineups";
+import { loadScoring, refreshScorerFormOnVisit, type TeamScoring } from "@/lib/real/scorers";
+import { topScorer, type TopScorer } from "@/lib/top-scorer";
 import { loadPredictions, refreshPredictionsOnVisit, type AfPrediction } from "@/lib/stats/af-predictions";
 import { statsConfig } from "@/lib/stats/config";
 import { clubEloCovers, clubEloRatings, clubPair, type ClubEloPair } from "@/lib/stats/clubelo";
@@ -97,6 +99,7 @@ async function liveSnapshot(now: number, fresh: boolean): Promise<RealSnapshot> 
   after(() => lineupsOnVisit(now));
   after(() => resultsOnVisit(now));
   after(() => predictionsOnVisit(now));
+  after(() => scorersOnVisit(now));
   if (latest && now - latest.at < STALE_MS) {
     const stale = latest.snap;
     after(() => rebuild().catch(() => undefined));
@@ -116,6 +119,32 @@ async function lineupsOnVisit(now: number): Promise<void> {
 async function predictionsOnVisit(now: number): Promise<void> {
   const s = await refreshPredictionsOnVisit(db(), statsConfig().apiKey, now).catch(() => null);
   if (s?.fetched) predictionMemo = null;
+}
+
+async function scorersOnVisit(now: number): Promise<void> {
+  const feed = configuredStatsFeed();
+  if (!feed) return;
+  const s = await refreshScorerFormOnVisit(db(), feed, now).catch(() => null);
+  if (s?.teams) scoringMemo = null;
+}
+
+let scoringMemo: { snap: RealSnapshot; at: number; map: Map<string, { home: TeamScoring; away: TeamScoring }> } | null = null;
+
+/** Season totals and last matches for the snapshot's upcoming football matches; reused for a few minutes. */
+async function scoringFor(snap: RealSnapshot, now: number) {
+  if (scoringMemo?.snap === snap && now - scoringMemo.at < PREDICTIONS_FRESH_MS) return scoringMemo.map;
+  const ids = snap.events.filter((e) => e.view.status === "scheduled" && e.view.sportId === "football").map((e) => e.view.id);
+  const map = await loadScoring(db(), ids, now).catch(() => new Map<string, { home: TeamScoring; away: TeamScoring }>());
+  scoringMemo = { snap, at: now, map };
+  return map;
+}
+
+/** Both teams' top scorers, with injuries and lineups from the match's team news. */
+function scorersOf(s: { home: TeamScoring; away: TeamScoring } | undefined, news: TeamNews | null): { home: TopScorer | null; away: TopScorer | null } | undefined {
+  if (!s) return undefined;
+  const side = (k: "home" | "away") => ({ injuries: news?.injuries.filter((i) => i.side === k) ?? [], lineup: news?.lineups.find((l) => l.side === k) ?? null });
+  const out = { home: topScorer(s.home.players, s.home.recent, side("home")), away: topScorer(s.away.players, s.away.recent, side("away")) };
+  return out.home || out.away ? out : undefined;
 }
 
 const PREDICTIONS_FRESH_MS = 5 * 60_000;
@@ -181,7 +210,7 @@ export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal
   // The ledger views need the full snapshot; built only when one of them is asked for.
   let fullSnap: Promise<RealSnapshot> | null = null;
   const full = () => (fullSnap ??= realSnapshot(db(), now));
-  const [clubs, predictions] = await Promise.all([clubEloRatings(now), predictionsFor(snap, now)]);
+  const [clubs, predictions, scoring] = await Promise.all([clubEloRatings(now), predictionsFor(snap, now), scoringFor(snap, now)]);
   const clubMemo = new Map<string, ClubEloPair | null>();
   const clubEloOf = (e: RealSnapshot["events"][number]) => {
     if (!clubs || !clubEloCovers(e.view.leagueId)) return null;
@@ -216,10 +245,11 @@ export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal
       const clubElo = clubEloOf(e);
       const afPrediction = (e.fixtureId !== null && predictions.get(e.fixtureId)) || null;
       // A league without results history: only the cross-league strength and the team news.
-      if (!e.forecast || !("f" in e.forecast)) return clubElo || afPrediction || e.news ? { news: e.news ?? null, clubElo, afPrediction } : null;
+      const scorers = scorersOf(scoring.get(e.view.id), e.news);
+      if (!e.forecast || !("f" in e.forecast)) return clubElo || afPrediction || scorers || e.news ? { news: e.news ?? null, clubElo, afPrediction, scorers } : null;
       const { f, home, away } = e.forecast;
       const teams = e.model ? { home, away, homeElo: rating(e.model.elo, home), awayElo: rating(e.model.elo, away), history: e.model.history } : undefined;
-      return { expectedGoals: f.expectedGoals, news: e.news, teams, counts: e.counts, htShare: e.htShare, clubElo, afPrediction };
+      return { expectedGoals: f.expectedGoals, news: e.news, teams, counts: e.counts, htShare: e.htShare, clubElo, afPrediction, scorers };
     },
   };
 }

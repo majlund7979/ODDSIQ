@@ -10,6 +10,9 @@ import { rating } from "@/lib/model/elo";
 import type { HistMatch } from "@/lib/model/openfootball";
 import type { PickContext } from "@/lib/picks";
 import { COMPARISON_KEYS, type AfPrediction } from "@/lib/stats/af-predictions";
+import type { PlayerMatch } from "@/lib/stats/api-football";
+import type { PlayerSeason } from "@/lib/stats/types";
+import { topScorer } from "@/lib/top-scorer";
 import { clubEloProbs } from "@/lib/stats/clubelo";
 import type { InjuryItem } from "@/lib/stats/types";
 import { LEAGUES, teamById } from "./catalog";
@@ -125,8 +128,29 @@ export function demoPickContext(eventId: string, now: number): PickContext | nul
     counts: forecastCounts(counts, home.name, away.name, referee),
     htShare,
     clubElo,
+    scorers: demoScorers(ev.event.id, home.name, away.name, home.attack, away.attack, injuries),
     afPrediction: demoAfPrediction(ev.event.id, rating(model.elo, home.name), rating(model.elo, away.name), t),
   };
+}
+
+/** DEMO DATA: a top scorer per team with season and last-five numbers seeded by the match id; a missing striker in the demo news counts as him. */
+function demoScorers(eventId: string, home: string, away: string, homeAttack: number, awayAttack: number, injuries: InjuryItem[]): PickContext["scorers"] {
+  const one = (side: "home" | "away", team: string, attack: number) => {
+    const rng = new Rng(`scorer:${eventId}:${side}`);
+    const goals = Math.max(3, Math.round(rng.range(4, 9) * attack));
+    const minutes = rng.int(900, 1260);
+    const first = team.split(" ")[0];
+    const name = `${first}${/[sxz]$/.test(first) ? "'" : "s"} nr. 9`;
+    const players: PlayerSeason[] = [
+      { playerId: 9, name, position: "Attacker", appearances: 14, lineups: 13, minutes, shotsOn: goals * 2, shotsTotal: goals * 4, goals, injured: false },
+      { playerId: 10, name: "Holdkammerat", position: "Midfielder", appearances: 14, lineups: 12, minutes: 1000, shotsOn: 10, shotsTotal: 20, goals: Math.round(goals * 0.6), injured: false },
+    ];
+    const recent: PlayerMatch[] = Array.from({ length: 5 }, (_, i) => ({ playerId: 9, name, minutes: 85, shotsOn: 2, goals: rng.next() < goals / 14 ? 1 : 0, assists: 0, foulsCommitted: 0, foulsDrawn: 0, kickoff: i }));
+    // The demo news names a missing "Førsteangriber": that is him.
+    const striker = injuries.find((i) => i.side === side && i.player === "Førsteangriber");
+    return topScorer(players, recent, { injuries: striker ? [{ ...striker, player: name }] : [], lineup: null });
+  };
+  return { home: one("home", home, homeAttack), away: one("away", away, awayAttack), source: "DEMO DATA" };
 }
 
 /** DEMO DATA: API-Football-style percentages from the demo Elo, rounded to 5 % like the real ones; comparison seeded by the match id. */

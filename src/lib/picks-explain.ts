@@ -49,6 +49,20 @@ export function explainPick(p: Pick): string[] {
     );
   }
 
+  const sc = i.scorers;
+  if (sc && (p.row.marketType === "OU15" || p.row.marketType === "OU25")) {
+    const notes = [sc.home, sc.away].flatMap((t) => {
+      if (!t) return [];
+      if (t.status === "out") return [`${t.name}, der har scoret ${t.goals} mål, mangler`];
+      if (t.status === "doubtful") return [`${t.name} (${t.goals} mål) er tvivlsom`];
+      if (t.status === "bench") return [`${t.name} (${t.goals} mål) er ikke i startopstillingen`];
+      if (t.recent && t.recent.ratio > 1.1) return [`${t.name} er i god form med ${t.recent.goals} mål i de seneste ${t.recent.matches} kampe`];
+      if (t.recent && t.recent.ratio < 0.9) return [`${t.name} scorer mindre end normalt, ${t.recent.goals} mål i de seneste ${t.recent.matches} kampe`];
+      return [];
+    });
+    if (notes.length) out.push(`Topscorerne tæller med i målene: ${notes.join(", og ")}.`);
+  }
+
   const xg = i.expectedGoals;
   if (xg) {
     const total = xg.home + xg.away;

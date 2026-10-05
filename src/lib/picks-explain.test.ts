@@ -15,7 +15,7 @@ const pick = (o: Partial<Pick> = {}): Pick => ({
   insights: {
     expectedGoals: { home: 1.7, away: 1.0 },
     elo: null,
-    clubElo: null, afPrediction: null,
+    clubElo: null, afPrediction: null, scorers: null,
     form: { home: [{ result: "V", score: "2-0", opponent: "X", home: true }], away: [{ result: "T", score: "0-1", opponent: "Y", home: false }] },
     h2h: { home: 2, draw: 1, away: 0, games: [{ date: 0, score: "2-1" }, { date: 0, score: "1-1" }, { date: 0, score: "3-0" }] },
     movement: -0.05,
