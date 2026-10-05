@@ -174,10 +174,11 @@ export interface Coupon {
   probability: number;
   odds: number;
   /**
-   * "odds": likeliest combination reaching COUPON_MIN_ODDS. "value": value bets first, then the likeliest (Mads, 2026-10-03).
-   * "rocket" (Raketten): every leg at least ROCKET_MIN_CHANCE. "goals": the day's likeliest over 2,5 mål (Mads, 2026-10-05).
+   * Every coupon takes the likeliest bets, never value first (Mads, 2026-10-05).
+   * "odds": likeliest combination reaching COUPON_MIN_ODDS. "chance": the likeliest bet in each of the likeliest matches.
+   * "rocket" (Raketten): every leg at least ROCKET_MIN_CHANCE. "goals": the day's likeliest over 2,5 mål.
    */
-  kind: "odds" | "value" | "rocket" | "goals";
+  kind: "odds" | "chance" | "rocket" | "goals";
   /** Legs whose best odds pay more than our fair odds. */
   valueLegs: number;
   /** What 1 kr staked returns on average: chance × combined odds. */
@@ -231,57 +232,43 @@ export function oddsCoupon(pool: Pick[], n = 2, minOdds = COUPON_MIN_ODDS): Coup
   return best ? coupon(best, "odds") : null;
 }
 
-/**
- * The 3-bet coupon, with no odds minimum: the likeliest value bets (best odds
- * above our fair odds), one per match, topped up with the likeliest other
- * picks when fewer than three are value bets.
- */
-export function valueCoupon(pool: Pick[], n = 3): Coupon | null {
-  const byChance = pool.filter((p) => p.row.bestOdds > 1).sort((a, b) => b.probability - a.probability);
+/** The likeliest bet in each match, likeliest matches first: n legs, or null with fewer matches. */
+function likeliestPerMatch(pool: Pick[], n: number, keep: (p: Pick) => boolean = () => true): Pick[] {
   const chosen: Pick[] = [];
-  for (const p of [...byChance.filter(isValue), ...byChance.filter((x) => !isValue(x))]) {
+  for (const p of pool.filter((x) => x.row.bestOdds > 1 && keep(x)).sort((a, b) => b.probability - a.probability)) {
     if (chosen.length === n) break;
     if (!chosen.some((c) => c.row.eventId === p.row.eventId)) chosen.push(p);
   }
-  return chosen.length === n ? coupon(chosen, "value") : null;
+  return chosen;
 }
 
-/**
- * Raketten: in each match the bet at ROCKET_MIN_CHANCE or more with the highest odds (the most it can pay while
- * staying that likely), then the ROCKET_MAX_LEGS likeliest of those matches. Left out below ROCKET_MIN_LEGS.
- */
+/** The 3-bet coupon, with no odds minimum: the likeliest bet in each of the three likeliest matches. */
+export function chanceCoupon(pool: Pick[], n = 3): Coupon | null {
+  const legs = likeliestPerMatch(pool, n);
+  return legs.length === n ? coupon(legs, "chance") : null;
+}
+
+/** Raketten: the likeliest bet in each match where it has ROCKET_MIN_CHANCE or more, up to ROCKET_MAX_LEGS; left out below ROCKET_MIN_LEGS. */
 export function rocketCoupon(pool: Pick[]): Coupon | null {
-  const perMatch = new Map<string, Pick>();
-  for (const p of pool) {
-    if (!(p.probability >= ROCKET_MIN_CHANCE) || !(p.row.bestOdds > 1)) continue;
-    const b = perMatch.get(p.row.eventId);
-    if (!b || p.row.bestOdds > b.row.bestOdds) perMatch.set(p.row.eventId, p);
-  }
-  const legs = [...perMatch.values()].sort((a, b) => b.probability - a.probability).slice(0, ROCKET_MAX_LEGS);
+  const legs = likeliestPerMatch(pool, ROCKET_MAX_LEGS, (p) => p.probability >= ROCKET_MIN_CHANCE);
   return legs.length >= ROCKET_MIN_LEGS ? coupon(legs, "rocket") : null;
 }
 
 /** Dagens over 2,5 mål: the GOALS_COUPON_LEGS likeliest over 2,5 mål, one per match. */
 export function goalsCoupon(pool: Pick[]): Coupon | null {
-  const legs = pool
-    .filter((p) => p.row.marketType === "OU25" && p.row.side === "over" && p.row.bestOdds > 1)
-    .sort((a, b) => b.probability - a.probability)
-    .filter((p, i, all) => all.findIndex((x) => x.row.eventId === p.row.eventId) === i)
-    .slice(0, GOALS_COUPON_LEGS);
+  const legs = likeliestPerMatch(pool, GOALS_COUPON_LEGS, (p) => p.row.marketType === "OU25" && p.row.side === "over");
   return legs.length === GOALS_COUPON_LEGS ? coupon(legs, "goals") : null;
 }
 
 /**
- * Today's coupons from every bet type (couponCandidates): the likeliest value bets, one per match.
- * 2 bets with combined odds of at least 2.0 (from value bets only while two of them reach it), and 3 bets by
- * value, then chance. The 3-bet coupon only uses matches the 2-bet coupon leaves out, so the two never share a bet.
- * Then Raketten and Dagens over 2,5 mål.
+ * Today's coupons from every bet type (couponCandidates), always the likeliest bets (Mads, 2026-10-05): 2 bets with
+ * combined odds of at least 2.0, and 3 bets from the matches the 2-bet coupon leaves out, so the two never share a
+ * bet. Then Raketten and Dagens over 2,5 mål, which may share matches with them.
  */
 export function coupons(pool: Pick[]): Coupon[] {
-  const two = oddsCoupon(pool.filter(isValue)) ?? oddsCoupon(pool);
+  const two = oddsCoupon(pool);
   const used = new Set(two?.picks.map((p) => p.row.eventId));
-  const three = valueCoupon(pool.filter((p) => !used.has(p.row.eventId)));
-  // Raketten and over 2,5 mål are their own coupons and may share matches with the two above.
+  const three = chanceCoupon(pool.filter((p) => !used.has(p.row.eventId)));
   return [two, three, rocketCoupon(pool), goalsCoupon(pool)].filter((c): c is Coupon => c !== null);
 }
 

@@ -117,9 +117,10 @@ describe("bet types", () => {
     expect(marketPicks(rows, now, 5, "1X2").map((p) => p.row.selectionId)).toEqual(["b"]);
   });
 
-  it("ranks corner suggestions by how far the match is from the league average", () => {
-    const f = (vsLeague: number) => ({ suggestion: { side: "over", line: 8.5, probability: 0.7, vsLeague } }) as never;
-    const ctx = (id: string) => ({ expectedGoals: { home: 1, away: 1 }, news: null, counts: { corners: f(id === "e1" ? 0.05 : -0.2) } });
+  it("ranks corner suggestions likeliest first", () => {
+    const f = (probability: number, vsLeague: number) => ({ suggestion: { side: "over", line: 8.5, probability, vsLeague } }) as never;
+    // e1 is further from the league average, but e2 goes home more often.
+    const ctx = (id: string) => ({ expectedGoals: { home: 1, away: 1 }, news: null, counts: { corners: id === "e1" ? f(0.68, 0.3) : f(0.74, 0.05) } });
     const picks = countPicks([row({ eventId: "e1" }), row({ eventId: "e2" })], now, 5, "corners", ctx);
     expect(picks.map((p) => p.row.eventId)).toEqual(["e2", "e1"]);
     expect(picks[1].outcome).toBe("Over 8,5 hjørnespark");
@@ -147,19 +148,19 @@ describe("begge hold scorer", () => {
     expect(marketPicks([btts], now, 5, "BTTS", withTeams("Arsenal"))).toEqual([]);
   });
 
-  it("gives way to over 2,5 mål at about the same odds when that pays more", () => {
-    const over = row({ selectionId: "o", marketType: "OU25", side: "over", modelProbability: 0.64, marketProbability: 0.64, bestOdds: 1.85 });
+  it("gives way to over 2,5 mål at about the same odds when that goes home more often", () => {
+    const over = row({ selectionId: "o", marketType: "OU25", side: "over", modelProbability: 0.68, marketProbability: 0.68, bestOdds: 1.6 });
     const o15 = row({ selectionId: "o15", marketType: "OU15", side: "over", modelProbability: 0.85, marketProbability: 0.85, bestOdds: 1.2 });
-    // 0.64 × 1.85 = 1.18 beats 0.66 × 1.7 = 1.12, and 1.85 is within 25 % of 1.7.
+    // 68 % beats 66 %, and 1.6 is within 25 % of 1.7: the likelier bet wins, whatever it pays.
     const [p] = dailyPicks([btts, over, o15, win], now, 5, withTeams());
     expect(p.outcome).toBe("Over 2,5 mål");
     expect(p.goals!.map((g) => g.outcome)).toEqual(["Over 1,5 mål", "Over 2,5 mål", "Begge hold scorer"]);
     // On its own tab it stays, with the better bet named.
     const [b] = marketPicks([btts, over, win], now, 5, "BTTS", withTeams());
     expect(b.outcome).toBe("Begge hold scorer");
-    expect(b.instead).toMatchObject({ outcome: "Over 2,5 mål", odds: 1.85 });
-    // At very different odds the two are not compared.
-    expect(dailyPicks([btts, { ...over, bestOdds: 2.4, modelProbability: 0.6, marketProbability: 0.6 }], now, 5, withTeams())[0].outcome).toBe("Begge hold scorer");
+    expect(b.instead).toMatchObject({ outcome: "Over 2,5 mål", odds: 1.6 });
+    // A less likely bet never replaces it, even when it pays more.
+    expect(dailyPicks([btts, { ...over, bestOdds: 1.85, modelProbability: 0.62, marketProbability: 0.62 }], now, 5, withTeams())[0].outcome).toBe("Begge hold scorer");
   });
 
   it("lets over 1,5 mål onto the mixed list only from odds 1,40", () => {

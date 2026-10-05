@@ -15,7 +15,6 @@ import {
   marketPicks,
   PICK_COUNTS,
   signedPp,
-  SIMILAR_ODDS,
   type CountPick,
   type FormGame,
   type Pick,
@@ -25,7 +24,7 @@ import {
 import { requireFriend } from "@/lib/auth/friends";
 import { explainPick } from "@/lib/picks-explain";
 import { applyLearning, applyLearningToPicks, LEARN_DAYS, LEARN_MIN, learn, type CategoryLearning } from "@/lib/picks-learning";
-import { COUPON_MIN_ODDS, ROCKET_MIN_CHANCE, correctScorePicks, coupons, isValue, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
+import { COUPON_MIN_ODDS, ROCKET_MIN_CHANCE, correctScorePicks, coupons, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
@@ -297,7 +296,7 @@ function LearningNote({ l }: { l: CategoryLearning }) {
 function GoalBets({ p, home, away }: { p: Pick; home: string; away: string }) {
   const goals = p.goals ?? [];
   if (!goals.length && !p.scoring) return null;
-  const top = goals.reduce<(typeof goals)[number] | null>((b, g) => (!b || g.ret > b.ret ? g : b), null);
+  const top = goals.reduce<(typeof goals)[number] | null>((b, g) => (!b || g.probability > b.probability ? g : b), null);
   const s = p.scoring;
   return (
     <Fact label="Mål-bets i kampen">
@@ -331,7 +330,7 @@ function GoalBets({ p, home, away }: { p: Pick; home: string; away: string }) {
         {isNationalTeams(p.row.leagueId) && ` I landskampe foreslås over 1,5 og 2,5 mål kun, når begge hold har scoret i mindst ${NATIONAL_OVER_MIN_SCORED} af de seneste ${BTTS_FORM_GAMES} kampe.`}
       </div>
       <div className="mt-1 text-xs text-muted">
-        Tilbage pr. 100 kr er chance gange odds, et skøn. Til odds, der ligger tæt (højst {Math.round((SIMILAR_ODDS - 1) * 100)} % fra hinanden), foreslår vi det bet, der giver mest.
+        Tilbage pr. 100 kr er chance gange odds, et skøn. Vi foreslår altid det bet, der oftest går hjem.
       </div>
     </Fact>
   );
@@ -476,7 +475,7 @@ function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: number; 
       </div>
       {p.instead && (
         <div className="border-t border-line bg-surface-2 px-5 py-2.5 text-sm text-ink-2">
-          Bedre spil til næsten samme odds: <span className="font-semibold text-ink">{p.instead.outcome}</span> · {Math.round(p.instead.probability * 100)} % · odds {dec(p.instead.odds)}
+          Går oftere hjem til næsten samme odds: <span className="font-semibold text-ink">{p.instead.outcome}</span> · {Math.round(p.instead.probability * 100)} % · odds {dec(p.instead.odds)}
         </div>
       )}
       <AdviceRow p={p.probability} odds={p.row.bestOdds} eventId={p.row.eventId} save={save} leg={{ key: `${p.row.eventId}|${p.row.selectionId}`, match: p.row.match, outcome: p.outcome, kickoff: p.row.kickoff }} />
@@ -672,14 +671,14 @@ function ExtraCard({ p, rank, now, save }: { p: ExtraPick; rank: number; now: nu
 
 const COUPON_TITLE: Record<Coupon["kind"], (n: number) => string> = {
   odds: (n) => `${n} bets`,
-  value: (n) => `${n} bets`,
+  chance: (n) => `${n} bets`,
   rocket: (n) => `Raketten · ${n} bets`,
   goals: (n) => `Dagens over 2,5 mål · ${n} bets`,
 };
 const COUPON_NOTE: Record<Coupon["kind"], string> = {
-  odds: `Samlet odds mindst ${dec(COUPON_MIN_ODDS, 1)}`,
-  value: "Valgt efter værdi og sandsynlighed",
-  rocket: `Hvert bet har mindst ${Math.round(ROCKET_MIN_CHANCE * 100)} % chance, med den højeste odds i kampen`,
+  odds: `De mest sandsynlige bets med samlet odds mindst ${dec(COUPON_MIN_ODDS, 1)}`,
+  chance: "Det mest sandsynlige bet i hver af dagens mest sandsynlige kampe",
+  rocket: `Det mest sandsynlige bet i hver kamp, alle med mindst ${Math.round(ROCKET_MIN_CHANCE * 100)} % chance`,
   goals: "Dagens mest sandsynlige over 2,5 mål",
 };
 
@@ -688,7 +687,7 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
     <section className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-2xl font-extrabold tracking-[-0.02em]">Dagens kuponforslag</h2>
-        <span className="text-sm text-muted">Bets fra vinder, over 1,5 og 2,5 mål, begge hold scorer og dobbeltchance. Alle bets på en kupon skal gå hjem</span>
+        <span className="text-sm text-muted">Altid de mest sandsynlige bets fra vinder, over 1,5 og 2,5 mål, begge hold scorer og dobbeltchance. Alle bets på en kupon skal gå hjem</span>
       </div>
       {coupons.length === 0 ? (
         <p className="rounded-[20px] border border-line bg-surface px-5 py-6 text-sm text-ink-2">Der er ikke nok kampe i dag til en kupon. Kig forbi igen senere.</p>
@@ -699,7 +698,7 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
               <div className="flex items-end justify-between gap-3 px-5 pt-5">
                 <div>
                   <div className="text-[13px] font-bold text-accent">{COUPON_TITLE[c.kind](c.picks.length)}</div>
-                  <div className="text-xs text-muted">{COUPON_NOTE[c.kind]} · {c.valueLegs} af {c.picks.length} er value-bets</div>
+                  <div className="text-xs text-muted">{COUPON_NOTE[c.kind]}</div>
                   <div className="num mt-2 text-[40px] font-extrabold leading-none tracking-[-0.03em]">{dec(c.odds)}</div>
                   <div className="mt-1 text-xs text-muted">samlet odds</div>
                 </div>
@@ -714,7 +713,6 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium">
                         {p.outcome}
-                        {isValue(p) && <span className="ml-2 rounded-full bg-good/15 px-2 py-0.5 text-[10px] font-semibold text-good">Værdi</span>}
                       </span>
                       <span className="block truncate text-xs text-muted">{p.row.match.replace(" vs ", " – ")}</span>
                     </span>
@@ -726,13 +724,6 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
               </ul>
               <div className="px-5 py-3.5 text-sm text-ink-2">
                 100 kr giver <span className="num font-bold text-ink">{Math.round(c.odds * 100)} kr</span>, hvis alle går hjem
-                {c.kind === "value" && (
-                  <span className="mt-1 block text-xs text-muted">
-                    Værdi i {c.valueLegs} af {c.picks.length} bets
-                    {c.valueLegs === 0 ? " (ingen af dagens bets har værdi, så kuponen tager de mest sandsynlige)" : c.valueLegs < c.picks.length ? ", resten er dagens mest sandsynlige" : ""}. Estimeret tilbagebetaling i snit:{" "}
-                    <span className="num">{Math.round(c.expectedReturn * 100)} kr</span> pr. 100 kr (vores sandsynlighed × odds, ikke en garanti).
-                  </span>
-                )}
               </div>
             </article>
           ))}
