@@ -392,6 +392,72 @@ export function dailyPicks(
     .slice(0, count);
 }
 
+/** Markets the coupons draw from: who wins, over/under 1,5 and 2,5, begge hold scorer, and double chance (Mads, 2026-10-05). */
+const COUPON_MARKETS: ReadonlySet<string> = new Set(["1X2", "OU15", "OU25", "BTTS"]);
+
+const DC_SIDES = [
+  { side: "1x", from: ["home", "draw"] },
+  { side: "x2", from: ["draw", "away"] },
+  { side: "12", from: ["home", "away"] },
+] as const;
+
+/**
+ * Every bet the coupons may use, several per match: each outcome in COUPON_MARKETS plus double chance, whose
+ * chance is the sum of our two 1X2 outcomes (normalised to 100 %). Begge hold scorer only with the
+ * BTTS_FORM_GAMES rule, as on the list.
+ */
+export function couponCandidates(rows: MarketRow[], now: number, context: (eventId: string) => PickContext | null = () => null): Pick[] {
+  const byEvent = new Map<string, MarketRow[]>();
+  for (const r of rows) {
+    if (r.sportId !== "football" || r.status !== "scheduled" || r.kickoff <= now || r.kickoff > now + PICK_WINDOW_MS) continue;
+    if (!COUPON_MARKETS.has(r.marketType) && r.marketType !== "DC") continue;
+    byEvent.set(r.eventId, [...(byEvent.get(r.eventId) ?? []), r]);
+  }
+  const out: Pick[] = [];
+  const asPick = (a: Analysed, outcome: string): Pick => ({
+    ...a,
+    outcome,
+    fairOdds: 1 / a.probability,
+    value: !a.marketOnly && a.row.bestOdds * a.probability > 1,
+    strength: strengthOf(a.probability),
+  });
+  for (const [eventId, rs] of byEvent) {
+    const ctx = context(eventId);
+    const scoring = bothScore(ctx);
+    const list = rs.filter((r) => COUPON_MARKETS.has(r.marketType)).flatMap((r) => analysePick(r, ctx) ?? []);
+    for (const a of list) {
+      if (!(a.row.bestOdds > 1) || (isBttsYes(a) && !scoring?.every)) continue;
+      out.push({ ...asPick(a, outcomeLabel(a.row)), scoring });
+    }
+    const x = Object.fromEntries(list.filter((a) => a.row.marketType === "1X2").map((a) => [a.row.side, a]));
+    if (!x.home || !x.draw || !x.away) continue;
+    const total = x.home.probability + x.draw.probability + x.away.probability;
+    const [home, away] = rs[0].match.split(" vs ");
+    for (const dc of DC_SIDES) {
+      const row = rs.find((r) => r.marketType === "DC" && r.side.toLowerCase() === dc.side && r.bestOdds > 1);
+      if (!row) continue;
+      const [a, b] = dc.from.map((k) => x[k]);
+      const probability = clamp((a.probability + b.probability) / total);
+      const outcome = dc.side === "1x" ? `${home} eller uafgjort` : dc.side === "x2" ? `${away} eller uafgjort` : `${home} eller ${away} (ikke uafgjort)`;
+      const marketOnly = a.marketOnly || b.marketOnly;
+      out.push(
+        asPick(
+          {
+            row,
+            probability,
+            lineupsConfirmed: a.lineupsConfirmed,
+            factors: [{ label: "Dobbeltchance", pp: null, detail: `${outcomeLabel(a.row)} ${pct(a.probability / total)} + ${outcomeLabel(b.row)} ${pct(b.probability / total)}` }],
+            insights: a.insights,
+            marketOnly,
+          },
+          outcome,
+        ),
+      );
+    }
+  }
+  return out.sort((a, b) => b.probability - a.probability || a.row.kickoff - b.row.kickoff);
+}
+
 /** Football matches in the pick window that the model has analysed. */
 export function analysedMatches(rows: MarketRow[], now: number) {
   const ev = rows.filter((r) => r.sportId === "football" && r.status === "scheduled" && r.kickoff > now && r.kickoff <= now + PICK_WINDOW_MS);

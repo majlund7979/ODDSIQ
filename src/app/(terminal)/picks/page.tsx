@@ -6,6 +6,7 @@ import {
   BTTS_FORM_GAMES,
   COUNT_CATEGORIES,
   countPicks,
+  couponCandidates,
   dailyPicks,
   GOAL_CATEGORIES,
   lineLabel,
@@ -588,7 +589,7 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
     <section className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-2xl font-extrabold tracking-[-0.02em]">Dagens kuponforslag</h2>
-        <span className="text-sm text-muted">Alle bets på en kupon skal gå hjem</span>
+        <span className="text-sm text-muted">De sikreste value-bets fra vinder, over 1,5 og 2,5 mål, begge hold scorer og dobbeltchance. Alle skal gå hjem</span>
       </div>
       {coupons.length === 0 ? (
         <p className="rounded-[20px] border border-line bg-surface px-5 py-6 text-sm text-ink-2">Der er ikke nok kampe i dag til en kupon. Kig forbi igen senere.</p>
@@ -599,7 +600,7 @@ function CouponCard({ coupons }: { coupons: Coupon[] }) {
               <div className="flex items-end justify-between gap-3 px-5 pt-5">
                 <div>
                   <div className="text-[13px] font-bold text-accent">{c.picks.length} bets</div>
-                  <div className="text-xs text-muted">{c.kind === "odds" ? `Samlet odds mindst ${dec(COUPON_MIN_ODDS, 1)}` : "Valgt efter værdi og sandsynlighed"}</div>
+                  <div className="text-xs text-muted">{c.kind === "odds" ? `Samlet odds mindst ${dec(COUPON_MIN_ODDS, 1)}` : "Valgt efter værdi og sandsynlighed"} · {c.valueLegs} af {c.picks.length} er value-bets</div>
                   <div className="num mt-2 text-[40px] font-extrabold leading-none tracking-[-0.03em]">{dec(c.odds)}</div>
                   <div className="mt-1 text-xs text-muted">samlet odds</div>
                 </div>
@@ -751,7 +752,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   const allLearning = learn(history, t.dataLabel);
   const learned = allLearning.get(tab);
   const picks = applyLearningToPicks(tab === "bedste" ? dailyPicks(rows, t.now, count, t.pickContext) : goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [], learned);
-  const couponPool = tab === "bedste" ? applyLearningToPicks(dailyPicks(rows, t.now, 15, t.pickContext), allLearning.get("bedste")) : [];
+  const couponPool = tab === "bedste" ? applyLearningToPicks(couponCandidates(rows, t.now, t.pickContext), allLearning.get("bedste")) : [];
   const cPicks = applyLearning(countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [], learned);
   const xPicks = applyLearning(EXTRA[tab] ? EXTRA[tab](rows, t.now, count, t.pickContext) : [], learned);
   const shots: ShotBoard | null =

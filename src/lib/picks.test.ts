@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MarketRow } from "@/lib/demo/store";
 import type { TeamNews } from "@/lib/stats/news";
-import { absences, analysePick, bothScore, countPicks, dailyPicks, marketPicks, goalsProbability, headToHead, MARKET_WEIGHT, outcomeLabel, recentForm, strengthOf } from "./picks";
+import { absences, analysePick, bothScore, countPicks, couponCandidates, dailyPicks, marketPicks, goalsProbability, headToHead, MARKET_WEIGHT, outcomeLabel, recentForm, strengthOf } from "./picks";
 
 const now = Date.UTC(2026, 9, 2, 12);
 const row = (o: Partial<MarketRow>): MarketRow =>
@@ -168,5 +168,27 @@ describe("begge hold scorer", () => {
     expect(dailyPicks([{ ...o15, bestOdds: 1.4 }, win], now, 5)[0].outcome).toBe("Over 1,5 mål");
     expect(marketPicks([o15, win], now, 5, "OU15")[0].outcome).toBe("Over 1,5 mål");
     expect(goalsProbability("OU15", "over", 1.4, 1.1)).toBeCloseTo(1 - Math.exp(-2.5) * (1 + 2.5), 6);
+  });
+});
+
+describe("couponCandidates", () => {
+  it("offers every bet type per match, including double chance from our 1X2 chances", () => {
+    const c = couponCandidates(
+      [
+        row({ selectionId: "h", side: "home", modelProbability: 0.5, marketProbability: 0.5, bestOdds: 2.1 }),
+        row({ selectionId: "d", side: "draw", selection: "Draw", modelProbability: 0.25, marketProbability: 0.25, bestOdds: 3.6 }),
+        row({ selectionId: "a", side: "away", selection: "Chelsea", modelProbability: 0.25, marketProbability: 0.25, bestOdds: 4 }),
+        row({ selectionId: "o", marketType: "OU25", side: "over", modelProbability: 0.6, marketProbability: 0.6, bestOdds: 1.8 }),
+        row({ selectionId: "x", marketType: "DC", side: "1x", modelProbability: null, marketProbability: 0.75, bestOdds: 1.4 }),
+        row({ selectionId: "y", marketType: "BTTS", side: "yes", modelProbability: 0.7, marketProbability: 0.7, bestOdds: 1.6 }),
+      ],
+      now,
+    );
+    const dc = c.find((p) => p.row.marketType === "DC")!;
+    expect(dc.outcome).toBe("Arsenal eller uafgjort");
+    expect(dc.probability).toBeCloseTo(0.75);
+    expect(dc.value).toBe(true);
+    // Sorted by chance; begge hold scorer is left out without five scoring matches in a row for both teams.
+    expect(c.map((p) => p.row.selectionId)).toEqual(["x", "o", "h", "d", "a"]);
   });
 });
