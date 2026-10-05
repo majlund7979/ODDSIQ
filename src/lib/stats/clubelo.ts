@@ -111,7 +111,7 @@ export function clubEloProbs(home: number, away: number, homeAdvantage = CLUBELO
 
 const DAY = 86_400_000;
 const RETRY_MS = 3_600_000;
-let memo: { day: number; ratings: ClubRating[] } | null = null;
+let memo: { day: number; date: number; ratings: ClubRating[] } | null = null;
 let failedAt = -Infinity;
 let lastError: string | null = null;
 
@@ -121,29 +121,40 @@ export const clubEloLastError = () => lastError;
 /** Today's ratings (yesterday's while ClubElo cannot be reached); null without any. Cached for the day on this server and in Next's data cache. */
 export async function clubEloRatings(now: number): Promise<{ date: number; ratings: ClubRating[] } | null> {
   const day = Math.floor(now / DAY) * DAY;
-  if (memo?.day === day) return { date: day, ratings: memo.ratings };
+  if (memo?.day === day) return { date: memo.date, ratings: memo.ratings };
   // After a failed fetch, wait an hour before asking again, so a slow ClubElo never slows the pages.
-  if (now - failedAt < RETRY_MS) return memo ? { date: memo.day, ratings: memo.ratings } : null;
+  if (now - failedAt < RETRY_MS) return memo ? { date: memo.date, ratings: memo.ratings } : null;
   failedAt = now;
-  try {
-    const res = await fetch(`http://api.clubelo.com/${new Date(day).toISOString().slice(0, 10)}`, {
-      next: { revalidate: 86_400 },
-      signal: AbortSignal.timeout(4000),
-    } as RequestInit);
-    if (!res.ok) {
-      lastError = `HTTP ${res.status}`;
-      return null;
+  // ClubElo's API sometimes fails for one address or for a day not yet computed: try https and http, today then yesterday.
+  const errors: string[] = [];
+  // At most five seconds in all, so a page never waits long on it.
+  const deadline = Date.now() + 5000;
+  for (const d of [day, day - DAY])
+    for (const scheme of ["https", "http"]) {
+      const left = deadline - Date.now();
+      if (left < 500) break;
+      try {
+        const res = await fetch(`${scheme}://api.clubelo.com/${new Date(d).toISOString().slice(0, 10)}`, {
+          next: { revalidate: 86_400 },
+          signal: AbortSignal.timeout(Math.min(3000, left)),
+        } as RequestInit);
+        if (!res.ok) {
+          errors.push(`${scheme} ${new Date(d).toISOString().slice(5, 10)} HTTP ${res.status}`);
+          continue;
+        }
+        const ratings = parseClubElo(await res.text());
+        if (!ratings.length) {
+          errors.push(`${scheme} ${new Date(d).toISOString().slice(5, 10)} empty CSV`);
+          continue;
+        }
+        memo = { day, date: d, ratings };
+        failedAt = -Infinity;
+        lastError = errors.length ? errors.join("; ") : null;
+        return { date: d, ratings };
+      } catch (e) {
+        errors.push(`${scheme} ${e instanceof Error ? `${e.name}: ${e.message} ${(e.cause as Error | undefined)?.message ?? ""}`.trim() : String(e)}`);
+      }
     }
-    const ratings = parseClubElo(await res.text());
-    if (!ratings.length) {
-      lastError = "empty CSV";
-      return null;
-    }
-    memo = { day, ratings };
-    failedAt = -Infinity;
-    return { date: day, ratings };
-  } catch (e) {
-    lastError = e instanceof Error ? `${e.name}: ${e.message} ${(e.cause as Error | undefined)?.message ?? ""}`.trim() : String(e);
-    return null;
-  }
+  lastError = errors.join("; ");
+  return null;
 }
