@@ -13,6 +13,9 @@ on:
         description: API-Football league id for the sample matches (39 = Premier League)
         default: "39"
 
+permissions:
+  contents: write
+
 jobs:
   probe:
     if: vars.SITE_URL != ''
@@ -34,3 +37,11 @@ jobs:
         with:
           name: api-probe
           path: api-probe.json
+      - name: Save the answer on the api-probe-results branch
+        if: always()
+        run: |
+          git init -q out && cd out
+          cp ../api-probe.json .
+          git config user.name "github-actions" && git config user.email "github-actions@users.noreply.github.com"
+          git checkout -q -b api-probe-results && git add api-probe.json && git commit -qm "API probe ${{ github.run_id }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" api-probe-results
