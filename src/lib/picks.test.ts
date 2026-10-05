@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MarketRow } from "@/lib/demo/store";
 import type { TeamNews } from "@/lib/stats/news";
-import { absences, analysePick, bothScore, countPicks, couponCandidates, dailyPicks, marketPicks, goalsProbability, headToHead, MARKET_WEIGHT, outcomeLabel, recentForm, strengthOf } from "./picks";
+import { absences, analysePick, bothScore, countPicks, couponCandidates, dailyPicks, isNationalTeams, marketPicks, goalsProbability, headToHead, MARKET_WEIGHT, outcomeLabel, recentForm, strengthOf } from "./picks";
 
 const now = Date.UTC(2026, 9, 2, 12);
 const row = (o: Partial<MarketRow>): MarketRow =>
@@ -190,5 +190,33 @@ describe("couponCandidates", () => {
     expect(dc.value).toBe(true);
     // Sorted by chance; begge hold scorer is left out without five scoring matches in a row for both teams.
     expect(c.map((p) => p.row.selectionId)).toEqual(["x", "o", "h", "d", "a"]);
+  });
+});
+
+describe("landskampe", () => {
+  const intl = "apf-soccer_international_friendlies";
+  // Liechtenstein scored in `lie` and Gibraltar in `gib` of their last five matches.
+  const history = (lie: number, gib: number) =>
+    Array.from({ length: 5 }, (_, i) => [
+      { league: "intl", season: "2026", date: i * 2, home: "Liechtenstein", away: `X${i}`, hg: i < lie ? 1 : 0, ag: 3 },
+      { league: "intl", season: "2026", date: i * 2 + 1, home: `Y${i}`, away: "Gibraltar", hg: 3, ag: i < gib ? 1 : 0 },
+    ]).flat();
+  const teams = (lie: number, gib: number) => () => ({ expectedGoals: { home: 1.4, away: 1.2 }, news: null, teams: { home: "Liechtenstein", away: "Gibraltar", homeElo: 1100, awayElo: 1050, history: history(lie, gib) } });
+  const over = row({ selectionId: "o", leagueId: intl, match: "Liechtenstein vs Gibraltar", marketType: "OU15", side: "over", modelProbability: 0.75, marketProbability: 0.55, bestOdds: 1.73 });
+  const under = row({ selectionId: "u", leagueId: intl, match: "Liechtenstein vs Gibraltar", marketType: "OU15", side: "under", modelProbability: 0.25, marketProbability: 0.45, bestOdds: 2.1 });
+
+  it("gives the bookmakers 75 % in national-team matches", () => {
+    expect(isNationalTeams(intl)).toBe(true);
+    expect(isNationalTeams("apf-soccer_epl")).toBe(false);
+    const a = analysePick(over, teams(5, 5)())!;
+    expect(a.probability).toBeCloseTo(0.25 * 0.75 + 0.75 * 0.55, 6);
+  });
+
+  it("drops over-bets when a team scored in fewer than 3 of its last 5", () => {
+    expect(marketPicks([over, under], now, 5, "OU15", teams(1, 1)).map((p) => p.row.side)).toEqual(["under"]);
+    expect(marketPicks([over, under], now, 5, "OU15", teams(3, 4)).map((p) => p.row.side)).toEqual(["over"]);
+    expect(couponCandidates([over], now, teams(1, 1))).toEqual([]);
+    // Club football keeps over-bets regardless.
+    expect(marketPicks([{ ...over, leagueId: "apf-soccer_epl" }], now, 5, "OU15", teams(1, 1))).toHaveLength(1);
   });
 });
