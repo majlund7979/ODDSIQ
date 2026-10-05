@@ -14,6 +14,7 @@ import { realSnapshot } from "@/lib/real/store";
 import { seasonFor } from "@/lib/stats/api-football";
 import { configuredStatsFeed } from "@/lib/stats/config";
 import { STATS_LEAGUES } from "@/lib/stats/leagues";
+import { clubEloCovers, clubEloRatings, findClub } from "@/lib/stats/clubelo";
 
 export const maxDuration = 60;
 
@@ -188,6 +189,20 @@ export async function GET(req: Request): Promise<Response> {
     return Response.json({ picksWeek, resultsVisitAt: resultsVisit?.fetchedAt.toISOString() ?? null, lineupsVisitAt: visit?.fetchedAt.toISOString() ?? null, lineupsNear, ...out });
   } catch (e) {
     out.lineupsError = message(e);
+  }
+  // ClubElo: whether today's ratings load here, and which upcoming club teams find no rating (to add aliases).
+  try {
+    const clubs = await clubEloRatings(now);
+    if (!clubs) out.clubElo = "unreachable";
+    else if (DATABASE_CONFIGURED) {
+      const events = await db().event.findMany({ where: { kickoff: { gte: new Date(now), lte: new Date(now + 8 * 86_400_000) } }, select: { leagueId: true, homeTeam: { select: { name: true } }, awayTeam: { select: { name: true } } } });
+      const teams = new Map<string, string>();
+      for (const e of events) if (clubEloCovers(e.leagueId)) for (const t of [e.homeTeam.name, e.awayTeam.name]) teams.set(`${e.leagueId}|${t}`, t);
+      const unmatched = [...teams].filter(([k, t]) => !findClub(t, k.split("|")[0], clubs.ratings)).map(([k]) => k);
+      out.clubElo = { clubs: clubs.ratings.length, date: isoDay(clubs.date), teams: teams.size, unmatched: unmatched.slice(0, 60) };
+    }
+  } catch (e) {
+    out.clubElo = `error ${message(e)}`;
   }
   return Response.json(out);
 }

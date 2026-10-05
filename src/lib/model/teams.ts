@@ -70,10 +70,31 @@ const ALIASES: Record<string, string> = {
   "sp braga": "braga",
   "ein frankfurt": "eintracht frankfurt",
   "mgladbach": "borussia monchengladbach",
+  // ClubElo short names (ASCII, "oe" for "ö")
+  "forest": "nottingham forest",
+  "gladbach": "borussia monchengladbach",
+  "koeln": "koln",
+  "bilbao": "athletic",
+  "sporting": "sporting cp",
+  "kobenhavn": "copenhagen",
+  "agf": "aarhus",
+  "malmoe": "malmo",
+  "goeteborg": "goteborg",
+  "bodoe glimt": "bodo glimt",
+  "fuerth": "furth",
+  "nuernberg": "nurnberg",
+  "duesseldorf": "dusseldorf",
+  "red star belgrade": "crvena zvezda",
+  "sparta prague": "sparta praha",
+  "slavia prague": "slavia praha",
 };
 
 export function normalizeName(name: string): string {
   return name
+    .replace(/[øØ]/g, "o")
+    .replace(/[æÆ]/g, "ae")
+    .replace(/ß/g, "ss")
+    .replace(/[łŁ]/g, "l")
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()

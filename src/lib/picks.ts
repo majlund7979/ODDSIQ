@@ -14,6 +14,7 @@ import type { MarketRow } from "@/lib/demo/store";
 import type { CountForecast, CountForecasts, CountStat } from "@/lib/model/match-stats";
 import type { HistMatch } from "@/lib/model/openfootball";
 import { teamKey } from "@/lib/model/teams";
+import { CLUBELO_MODEL, CLUBELO_WEIGHT, clubEloProbs, type ClubEloPair } from "@/lib/stats/clubelo";
 import type { TeamNews } from "@/lib/stats/news";
 
 export const PICK_WINDOW_MS = 24 * 3_600_000;
@@ -30,7 +31,8 @@ export const ABSENCE_DEFENCE = 0.02;
 export const MAX_ABSENCES = 6;
 
 export interface PickContext {
-  expectedGoals: { home: number; away: number };
+  /** From the results model; absent for a league without results history. */
+  expectedGoals?: { home: number; away: number };
   news: TeamNews | null;
   /** The results data behind the model, when the teams are matched to it. */
   teams?: { home: string; away: string; homeElo: number; awayElo: number; history: HistMatch[] };
@@ -38,6 +40,8 @@ export interface PickContext {
   counts?: CountForecasts;
   /** Share of each side's goals scored before half-time in this league. */
   htShare?: { home: number; away: number; n: number } | null;
+  /** Both clubs' ClubElo ratings, comparable across leagues. */
+  clubElo?: ClubEloPair | null;
 }
 
 export interface FormGame {
@@ -51,6 +55,8 @@ export interface FormGame {
 export interface PickInsights {
   expectedGoals: { home: number; away: number } | null;
   elo: { home: number; away: number } | null;
+  /** ClubElo ratings across leagues; on a market-only 1X2 pick they also move the probability (see the factors). */
+  clubElo: ClubEloPair | null;
   form: { home: FormGame[]; away: FormGame[] } | null;
   h2h: { home: number; draw: number; away: number; games: { date: number; score: string }[] } | null;
   /** Change in the best odds since the market opened; negative means the price shortened. */
@@ -217,15 +223,27 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
     // No results history for this league (e.g. Superliga, Champions League): the margin-free market price is all there is.
     if (!(row.marketProbability > 0 && row.marketProbability < 1)) return null;
     const lineupsConfirmed = lineupsIn(row, ctx);
-    const insights: PickInsights = { expectedGoals: null, elo: null, form: null, h2h: null, movement: row.movement, lineupsConfirmed };
-    const factors: PickFactor[] = [{ label: "Bookmakerne", pp: null, detail: `${pct(row.marketProbability)} uden bookmakernes avance. Vi har ingen kampresultater for ligaen endnu, så procenten er kun markedets.` }];
-    return { row, probability: row.marketProbability, lineupsConfirmed, factors, insights, marketOnly: true };
+    const club = ctx?.clubElo ?? null;
+    const insights: PickInsights = { expectedGoals: null, elo: null, clubElo: club, form: null, h2h: null, movement: row.movement, lineupsConfirmed };
+    const market = row.marketProbability;
+    if (club && row.marketType === "1X2") {
+      // Cross-league strength is the one model input we have here; it gets a minority share next to the market.
+      const e = clubEloProbs(club.home.elo, club.away.elo)[row.side as "home" | "draw" | "away"];
+      const p = clamp((1 - CLUBELO_WEIGHT) * market + CLUBELO_WEIGHT * e);
+      const factors: PickFactor[] = [
+        { label: "Bookmakerne", pp: null, detail: `${pct(market)} uden bookmakernes avance. Vi har ingen kampresultater for ligaen endnu.` },
+        { label: "Holdstyrke (ClubElo)", pp: (p - market) * 100, detail: `${club.home.club} ${Math.round(club.home.elo)} mod ${club.away.club} ${Math.round(club.away.elo)} giver ${pct(e)} (skøn, ${CLUBELO_MODEL}); vægtet ${Math.round(CLUBELO_WEIGHT * 100)} %` },
+      ];
+      return { row, probability: p, lineupsConfirmed, factors, insights, marketOnly: true };
+    }
+    const factors: PickFactor[] = [{ label: "Bookmakerne", pp: null, detail: `${pct(market)} uden bookmakernes avance. Vi har ingen kampresultater for ligaen endnu, så procenten er kun markedets.` }];
+    return { row, probability: market, lineupsConfirmed, factors, insights, marketOnly: true };
   }
   const factors: PickFactor[] = [{ label: "Resultatmodel", pp: null, detail: `${pct(model)} ud fra kampresultater og Elo` }];
   let p = model;
   const lineupsConfirmed = lineupsIn(row, ctx);
 
-  if (ctx) {
+  if (ctx?.expectedGoals) {
     const base = ctx.expectedGoals;
     const news = ctx.news;
     let lambda = base.home;
@@ -274,6 +292,7 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
   const insights: PickInsights = {
     expectedGoals: ctx?.expectedGoals ?? null,
     elo: t ? { home: Math.round(t.homeElo), away: Math.round(t.awayElo) } : null,
+    clubElo: ctx?.clubElo ?? null,
     form: t ? { home: recentForm(t.home, t.history), away: recentForm(t.away, t.history) } : null,
     h2h: t ? headToHead(t.home, t.away, t.history) : null,
     movement: row.movement,
