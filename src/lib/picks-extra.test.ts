@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MarketRow } from "@/lib/demo/store";
 import { dailyPicks } from "./picks";
-import { coupons, doubleChancePicks, oddsCoupon, valueCoupon, halfTime, scoreGrid, settle, summarise } from "./picks-extra";
+import { coupons, goalsCoupon, rocketCoupon, ROCKET_MIN_CHANCE, doubleChancePicks, oddsCoupon, valueCoupon, halfTime, scoreGrid, settle, summarise } from "./picks-extra";
 import type { Pick } from "./picks";
 
 const none = { goals: null, ht: null, corners: null, cards: null, fouls: null };
@@ -100,7 +100,24 @@ describe("goal markets from expected goals", () => {
     expect(two.picks.map((p) => p.row.eventId)).toEqual(["a", "d"]);
     expect(three.picks.map((p) => p.row.eventId)).toEqual(["c", "f", "e"]);
     // With too few matches left after the 2-bet coupon, the 3-bet coupon is left out.
-    expect(coupons(pool.slice(0, 4)).map((c) => c.kind)).toEqual(["odds"]);
+    expect(coupons(pool.slice(0, 4)).map((c) => c.kind)).toEqual(["odds", "rocket"]);
+  });
+
+  it("builds Raketten from bets of 65 % or more, taking the highest odds per match", () => {
+    const pk = (id: string, p: number, o: number) => ({ probability: p, row: { bestOdds: o, eventId: id, marketType: "1X2", side: "home" } }) as Pick;
+    const pool = [pk("a", 0.85, 1.15), pk("a", 0.7, 1.4), pk("b", 0.8, 1.25), pk("c", 0.66, 1.5), pk("d", 0.64, 1.6)];
+    const r = rocketCoupon(pool)!;
+    expect(r.kind).toBe("rocket");
+    expect(r.picks.map((p) => [p.row.eventId, p.row.bestOdds])).toEqual([["b", 1.25], ["a", 1.4], ["c", 1.5]]);
+    expect(r.picks.every((p) => p.probability >= ROCKET_MIN_CHANCE)).toBe(true);
+    expect(rocketCoupon(pool.slice(0, 3))).toBeNull();
+  });
+
+  it("builds Dagens over 2,5 mål from the likeliest over 2,5, one per match", () => {
+    const pk = (id: string, p: number, side = "over", type = "OU25") => ({ probability: p, row: { bestOdds: 1.8, eventId: id, marketType: type, side } }) as Pick;
+    const pool = [pk("a", 0.7), pk("a", 0.6), pk("b", 0.65), pk("c", 0.4, "under"), pk("d", 0.8, "over", "OU15"), pk("e", 0.55), pk("f", 0.5)];
+    expect(goalsCoupon(pool)!.picks.map((p) => p.row.eventId)).toEqual(["a", "b", "e"]);
+    expect(goalsCoupon(pool.slice(0, 4))).toBeNull();
   });
 
   it("builds the 2-bet coupon from value bets when two of them reach 2.0", () => {
