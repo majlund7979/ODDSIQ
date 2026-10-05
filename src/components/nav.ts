@@ -12,7 +12,7 @@ export interface NavItem {
 export const SIMPLE_NAV: NavItem[] = [
   { href: "/picks", label: "Dagens bets", short: "Bets", icon: "bets" },
   { href: "/picks/spillere", label: "Søg hold", short: "Hold", icon: "search" },
-  { href: "/tips", label: "Ugens tips", short: "Tips", icon: "tips" },
+  { href: "/tips", label: "Dagens tips", short: "Tips", icon: "tips" },
   { href: "/picks/resultater", label: "Vores resultater", short: "Resultater", icon: "results" },
   { href: "/nyheder", label: "Nyheder", short: "Nyheder", icon: "news" },
   { href: "/picks/liga", label: "Vennerligaen", short: "Liga", icon: "league" },

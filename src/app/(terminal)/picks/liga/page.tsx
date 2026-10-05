@@ -11,6 +11,9 @@ import { readFriendBets } from "@/lib/real/friend-bets";
 import { readFriendCoupons } from "@/lib/real/friend-coupons";
 import { terminal } from "@/lib/terminal";
 import { Tile } from "@/components/picks/Overview";
+import { TipsStandings } from "@/components/tips/TipsStandings";
+import { loadTips, modelWeekTips } from "@/lib/tips-data";
+import { previousWeek, weekOf } from "@/lib/tips";
 
 export const metadata = { title: "Vennerligaen · Oddsanalyse" };
 
@@ -48,6 +51,8 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
   const settledAll = table.reduce((n, r) => n + r.settled, 0);
   const wonAll = table.reduce((n, r) => n + r.won, 0);
   const teamProfit = table.reduce((n, r) => n + r.profit, 0);
+  const tipData = await loadTips(t);
+  const week = weekOf(t.now);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -176,6 +181,16 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
           Sorteret efter gevinst, så træfprocent. Gevinst og afkast tæller kun afgjorte bets, hvor der er skrevet en odds på. Historisk, {period === "maaned" ? month : "hele tiden"}, {bets.length}{" "}
           gemte bets · {DEMO_MODE ? "DEMO DATA" : "vennernes egne bets, afgjort med kampresultater fra " + t.dataLabel}.
         </p>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 px-1">
+          <h2 className="text-2xl font-extrabold tracking-[-0.02em]">Tipsspillet</h2>
+          <Link href="/tips" className="text-sm font-medium text-accent hover:underline">
+            Tip dagens kampe →
+          </Link>
+        </div>
+        <TipsStandings tips={tipData.tips} modelWeek={modelWeekTips(tipData.all, tipData.tips, week)} week={week} previous={previousWeek(week)} now={t.now} me={user?.id} source={tipData.source} />
       </section>
 
       <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
