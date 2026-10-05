@@ -23,11 +23,22 @@ export function explainPick(p: Pick): string[] {
   );
 
   const club = i.clubElo;
+  const af = i.afPrediction;
   if (p.marketOnly) {
     out.push(
-      club && p.row.marketType === "1X2"
+      af && p.row.marketType === "1X2"
+        ? "Vi har endnu ingen kampresultater for denne liga, så procenten bygger mest på bookmakernes odds uden deres avance, justeret lidt med API-Footballs vurdering af holdene."
+        : club && p.row.marketType === "1X2"
         ? "Vi har endnu ingen kampresultater for denne liga, så procenten bygger mest på bookmakernes odds uden deres avance, justeret lidt med holdstyrken fra ClubElo. Form og indbyrdes opgør er ikke med."
         : "Vi har endnu ingen kampresultater for denne liga, så procenten bygger kun på bookmakernes odds uden deres avance. Form, holdstyrke og indbyrdes opgør er derfor ikke med.",
+    );
+  }
+  if (af) {
+    const pc = (x: number) => `${Math.round(x * 100)} %`;
+    const total = af.comparison.find((c) => c.key === "total");
+    out.push(
+      `API-Football, der sammenligner holdene på alle deres kampe, giver ${home} ${pc(af.percent.home)}, uafgjort ${pc(af.percent.draw)} og ${away} ${pc(af.percent.away)}` +
+        (total ? `, og samlet står ${total.home >= total.away ? home : away} stærkest (${pc(Math.max(total.home, total.away))} mod ${pc(Math.min(total.home, total.away))}).` : "."),
     );
   }
   if (club) {

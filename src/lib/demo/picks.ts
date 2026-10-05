@@ -9,6 +9,8 @@ import { LIVE_WINDOW_MS, liveState, type LivePick } from "@/lib/live/scores";
 import { rating } from "@/lib/model/elo";
 import type { HistMatch } from "@/lib/model/openfootball";
 import type { PickContext } from "@/lib/picks";
+import { COMPARISON_KEYS, type AfPrediction } from "@/lib/stats/af-predictions";
+import { clubEloProbs } from "@/lib/stats/clubelo";
 import type { InjuryItem } from "@/lib/stats/types";
 import { LEAGUES, teamById } from "./catalog";
 import { expectedGoals } from "./football";
@@ -109,20 +111,37 @@ export function demoPickContext(eventId: string, now: number): PickContext | nul
       const role = Object.keys(ROLE_DA).find((r) => n.text.includes(r));
       return { side, team, player: role ? ROLE_DA[role] : "Spiller", status: n.kind === "injury" ? "doubtful" : "out", reason: n.text };
     });
+  // DEMO DATA: derived from the demo Elo plus a league level; deterministic, no ClubElo call.
+  const clubElo = (() => {
+    const lvl = DEMO_CLUB_LEVEL[ev.event.leagueId] ?? 0;
+    const country = DEMO_COUNTRY[LEAGUES.find((l) => l.id === ev.event.leagueId)?.country ?? ""] ?? "";
+    const club = (name: string) => ({ club: name, country, level: 1, elo: Math.round(rating(model.elo, name) + lvl) });
+    return { home: club(home.name), away: club(away.name), date: Math.floor(t / 86_400_000) * 86_400_000, source: "DEMO DATA" };
+  })();
   return {
     expectedGoals: expectedGoals(home.attack, home.defence, away.attack, away.defence),
     news: { provider: "demo", syncedAt: t, lineups: [], lineupsAt: null, injuries, injuriesAt: t, xg: null, form: { home: null, away: null }, referee },
     teams: { home: home.name, away: away.name, homeElo: rating(model.elo, home.name), awayElo: rating(model.elo, away.name), history },
     counts: forecastCounts(counts, home.name, away.name, referee),
     htShare,
-    // DEMO DATA: derived from the demo Elo plus a league level; deterministic, no ClubElo call.
-    clubElo: (() => {
-      const lvl = DEMO_CLUB_LEVEL[ev.event.leagueId] ?? 0;
-      const country = DEMO_COUNTRY[LEAGUES.find((l) => l.id === ev.event.leagueId)?.country ?? ""] ?? "";
-      const club = (name: string) => ({ club: name, country, level: 1, elo: Math.round(rating(model.elo, name) + lvl) });
-      return { home: club(home.name), away: club(away.name), date: Math.floor(t / 86_400_000) * 86_400_000, source: "DEMO DATA" };
-    })(),
+    clubElo,
+    afPrediction: demoAfPrediction(ev.event.id, rating(model.elo, home.name), rating(model.elo, away.name), t),
   };
+}
+
+/** DEMO DATA: API-Football-style percentages from the demo Elo, rounded to 5 % like the real ones; comparison seeded by the match id. */
+function demoAfPrediction(eventId: string, homeElo: number, awayElo: number, t: number): AfPrediction {
+  const e = clubEloProbs(homeElo, awayElo);
+  const r5 = (x: number) => Math.round(x * 20) / 20;
+  const home = r5(e.home);
+  const away = r5(e.away);
+  const rng = new Rng(`afpred:${eventId}`);
+  const lean = e.home - e.away;
+  const comparison = COMPARISON_KEYS.map((key) => {
+    const h = Math.min(0.85, Math.max(0.15, 0.5 + lean * 0.3 + (rng.next() - 0.5) * 0.3));
+    return { key, home: h, away: 1 - h };
+  });
+  return { fixtureId: 0, percent: { home, draw: Math.max(0, 1 - home - away), away }, comparison, advice: null, winner: null, fetchedAt: t, source: "DEMO DATA" };
 }
 
 /**

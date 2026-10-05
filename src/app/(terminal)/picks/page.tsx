@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AF_PREDICTION_MODEL, COMPARISON_LABELS, type AfPrediction } from "@/lib/stats/af-predictions";
 import { CLUBELO_MODEL, clubEloProbs, type ClubEloPair } from "@/lib/stats/clubelo";
 import { TeamNews } from "@/components/TeamNews";
 import {
@@ -125,7 +126,48 @@ function FormRow({ team, games }: { team: string; games: FormGame[] }) {
   );
 }
 
-/** Every bookmaker's price for the bet, best first. */
+/** What a market-only pick's probability is built from. */
+function badgeText(p: Pick): string {
+  if (p.row.marketType !== "1X2") return "Kun odds";
+  return p.insights.afPrediction ? "Odds + API-Football" : p.insights.clubElo ? "Odds + ClubElo" : "Kun odds";
+}
+function badgeTitle(p: Pick): string {
+  const b = badgeText(p);
+  if (b === "Odds + API-Football") return "Ingen kampresultater for ligaen endnu: procenten er bookmakernes, justeret med API-Footballs vurdering af holdene";
+  if (b === "Odds + ClubElo") return "Ingen kampresultater for ligaen endnu: procenten er bookmakernes, justeret med ClubElo-holdstyrke";
+  return "Ingen kampresultater for ligaen endnu, så procenten er bookmakernes";
+}
+
+/** API-Football's percentages and its home-vs-away comparison, one bar per area. */
+function AfPredictionFact({ a, home, away }: { a: AfPrediction; home: string; away: string }) {
+  const pc = (x: number) => Math.round(x * 100);
+  const day = new Date(a.fetchedAt).toLocaleString("da-DK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
+  return (
+    <Fact label="Holdstyrke (API-Football)">
+      <span className="num">
+        {home} {pc(a.percent.home)} % · uafgjort {pc(a.percent.draw)} % · {away} {pc(a.percent.away)} %
+      </span>
+      {a.comparison.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {a.comparison.map((c) => (
+            <li key={c.key} className="grid grid-cols-[5.5rem_2.5rem_1fr_2.5rem] items-center gap-2 text-xs">
+              <span className="text-ink-2">{COMPARISON_LABELS[c.key]}</span>
+              <span className="num text-right">{pc(c.home)} %</span>
+              <span className="flex h-1.5 overflow-hidden rounded-full bg-line" aria-hidden>
+                <span className="bg-accent" style={{ width: `${c.home * 100}%` }} />
+              </span>
+              <span className="num">{pc(c.away)} %</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="num mt-1 text-xs text-muted">
+        Skøn ud fra holdenes kampe i alle turneringer, {home} til venstre · {AF_PREDICTION_MODEL} · {a.source === "DEMO DATA" ? "DEMO DATA" : `${a.source}, hentet ${day}`}
+      </div>
+    </Fact>
+  );
+}
+
 /** Both clubs on ClubElo's cross-league scale, with what the gap means at home advantage. */
 function ClubEloFact({ c, home, away }: { c: ClubEloPair; home: string; away: string }) {
   const gap = Math.round(c.home.elo - c.away.elo);
@@ -317,6 +359,7 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
             </span>
           </Fact>
         )}
+        {i.afPrediction && <AfPredictionFact a={i.afPrediction} home={home} away={away} />}
         {i.clubElo && <ClubEloFact c={i.clubElo} home={home} away={away} />}
         {i.form && (
           <Fact label="Form, seneste 5 kampe">
@@ -376,7 +419,7 @@ function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: number; 
                 Afventer opstilling
               </span>
             )}
-            {p.marketOnly && <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2" title={p.insights.clubElo && p.row.marketType === "1X2" ? "Ingen kampresultater for ligaen endnu: procenten er bookmakernes, justeret med ClubElo-holdstyrke" : "Ingen kampresultater for ligaen endnu, så procenten er bookmakernes"}>{p.insights.clubElo && p.row.marketType === "1X2" ? "Odds + ClubElo" : "Kun odds"}</span>}
+            {p.marketOnly && <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2" title={badgeTitle(p)}>{badgeText(p)}</span>}
           </div>
         </div>
         <div className="flex items-center gap-5">

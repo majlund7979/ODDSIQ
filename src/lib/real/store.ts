@@ -4,6 +4,8 @@
 // real model's current estimate, or the recorded ledger prediction once one
 // exists. Nothing here is simulated.
 
+import { fixtureIdOf } from "@/lib/stats/af-predictions";
+import { API_FOOTBALL } from "@/lib/stats/api-football";
 import type { PrismaClient } from "@/generated/prisma/client";
 import type { EventStatus, Prediction, SportEvent, SportId } from "@/lib/domain/types";
 import { verifyChain } from "@/lib/ledger/hash";
@@ -68,6 +70,8 @@ export interface EventData {
   htShare: { home: number; away: number; n: number } | null;
   /** Scores as the odds feed reported them after kickoff, oldest first. */
   scores: { at: number; home: number; away: number; completed: boolean }[];
+  /** API-Football's fixture id, for its /predictions (src/lib/stats/af-predictions.ts). */
+  fixtureId: number | null;
 }
 
 export interface RealSnapshot {
@@ -338,6 +342,7 @@ export async function realSnapshot(prisma: PrismaClient, now: number, opts: { le
       htShare: league ? (htShares.get(league.code) ?? null) : null,
       forecast: r ? (r.ok ? { f: r.forecast, home: r.home, away: r.away } : { reason: r.reason }) : null,
       scores: e.scoreUpdates.map((u) => ({ at: u.observedAt.getTime(), home: u.homeScore, away: u.awayScore, completed: u.completed })),
+      fixtureId: fixtureIdOf(e.id, e.statsFixtures[0]?.provider === API_FOOTBALL ? e.statsFixtures[0].id : null),
       markets: e.markets.map((m) => {
         const sels = [...m.selections].sort((a, b) => order(side(a.id)) - order(side(b.id)));
         const points = sels.flatMap((s) => bySelection.get(s.id) ?? []);

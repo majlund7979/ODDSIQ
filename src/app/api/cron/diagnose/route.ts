@@ -14,6 +14,7 @@ import { realSnapshot } from "@/lib/real/store";
 import { seasonFor } from "@/lib/stats/api-football";
 import { configuredStatsFeed } from "@/lib/stats/config";
 import { STATS_LEAGUES } from "@/lib/stats/leagues";
+import { refreshPredictions } from "@/lib/stats/af-predictions";
 import { clubEloCovers, clubEloLastError, clubEloRatings, findClub } from "@/lib/stats/clubelo";
 
 export const maxDuration = 60;
@@ -48,6 +49,7 @@ export async function GET(req: Request): Promise<Response> {
     sports: feedConfig().sports,
     // Filled in at the end; listed here so it lands inside the workflow's 12 000-character annotation.
     clubElo: null,
+    afPredictions: null,
   };
   if (!DATABASE_CONFIGURED) return Response.json({ ...out, database: "not configured" });
   const prisma = db();
@@ -177,6 +179,19 @@ export async function GET(req: Request): Promise<Response> {
     }
   } catch (e) {
     out.clubElo = `error ${message(e)}`;
+  }
+  // API-Football /predictions: fetches up to three due matches (so a run shows the live answer), then what is stored.
+  try {
+    const key = process.env.STATS_API_KEY;
+    if (DATABASE_CONFIGURED && key) {
+      const run = await refreshPredictions(db(), { apiKey: key, now, maxRequests: 3 });
+      const stored = await db().fixturePrediction.findMany({ orderBy: { fetchedAt: "desc" }, take: 200 });
+      const usable = stored.filter((r) => !(r.data as { empty?: boolean }).empty);
+      const last = usable[0]?.data as { fixtureId?: number; percent?: unknown; comparison?: unknown[] } | undefined;
+      out.afPredictions = { run, stored: stored.length, usable: usable.length, latest: last ? { fixtureId: last.fixtureId, percent: last.percent, comparisonKeys: last.comparison?.length ?? 0 } : null };
+    } else out.afPredictions = "no STATS_API_KEY or database";
+  } catch (e) {
+    out.afPredictions = `error ${message(e)}`;
   }
   // Lineups for matches around kickoff: whether each is matched to an API-Football fixture and has lineups stored.
   try {

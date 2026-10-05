@@ -7,6 +7,8 @@ import { DataSourceNotConfiguredError, DEMO_MODE } from "@/lib/data";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { configuredStatsFeed } from "@/lib/stats/config";
 import { refreshLineupsOnVisit } from "@/lib/stats/lineups";
+import { loadPredictions, refreshPredictionsOnVisit, type AfPrediction } from "@/lib/stats/af-predictions";
+import { statsConfig } from "@/lib/stats/config";
 import { clubEloCovers, clubEloRatings, clubPair, type ClubEloPair } from "@/lib/stats/clubelo";
 import { settleOnVisit } from "@/lib/providers/settle-on-visit";
 import { ALERT_TYPES, marketAlerts, type MarketAlert } from "@/lib/demo/alerts";
@@ -94,6 +96,7 @@ async function liveSnapshot(now: number, fresh: boolean): Promise<RealSnapshot> 
   // Lineups near kickoff and results of finished matches, after the response; the next snapshot shows them.
   after(() => lineupsOnVisit(now));
   after(() => resultsOnVisit(now));
+  after(() => predictionsOnVisit(now));
   if (latest && now - latest.at < STALE_MS) {
     const stale = latest.snap;
     after(() => rebuild().catch(() => undefined));
@@ -108,6 +111,23 @@ async function lineupsOnVisit(now: number): Promise<void> {
   const s = await refreshLineupsOnVisit(db(), feed, now).catch(() => null);
   // New lineups change the picks, so the next visit gets a fresh snapshot.
   if (s?.fetched) latest = null;
+}
+
+async function predictionsOnVisit(now: number): Promise<void> {
+  const s = await refreshPredictionsOnVisit(db(), statsConfig().apiKey, now).catch(() => null);
+  if (s?.fetched) predictionMemo = null;
+}
+
+const PREDICTIONS_FRESH_MS = 5 * 60_000;
+let predictionMemo: { snap: RealSnapshot; at: number; map: Map<number, AfPrediction> } | null = null;
+
+/** API-Football's stored predictions for the snapshot's matches; one small query, reused for a few minutes. */
+async function predictionsFor(snap: RealSnapshot, now: number): Promise<Map<number, AfPrediction>> {
+  if (predictionMemo?.snap === snap && now - predictionMemo.at < PREDICTIONS_FRESH_MS) return predictionMemo.map;
+  const ids = snap.events.filter((e) => e.view.status === "scheduled" && e.fixtureId !== null).map((e) => e.fixtureId!);
+  const map = await loadPredictions(db(), ids).catch(() => new Map<number, AfPrediction>());
+  predictionMemo = { snap, at: now, map };
+  return map;
 }
 
 async function resultsOnVisit(now: number): Promise<void> {
@@ -161,7 +181,7 @@ export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal
   // The ledger views need the full snapshot; built only when one of them is asked for.
   let fullSnap: Promise<RealSnapshot> | null = null;
   const full = () => (fullSnap ??= realSnapshot(db(), now));
-  const clubs = await clubEloRatings(now);
+  const [clubs, predictions] = await Promise.all([clubEloRatings(now), predictionsFor(snap, now)]);
   const clubMemo = new Map<string, ClubEloPair | null>();
   const clubEloOf = (e: RealSnapshot["events"][number]) => {
     if (!clubs || !clubEloCovers(e.view.leagueId)) return null;
@@ -194,11 +214,12 @@ export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal
       const e = snap.events.find((x) => x.view.id === id);
       if (!e) return null;
       const clubElo = clubEloOf(e);
-      // A league without results history: only the cross-league ratings and the team news.
-      if (!e.forecast || !("f" in e.forecast)) return clubElo || e.news ? { news: e.news ?? null, clubElo } : null;
+      const afPrediction = (e.fixtureId !== null && predictions.get(e.fixtureId)) || null;
+      // A league without results history: only the cross-league strength and the team news.
+      if (!e.forecast || !("f" in e.forecast)) return clubElo || afPrediction || e.news ? { news: e.news ?? null, clubElo, afPrediction } : null;
       const { f, home, away } = e.forecast;
       const teams = e.model ? { home, away, homeElo: rating(e.model.elo, home), awayElo: rating(e.model.elo, away), history: e.model.history } : undefined;
-      return { expectedGoals: f.expectedGoals, news: e.news, teams, counts: e.counts, htShare: e.htShare, clubElo };
+      return { expectedGoals: f.expectedGoals, news: e.news, teams, counts: e.counts, htShare: e.htShare, clubElo, afPrediction };
     },
   };
 }
