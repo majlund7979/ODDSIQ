@@ -17,6 +17,8 @@ import {
   type CountPick,
   type FormGame,
   type Pick,
+  isNationalTeams,
+  NATIONAL_OVER_MIN_SCORED,
 } from "@/lib/picks";
 import { requireFriend } from "@/lib/auth/friends";
 import { explainPick } from "@/lib/picks-explain";
@@ -245,6 +247,7 @@ function GoalBets({ p, home, away }: { p: Pick; home: string; away: string }) {
           ? `Scoret i de seneste ${s.n} kampe: ${home} ${s.home} gange, ${away} ${s.away} gange. `
           : "Vi har ikke holdenes seneste kampe for ligaen. "}
         {s?.every ? "Begge hold har scoret i hver kamp, så begge hold scorer kan foreslås." : `Begge hold scorer foreslås kun, når begge hold har scoret i hver af deres seneste ${BTTS_FORM_GAMES} kampe.`}
+        {isNationalTeams(p.row.leagueId) && ` I landskampe foreslås over 1,5 og 2,5 mål kun, når begge hold har scoret i mindst ${NATIONAL_OVER_MIN_SCORED} af de seneste ${BTTS_FORM_GAMES} kampe.`}
       </div>
       <div className="mt-1 text-xs text-muted">
         Tilbage pr. 100 kr er chance gange odds, et skøn. Til odds, der ligger tæt (højst {Math.round((SIMILAR_ODDS - 1) * 100)} % fra hinanden), foreslår vi det bet, der giver mest.

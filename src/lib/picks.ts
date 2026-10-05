@@ -10,6 +10,7 @@
 // Steps 2 and 3 move the model's expected goals and re-price the outcome with
 // a Poisson goals model; their size is a heuristic, not a fitted parameter.
 
+import { leagueForOddsKey } from "@/lib/model/openfootball";
 import type { MarketRow } from "@/lib/demo/store";
 import type { CountForecast, CountForecasts, CountStat } from "@/lib/model/match-stats";
 import type { HistMatch } from "@/lib/model/openfootball";
@@ -22,6 +23,17 @@ export const PICK_COUNTS = [5, 10] as const;
 
 /** Share of the final probability taken from the bookmakers' price. */
 export const MARKET_WEIGHT = 0.5;
+/**
+ * In national-team matches the bookmakers get more weight (Mads, 2026-10-05): most of a small nation's results
+ * are heavy defeats to strong teams, so the model reads two weak sides as two leaky defences and expects goals
+ * that a match between them rarely has (Liechtenstein–Gibraltar: 0-0 and 0-1 in Vaduz).
+ */
+export const NATIONAL_MARKET_WEIGHT = 0.75;
+/** Over-bets in national-team matches need both teams to have scored in at least this many of their last BTTS_FORM_GAMES. */
+export const NATIONAL_OVER_MIN_SCORED = 3;
+
+/** Whether a league id ("<feed>-<odds key>") is national-team football, trained on the internationals ("intl"). */
+export const isNationalTeams = (leagueId: string | undefined) => !!leagueId && leagueForOddsKey(leagueId.slice(leagueId.indexOf("-") + 1))?.code === "intl";
 /** Share of expected goals taken from recent xG form, when both teams have it. */
 export const XG_FORM_WEIGHT = 0.25;
 export const XG_FORM_MIN_MATCHES = 3;
@@ -136,6 +148,12 @@ export interface BothScore {
   n: number;
   /** Both teams scored in all of their last BTTS_FORM_GAMES matches. */
   every: boolean;
+}
+
+/** An over-bet in a national-team match where one of the teams has hardly scored lately: not suggested. */
+export function overBlocked(row: MarketRow, scoring: BothScore | null): boolean {
+  if (!(row.marketType === "OU15" || row.marketType === "OU25") || row.side !== "over" || !isNationalTeams(row.leagueId)) return false;
+  return !!scoring && Math.min(scoring.home, scoring.away) < NATIONAL_OVER_MIN_SCORED;
 }
 
 /** How often each team scored in its last matches, from the results history behind the model. */
@@ -286,8 +304,16 @@ export function analysePick(row: MarketRow, ctx: PickContext | null): Omit<Pick,
 
   p = clamp(p);
   const market = row.marketProbability;
-  const final = clamp((1 - MARKET_WEIGHT) * p + MARKET_WEIGHT * market);
-  factors.push({ label: "Bookmakerne", pp: (final - p) * 100, detail: `${pct(market)}, inkl. nyheder og rygter markedet har læst` });
+  const national = isNationalTeams(row.leagueId);
+  const w = national ? NATIONAL_MARKET_WEIGHT : MARKET_WEIGHT;
+  const final = clamp((1 - w) * p + w * market);
+  factors.push({
+    label: "Bookmakerne",
+    pp: (final - p) * 100,
+    detail: national
+      ? `${pct(market)}, vægtet ${Math.round(w * 100)} % i landskampe, hvor modellen mest kender de små nationer fra store nederlag`
+      : `${pct(market)}, inkl. nyheder og rygter markedet har læst`,
+  });
   const t = ctx?.teams;
   const insights: PickInsights = {
     expectedGoals: ctx?.expectedGoals ?? null,
@@ -371,7 +397,7 @@ export function dailyPicks(
     const instead = bttsAlternative(list);
     let best: Analysed | null = null;
     for (const a of list) {
-      if (!markets.has(a.row.marketType) || (isBttsYes(a) && (!scoring?.every || (mixed && instead)))) continue;
+      if (!markets.has(a.row.marketType) || (isBttsYes(a) && (!scoring?.every || (mixed && instead))) || overBlocked(a.row, scoring)) continue;
       if (mixed && a.row.marketType === "OU15" && !(a.row.bestOdds >= OU15_MIN_ODDS)) continue;
       if (!best || a.probability > best.probability) best = a;
     }
@@ -426,7 +452,7 @@ export function couponCandidates(rows: MarketRow[], now: number, context: (event
     const scoring = bothScore(ctx);
     const list = rs.filter((r) => COUPON_MARKETS.has(r.marketType)).flatMap((r) => analysePick(r, ctx) ?? []);
     for (const a of list) {
-      if (!(a.row.bestOdds > 1) || (isBttsYes(a) && !scoring?.every)) continue;
+      if (!(a.row.bestOdds > 1) || (isBttsYes(a) && !scoring?.every) || overBlocked(a.row, scoring)) continue;
       out.push({ ...asPick(a, outcomeLabel(a.row)), scoring });
     }
     const x = Object.fromEntries(list.filter((a) => a.row.marketType === "1X2").map((a) => [a.row.side, a]));
