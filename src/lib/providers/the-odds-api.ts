@@ -63,7 +63,7 @@ function outcomeKey(name: string, e: RawEvent): string | null {
   return null;
 }
 
-/** Converts events to feed prices: h2h → 1X2 (football, three outcomes) or ML; totals at 2.5 → OU25. Anything else is skipped. */
+/** Converts events to feed prices: h2h → 1X2 (football, three outcomes) or ML; totals at 1.5 → OU15 and at 2.5 → OU25. Anything else is skipped. */
 export function normalizeOdds(raw: RawEvent[]): FeedEvent[] {
   return raw.map((e) => {
     const football = sportIdFor(e.sport_key) === "football";
@@ -79,9 +79,12 @@ export function normalizeOdds(raw: RawEvent[]): FeedEvent[] {
           const expected = football ? ["home", "draw", "away"] : ["home", "away"];
           if (rows.length !== expected.length || !expected.every((k) => rows.some((r) => r.selection === k))) continue;
         } else if (m.key === "totals" && football) {
-          market = "OU25";
-          rows = m.outcomes.filter((o) => o.point === 2.5).map((o) => ({ selection: o.name.toLowerCase(), odds: o.price }));
-          if (rows.length !== 2 || !rows.some((r) => r.selection === "over") || !rows.some((r) => r.selection === "under")) continue;
+          for (const [point, type] of [[1.5, "OU15"], [2.5, "OU25"]] as const) {
+            const line = m.outcomes.filter((o) => o.point === point).map((o) => ({ selection: o.name.toLowerCase(), odds: o.price }));
+            if (line.length !== 2 || !line.some((r) => r.selection === "over") || !line.some((r) => r.selection === "under") || line.some((r) => !(r.odds > 1))) continue;
+            for (const r of line) prices.push({ bookmakerKey: b.key, bookmakerName: b.title, lastUpdate, market: type, selection: r.selection, odds: r.odds });
+          }
+          continue;
         }
         if (!market || rows.some((r) => !(r.odds > 1))) continue;
         for (const r of rows) prices.push({ bookmakerKey: b.key, bookmakerName: b.title, lastUpdate, market, selection: r.selection, odds: r.odds });

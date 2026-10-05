@@ -283,6 +283,7 @@ export function settle(spec: string, o: MatchOutcome): "won" | "lost" | null {
 /** The settle spec for a goal-market pick. */
 export function goalSpec(r: MarketRow): string {
   if (r.marketType === "1X2") return `1X2:${r.side}`;
+  if (r.marketType === "OU15") return `OU:${r.side}:1.5`;
   if (r.marketType === "OU25") return `OU:${r.side}:2.5`;
   if (r.marketType === "BTTS") return `BTTS:${r.side}`;
   return `${r.marketType}:${r.side}`;

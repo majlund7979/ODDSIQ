@@ -143,6 +143,7 @@ export interface GoalsForecast {
   home: number;
   draw: number;
   away: number;
+  over15: number;
   over25: number;
   bttsYes: number;
   /** Weighted matches behind the two teams' strengths. */
@@ -168,6 +169,7 @@ export function forecastGoals(fit: PoissonFit, home: string, away: string): Goal
   let pH = 0;
   let pD = 0;
   let pA = 0;
+  let over15 = 0;
   let over = 0;
   let btts = 0;
   let total = 0;
@@ -178,6 +180,7 @@ export function forecastGoals(fit: PoissonFit, home: string, away: string): Goal
       if (x > y) pH += p;
       else if (x === y) pD += p;
       else pA += p;
+      if (x + y > 1.5) over15 += p;
       if (x + y > 2.5) over += p;
       if (x > 0 && y > 0) btts += p;
     }
@@ -188,6 +191,7 @@ export function forecastGoals(fit: PoissonFit, home: string, away: string): Goal
     home: pH / total,
     draw: pD / total,
     away: pA / total,
+    over15: over15 / total,
     over25: over / total,
     bttsYes: btts / total,
     support: (fit.weight.get(home) ?? 0) + (fit.weight.get(away) ?? 0),

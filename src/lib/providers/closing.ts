@@ -54,6 +54,6 @@ export function settle(market: string, selection: string, home: number, away: nu
   if (market === "ML" && home === away) return "void";
   if (market === "BTTS") return (selection === "yes") === (home > 0 && away > 0) ? "won" : "lost";
   if (market === "DC") return (selection === "1x" ? home >= away : selection === "x2" ? home <= away : home !== away) ? "won" : "lost";
-  const pick = market === "OU25" ? (home + away > 2.5 ? "over" : "under") : home > away ? "home" : home < away ? "away" : "draw";
+  const pick = market === "OU15" ? (home + away > 1.5 ? "over" : "under") : market === "OU25" ? (home + away > 2.5 ? "over" : "under") : home > away ? "home" : home < away ? "away" : "draw";
   return selection === pick ? "won" : "lost";
 }

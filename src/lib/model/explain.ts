@@ -26,11 +26,11 @@ export function explainSelection(model: LeagueModel, home: string, away: string,
       { label: "Elo rating difference", value: `${diff >= 0 ? "+" : "−"}${Math.abs(diff)} points incl. home advantage`, contributionPp: w.elo * (elo - base) * 100 },
     ].sort((a, b) => Math.abs(b.contributionPp) - Math.abs(a.contributionPp));
   }
-  const base = market === "OU25" ? model.baseRates.over25 : model.baseRates.bttsYes;
+  const base = market === "OU15" ? model.baseRates.over15 : market === "OU25" ? model.baseRates.over25 : model.baseRates.bttsYes;
   const yes = selection === "over" || selection === "yes";
   return [
     {
-      label: market === "OU25" ? "Expected total goals" : "Both sides' expected goals",
+      label: market === "OU15" || market === "OU25" ? "Expected total goals" : "Both sides' expected goals",
       value: `${f.expectedGoals.home.toFixed(2)} + ${f.expectedGoals.away.toFixed(2)}`,
       contributionPp: (s.probability - (yes ? base : 1 - base)) * 100,
     },

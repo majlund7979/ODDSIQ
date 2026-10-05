@@ -68,7 +68,7 @@ export function realLiveBoard(snap: RealSnapshot): LiveBoardRow[] {
     .sort((a, b) => a.kickoff - b.kickoff);
 }
 
-const outcomeProbs = (type: string, f: ReturnType<typeof inPlayForecast>) => (type === "OU25" ? [f.over25, f.under25] : [f.home, f.draw, f.away]);
+const outcomeProbs = (type: string, f: ReturnType<typeof inPlayForecast>) => (type === "OU15" ? [f.over15, f.under15] : type === "OU25" ? [f.over25, f.under25] : [f.home, f.draw, f.away]);
 
 /** Kickoff frame plus one frame per in-play run up to `until`, and the goals inferred from score changes. */
 export function inPlayFrames(e: EventData, m: MarketData, xg: { home: number; away: number } | null, until: number): { minutes: LiveFrame[]; timeline: LiveEvent[]; timelineAt: number[] } {

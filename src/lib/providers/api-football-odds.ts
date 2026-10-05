@@ -70,9 +70,9 @@ export interface RawAfOdds {
 }
 
 const FINISHED = new Set(["FT", "AET", "PEN"]);
-const OVER_UNDER = /^(Over|Under) 2\.5$/;
+const OVER_UNDER = /^(Over|Under) ([12])\.5$/;
 
-/** Match Winner → 1X2, Goals Over/Under 2.5 → OU25, Both Teams Score → BTTS and Double Chance → DC, for the kept bookmakers. */
+/** Match Winner → 1X2, Goals Over/Under 1.5 → OU15 and 2.5 → OU25, Both Teams Score → BTTS and Double Chance → DC, for the kept bookmakers. */
 export function normalizeAfOdds(raw: RawAfOdds): FeedPrice[] {
   const lastUpdate = Date.parse(raw.update);
   return raw.bookmakers.flatMap((b) => {
@@ -87,7 +87,8 @@ export function normalizeAfOdds(raw: RawAfOdds): FeedPrice[] {
           const selection = { Home: "home", Draw: "draw", Away: "away" }[v.value];
           return selection ? [{ ...base, market: "1X2", selection }] : [];
         }
-        if (bet.name === "Goals Over/Under" && OVER_UNDER.test(v.value)) return [{ ...base, market: "OU25", selection: v.value.startsWith("Over") ? "over" : "under" }];
+        const ou = bet.name === "Goals Over/Under" ? OVER_UNDER.exec(v.value) : null;
+        if (ou) return [{ ...base, market: ou[2] === "1" ? "OU15" : "OU25", selection: ou[1] === "Over" ? "over" : "under" }];
         if (bet.name === "Both Teams Score") {
           const selection = { Yes: "yes", No: "no" }[v.value];
           return selection ? [{ ...base, market: "BTTS", selection }] : [];

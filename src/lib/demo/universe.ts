@@ -215,6 +215,7 @@ function marketDefs(sportId: SportId, home: string, away: string): { type: Marke
       { type: "1X2", name: "Match Winner", selections: [{ key: "home", name: home }, { key: "draw", name: "Draw" }, { key: "away", name: away }] },
       { type: "OU25", name: "Total Goals 2.5", selections: [{ key: "over", name: "Over 2.5" }, { key: "under", name: "Under 2.5" }] },
       { type: "BTTS", name: "Both Teams to Score", selections: [{ key: "yes", name: "BTTS Yes" }, { key: "no", name: "BTTS No" }] },
+      { type: "OU15", name: "Total Goals 1.5", selections: [{ key: "over", name: "Over 1.5" }, { key: "under", name: "Under 1.5" }] },
     ];
   }
   return [{ type: "ML", name: sportId === "tennis" ? "Match Winner" : "Moneyline", selections: [{ key: "home", name: home }, { key: "away", name: away }] }];
@@ -229,6 +230,7 @@ const ML_PARAMS: Record<Exclude<SportId, "football">, { k: number; home: number 
 
 const FACTOR_LABELS: Record<string, string[]> = {
   "1X2": ["Home xG advantage", "Away defensive trend", "Recent shot quality", "Home/away split", "Squad availability"],
+  OU15: ["Combined xG (last 6)", "Home attacking form", "Away defensive form", "Game-state tendency", "Weather conditions"],
   OU25: ["Combined xG (last 6)", "Home attacking form", "Away defensive form", "Game-state tendency", "Weather conditions"],
   BTTS: ["Away scoring rate", "Home clean-sheet rate", "Shot quality conceded", "Game-state tendency", "Squad availability"],
   ML: ["Net rating (last 10)", "Home/away split", "Rest-day difference", "Head-to-head style", "Availability"],
@@ -342,7 +344,7 @@ export function buildEvent(spec: EventSpec): EventSim {
   if (spec.sportId === "football") {
     lambda = expectedGoals(home.attack + rng.normal(0, 0.08), home.defence, away.attack + rng.normal(0, 0.08), away.defence);
     const f = footballProbabilities(lambda.home, lambda.away);
-    truths = [[f.home, f.draw, f.away], [f.over25, 1 - f.over25], [f.btts, 1 - f.btts]];
+    truths = [[f.home, f.draw, f.away], [f.over25, 1 - f.over25], [f.btts, 1 - f.btts], [f.over15, 1 - f.over15]];
   } else {
     const p = ML_PARAMS[spec.sportId];
     const diff = (home.attack + home.defence - away.attack - away.defence) / 2;

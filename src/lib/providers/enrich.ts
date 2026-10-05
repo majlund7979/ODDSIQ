@@ -1,5 +1,5 @@
 // Extra markets for the leagues whose match odds come from The Odds API: its
-// free plan only covers the match winner (h2h), so over/under 2.5, both teams
+// free plan only covers the match winner (h2h), so over/under 1.5 and 2.5, both teams
 // score and double chance come from API-Football's odds for the same matches.
 // Prices attach to the existing events (matched by kickoff and team names), so
 // no match is listed twice.
@@ -12,8 +12,8 @@ import type { FeedMarketType, FeedPrice } from "./types";
 
 const HOUR = 3_600_000;
 /** Markets taken from API-Football for these events; the match winner stays with The Odds API. */
-export const ENRICH_MARKETS: FeedMarketType[] = ["OU25", "BTTS", "DC"];
-const NAMES: Record<string, string> = { OU25: "Total Goals 2.5", BTTS: "Both Teams To Score", DC: "Double Chance" };
+export const ENRICH_MARKETS: FeedMarketType[] = ["OU15", "OU25", "BTTS", "DC"];
+const NAMES: Record<string, string> = { OU15: "Total Goals 1.5", OU25: "Total Goals 2.5", BTTS: "Both Teams To Score", DC: "Double Chance" };
 /** Refresh a league's extra markets at most this often. */
 export const ENRICH_INTERVAL_MS = 5 * HOUR;
 const KICKOFF_TOLERANCE_MS = 2 * HOUR;
@@ -27,6 +27,7 @@ export interface EnrichSummary {
 }
 
 function selectionName(m: FeedMarketType, sel: string, home: string, away: string): string {
+  if (m === "OU15") return `${sel === "over" ? "Over" : "Under"} 1.5`;
   if (m === "OU25") return `${sel === "over" ? "Over" : "Under"} 2.5`;
   if (m === "BTTS") return sel === "yes" ? "Yes" : "No";
   return sel === "1x" ? `${home} or draw` : sel === "x2" ? `Draw or ${away}` : `${home} or ${away}`;
