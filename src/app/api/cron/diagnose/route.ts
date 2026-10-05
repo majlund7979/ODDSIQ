@@ -46,6 +46,8 @@ export async function GET(req: Request): Promise<Response> {
     oddsKeyConfigured: Boolean(process.env.ODDS_API_KEY),
     statsKeyConfigured: Boolean(process.env.STATS_API_KEY),
     sports: feedConfig().sports,
+    // Filled in at the end; listed here so it lands inside the workflow's 12 000-character annotation.
+    clubElo: null,
   };
   if (!DATABASE_CONFIGURED) return Response.json({ ...out, database: "not configured" });
   const prisma = db();
