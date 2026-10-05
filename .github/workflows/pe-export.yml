@@ -1,0 +1,60 @@
+# Prediction engine backfill: exports finished matches (xG, team stats, starting
+# elevens, red cards) from API-Football through the live site, one competition
+# and season at a time, and stores the CSVs on the pe-export-data branch. Run it
+# by hand: Actions → PE export → Run workflow. Costs about one request per 20
+# matches (about 20 per league season) from the daily API-Football allowance.
+
+name: PE export
+
+on:
+  workflow_dispatch:
+    inputs:
+      leagues:
+        description: API-Football league ids, space separated
+        default: "39 40 78 79 140 141 135 136 61 62 88 94 144 179 203 197 119 113 103 218 207 106"
+      seasons:
+        description: Seasons (start year), space separated
+        default: "2021 2022 2023 2024 2025"
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    if: vars.SITE_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Export
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          LEAGUES: ${{ inputs.leagues }}
+          SEASONS: ${{ inputs.seasons }}
+        run: |
+          mkdir -p out/af
+          for l in $LEAGUES; do
+            for s in $SEASONS; do
+              page=0; pages=1
+              while [ "$page" -lt "$pages" ]; do
+                f="out/af/${l}_${s}_${page}.csv"
+                code=$(curl -sS --max-time 90 -D h.txt -o "$f" -w '%{http_code}' -H "Authorization: Bearer $CRON_SECRET" \
+                  "${SITE_URL%/}/api/cron/pe-export?league=${l}&season=${s}&page=${page}" || echo 000)
+                pages=$(grep -i '^x-pages:' h.txt | tr -dc '0-9'); pages=${pages:-0}
+                left=$(grep -i '^x-requests-remaining:' h.txt | tr -dc '0-9')
+                echo "league $l season $s page $page/$pages HTTP $code rows $(($(wc -l < "$f") - 1)) remaining ${left:-?}"
+                if [ "$code" != 200 ]; then head -c 300 "$f"; echo; rm -f "$f"; break; fi
+                if [ -n "$left" ] && [ "$left" -lt 1500 ]; then echo "Stopping: keep 1500 requests for the site"; break 3; fi
+                page=$((page + 1))
+              done
+            done
+          done
+          ls out/af | wc -l
+      - name: Save on pe-export-data
+        if: always()
+        run: |
+          cd out
+          git init -q && git config user.name "github-actions" && git config user.email "github-actions@users.noreply.github.com"
+          git fetch -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" pe-export-data:prev 2>/dev/null && git checkout -q prev -- af 2>/dev/null || true
+          git checkout -q -b pe-export-data && git add -A && git commit -qm "API-Football export ${{ github.run_id }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" pe-export-data
