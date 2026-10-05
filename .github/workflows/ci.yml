@@ -50,3 +50,29 @@ jobs:
           if psql "$DATABASE_URL" -c 'UPDATE "Prediction" SET probability = 0.99 WHERE seq = 1'; then echo "UPDATE was allowed"; exit 1; fi
           if psql "$DATABASE_URL" -c 'DELETE FROM "Prediction" WHERE seq = 1'; then echo "DELETE was allowed"; exit 1; fi
           echo "Ledger is append-only"
+
+  prediction-engine:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pe_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PE_TEST_DSN: postgresql://postgres:postgres@localhost:5432/pe_test
+    defaults:
+      run:
+        working-directory: pe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pe/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q tests
