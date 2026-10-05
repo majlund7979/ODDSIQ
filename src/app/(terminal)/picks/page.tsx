@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CLUBELO_MODEL, clubEloProbs, type ClubEloPair } from "@/lib/stats/clubelo";
 import { TeamNews } from "@/components/TeamNews";
 import {
   analysedMatches,
@@ -124,6 +125,26 @@ function FormRow({ team, games }: { team: string; games: FormGame[] }) {
 }
 
 /** Every bookmaker's price for the bet, best first. */
+/** Both clubs on ClubElo's cross-league scale, with what the gap means at home advantage. */
+function ClubEloFact({ c, home, away }: { c: ClubEloPair; home: string; away: string }) {
+  const gap = Math.round(c.home.elo - c.away.elo);
+  const e = clubEloProbs(c.home.elo, c.away.elo);
+  const day = new Date(c.date).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: "Europe/Copenhagen" });
+  return (
+    <Fact label="Holdstyrke på tværs af ligaer (ClubElo)">
+      <span className="num">{Math.round(c.home.elo)}</span> mod <span className="num">{Math.round(c.away.elo)}</span>
+      <span className="text-ink-2">
+        {" · "}
+        {Math.abs(gap) < 25 ? "jævnbyrdige hold" : `${gap > 0 ? home : away} er ${Math.abs(gap)} point stærkere`}
+        {c.home.country && c.away.country && c.home.country !== c.away.country ? ` (${c.home.country} mod ${c.away.country})` : ""}
+      </span>
+      <div className="num mt-1 text-xs text-muted">
+        Skøn ud fra ratings og hjemmebane: {Math.round(e.home * 100)} % / {Math.round(e.draw * 100)} % / {Math.round(e.away * 100)} % · {CLUBELO_MODEL} · {c.source === "DEMO DATA" ? "DEMO DATA" : `${c.source}, ${day}`}
+      </div>
+    </Fact>
+  );
+}
+
 function BookTable({ quotes, fairOdds, marketOnly }: { quotes: Pick["row"]["quotes"]; fairOdds: number; marketOnly: boolean }) {
   const c = compareBooks(quotes, fairOdds);
   if (!c) return null;
@@ -295,6 +316,7 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
             </span>
           </Fact>
         )}
+        {i.clubElo && <ClubEloFact c={i.clubElo} home={home} away={away} />}
         {i.form && (
           <Fact label="Form, seneste 5 kampe">
             <div className="space-y-1.5">
@@ -353,7 +375,7 @@ function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: number; 
                 Afventer opstilling
               </span>
             )}
-            {p.marketOnly && <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2" title="Ingen kampresultater for ligaen endnu, så procenten er bookmakernes">Kun odds</span>}
+            {p.marketOnly && <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2" title={p.insights.clubElo && p.row.marketType === "1X2" ? "Ingen kampresultater for ligaen endnu: procenten er bookmakernes, justeret med ClubElo-holdstyrke" : "Ingen kampresultater for ligaen endnu, så procenten er bookmakernes"}>{p.insights.clubElo && p.row.marketType === "1X2" ? "Odds + ClubElo" : "Kun odds"}</span>}
           </div>
         </div>
         <div className="flex items-center gap-5">

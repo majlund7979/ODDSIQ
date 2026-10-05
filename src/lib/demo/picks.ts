@@ -10,7 +10,7 @@ import { rating } from "@/lib/model/elo";
 import type { HistMatch } from "@/lib/model/openfootball";
 import type { PickContext } from "@/lib/picks";
 import type { InjuryItem } from "@/lib/stats/types";
-import { teamById } from "./catalog";
+import { LEAGUES, teamById } from "./catalog";
 import { expectedGoals } from "./football";
 import { Rng } from "./rng";
 import { feedTime, findEvent, marketRows, statusAt, universeEvents } from "./store";
@@ -89,6 +89,10 @@ const ROLE_DA: Record<string, string> = {
   captain: "Anfører",
 };
 
+/** Demo leagues' rough level on ClubElo's scale, so the cross-league ratings differ by league. */
+const DEMO_CLUB_LEVEL: Record<string, number> = { epl: 300, laliga: 270, bundesliga: 250, seriea: 240, ligue1: 200, eredivisie: 120, championship: 100, superliga: 60 };
+const DEMO_COUNTRY: Record<string, string> = { England: "ENG", Spain: "ESP", Germany: "GER", Italy: "ITA", France: "FRA", Netherlands: "NED", Denmark: "DEN" };
+
 export function demoPickContext(eventId: string, now: number): PickContext | null {
   const ev = findEvent(eventId, now);
   if (!ev || ev.event.sportId !== "football") return null;
@@ -111,6 +115,13 @@ export function demoPickContext(eventId: string, now: number): PickContext | nul
     teams: { home: home.name, away: away.name, homeElo: rating(model.elo, home.name), awayElo: rating(model.elo, away.name), history },
     counts: forecastCounts(counts, home.name, away.name, referee),
     htShare,
+    // DEMO DATA: derived from the demo Elo plus a league level; deterministic, no ClubElo call.
+    clubElo: (() => {
+      const lvl = DEMO_CLUB_LEVEL[ev.event.leagueId] ?? 0;
+      const country = DEMO_COUNTRY[LEAGUES.find((l) => l.id === ev.event.leagueId)?.country ?? ""] ?? "";
+      const club = (name: string) => ({ club: name, country, level: 1, elo: Math.round(rating(model.elo, name) + lvl) });
+      return { home: club(home.name), away: club(away.name), date: Math.floor(t / 86_400_000) * 86_400_000, source: "DEMO DATA" };
+    })(),
   };
 }
 

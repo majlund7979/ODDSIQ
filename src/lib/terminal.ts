@@ -7,6 +7,7 @@ import { DataSourceNotConfiguredError, DEMO_MODE } from "@/lib/data";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { configuredStatsFeed } from "@/lib/stats/config";
 import { refreshLineupsOnVisit } from "@/lib/stats/lineups";
+import { clubEloCovers, clubEloRatings, clubPair, type ClubEloPair } from "@/lib/stats/clubelo";
 import { settleOnVisit } from "@/lib/providers/settle-on-visit";
 import { ALERT_TYPES, marketAlerts, type MarketAlert } from "@/lib/demo/alerts";
 import { BOOKMAKERS } from "@/lib/demo/catalog";
@@ -160,6 +161,13 @@ export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal
   // The ledger views need the full snapshot; built only when one of them is asked for.
   let fullSnap: Promise<RealSnapshot> | null = null;
   const full = () => (fullSnap ??= realSnapshot(db(), now));
+  const clubs = await clubEloRatings(now);
+  const clubMemo = new Map<string, ClubEloPair | null>();
+  const clubEloOf = (e: RealSnapshot["events"][number]) => {
+    if (!clubs || !clubEloCovers(e.view.leagueId)) return null;
+    if (!clubMemo.has(e.view.id)) clubMemo.set(e.view.id, clubPair(e.view.homeName, e.view.awayName, e.view.leagueId, clubs.ratings, clubs.date));
+    return clubMemo.get(e.view.id)!;
+  };
   return {
     live: true,
     now,
@@ -184,10 +192,13 @@ export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal
     recordedPicks: (days) => readRecordedPicks(db(), now, days),
     pickContext: (id) => {
       const e = snap.events.find((x) => x.view.id === id);
-      if (!e?.forecast || !("f" in e.forecast)) return null;
+      if (!e) return null;
+      const clubElo = clubEloOf(e);
+      // A league without results history: only the cross-league ratings and the team news.
+      if (!e.forecast || !("f" in e.forecast)) return clubElo || e.news ? { news: e.news ?? null, clubElo } : null;
       const { f, home, away } = e.forecast;
       const teams = e.model ? { home, away, homeElo: rating(e.model.elo, home), awayElo: rating(e.model.elo, away), history: e.model.history } : undefined;
-      return { expectedGoals: f.expectedGoals, news: e.news, teams, counts: e.counts, htShare: e.htShare };
+      return { expectedGoals: f.expectedGoals, news: e.news, teams, counts: e.counts, htShare: e.htShare, clubElo };
     },
   };
 }

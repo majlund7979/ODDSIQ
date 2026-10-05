@@ -22,8 +22,20 @@ export function explainPick(p: Pick): string[] {
       (p.value ? "Oddsen betaler altså mere, end vores procent siger den burde." : "Oddsen betaler ikke mere, end procenten er værd, så det er et bet på sandsynlighed, ikke på værdi."),
   );
 
+  const club = i.clubElo;
   if (p.marketOnly) {
-    out.push("Vi har endnu ingen kampresultater for denne liga, så procenten bygger kun på bookmakernes odds uden deres avance. Form, holdstyrke og indbyrdes opgør er derfor ikke med.");
+    out.push(
+      club && p.row.marketType === "1X2"
+        ? "Vi har endnu ingen kampresultater for denne liga, så procenten bygger mest på bookmakernes odds uden deres avance, justeret lidt med holdstyrken fra ClubElo. Form og indbyrdes opgør er ikke med."
+        : "Vi har endnu ingen kampresultater for denne liga, så procenten bygger kun på bookmakernes odds uden deres avance. Form, holdstyrke og indbyrdes opgør er derfor ikke med.",
+    );
+  }
+  if (club) {
+    const gap = Math.round(club.home.elo - club.away.elo);
+    out.push(
+      `På ClubElos rangliste, der sammenligner klubber på tværs af ligaer, har ${home} ${Math.round(club.home.elo)} og ${away} ${Math.round(club.away.elo)} point` +
+        (Math.abs(gap) < 25 ? ", så de ligner hinanden." : `, så ${gap > 0 ? home : away} er ${Math.abs(gap)} point stærkere før hjemmebanefordelen.`),
+    );
   }
 
   const xg = i.expectedGoals;
