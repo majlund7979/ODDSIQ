@@ -236,9 +236,15 @@ export function valueCoupon(pool: Pick[], n = 3): Coupon | null {
   return chosen.length === n ? coupon(chosen, "value") : null;
 }
 
-/** Today's coupons: 2 bets with combined odds of at least 2.0, and 3 bets by value and chance. */
+/**
+ * Today's coupons: 2 bets with combined odds of at least 2.0, and 3 bets by value and chance.
+ * The 3-bet coupon only uses matches the 2-bet coupon leaves out, so the two never share a bet.
+ */
 export function coupons(pool: Pick[]): Coupon[] {
-  return [oddsCoupon(pool), valueCoupon(pool)].filter((c): c is Coupon => c !== null);
+  const two = oddsCoupon(pool);
+  const used = new Set(two?.picks.map((p) => p.row.eventId));
+  const three = valueCoupon(pool.filter((p) => !used.has(p.row.eventId)));
+  return [two, three].filter((c): c is Coupon => c !== null);
 }
 
 // ---------------------------------------------------------------------------
