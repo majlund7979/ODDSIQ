@@ -5,7 +5,7 @@
 
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { db } from "@/lib/db";
-import { engineConnectionString, grantStatements } from "@/lib/pe/credentials";
+import { engineConnectionString, grantStatements } from "@/lib/prediction-engine/credentials";
 
 export const dynamic = "force-dynamic";
 

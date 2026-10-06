@@ -47,6 +47,6 @@ workflow calls `POST /api/cron/pe-credentials` (with the existing `CRON_SECRET`)
 that may only read the site's fixture and odds tables and insert into schema pe (plus moving a match's kickoff),
 and gives it a new random password each time, so a login works only until the next run. The login is masked in
 the Actions log. A repository secret `PE_DATABASE_URL` overrides this, for a role created by hand with the same
-grants (`src/lib/pe/credentials.ts`).
+grants (`src/lib/prediction-engine/credentials.ts`).
 
 Promoting a model (`UPDATE pe.model SET status = 'live'`) is a separate decision (step 10, part 4).
