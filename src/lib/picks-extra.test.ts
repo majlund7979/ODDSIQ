@@ -108,9 +108,9 @@ describe("goal markets from expected goals", () => {
     expect(rocketCoupon(pool.slice(0, 3))).toBeNull();
   });
 
-  it("builds Dagens over 2,5 mål from the likeliest over 2,5, one per match", () => {
-    const pk = (id: string, p: number, side = "over", type = "OU25") => ({ probability: p, row: { bestOdds: 1.8, eventId: id, marketType: type, side } }) as Pick;
-    const pool = [pk("a", 0.7), pk("a", 0.6), pk("b", 0.65), pk("c", 0.4, "under"), pk("d", 0.8, "over", "OU15"), pk("e", 0.55), pk("f", 0.5)];
+  it("builds Dagens over 1,5 mål from the likeliest over 1,5, one per match", () => {
+    const pk = (id: string, p: number, side = "over", type = "OU15") => ({ probability: p, row: { bestOdds: 1.3, eventId: id, marketType: type, side } }) as Pick;
+    const pool = [pk("a", 0.85), pk("a", 0.8), pk("b", 0.82), pk("c", 0.4, "under"), pk("d", 0.9, "over", "OU25"), pk("e", 0.75), pk("f", 0.7)];
     expect(goalsCoupon(pool)!.picks.map((p) => p.row.eventId)).toEqual(["a", "b", "e"]);
     expect(goalsCoupon(pool.slice(0, 4))).toBeNull();
   });
