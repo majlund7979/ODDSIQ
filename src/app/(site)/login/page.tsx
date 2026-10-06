@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signIn } from "@/app/auth-actions";
 import { AuthCard } from "@/components/AuthCard";
@@ -17,6 +18,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <AuthCard mode="login" next={next} inviteOnly={inviteOnly()} notice={q.adgang === "fjernet" ? "Din adgang er fjernet. Spørg den, der inviterede dig." : undefined}>
       <AuthForm action={signIn} submitLabel="Log ind" next={next} />
+      <Link href="/login/glemt" className="mt-4 block text-center text-sm text-ink-2 hover:text-accent">
+        Glemt adgangskode?
+      </Link>
     </AuthCard>
   );
 }
