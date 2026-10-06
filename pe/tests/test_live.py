@@ -121,7 +121,7 @@ def conn():
     psycopg = pytest.importorskip("psycopg")
     c = psycopg.connect(DSN, autocommit=True)
     c.execute("DROP SCHEMA IF EXISTS pe CASCADE")
-    for f in ("001_schema.sql", "002_api.sql", "003_live.sql"):
+    for f in ("001_schema.sql", "002_api.sql", "003_live.sql", "004_evaluation.sql"):
         c.execute((SQL / f).read_text())
     c.execute(SITE_TABLES)
     ev, odds = _site()
@@ -183,3 +183,67 @@ def test_write_shadow_run_twice(conn, run):
     conn.execute("UPDATE pe.model SET status = 'live'")
     assert q("SELECT count(*) FROM pe.latest_prediction")[0][0] == 20
     assert q("SELECT count(*) FROM pe.latest_value_bet")[0][0] == 20
+
+
+# ---------------------------------------------------------------- daily evaluation
+
+def _settled(n=600, edge=0.0, seed=1):
+    """n settled 1X2 matches; the final probability is the market's shifted towards the outcome by `edge`."""
+    from engine.live import evaluate
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(n):
+        pm = rng.dirichlet([5, 3, 4])
+        res = rng.choice(3, p=pm)
+        hg, ag = [(2, 0), (1, 1), (0, 2)][res]
+        pf = pm + edge * (np.eye(3)[res] - pm)
+        for j, s in enumerate(("home", "draw", "away")):
+            rows.append({"id": i * 3 + j, "match_id": i, "market": "1x2", "selection": s, "probability": pf[j],
+                         "raw_probability": pf[j], "market_probability": pm[j], "best_odds": round(1 / (pm[j] * 1.03), 2),
+                         "kickoff": NOW + pd.Timedelta(hours=i), "home_goals": hg, "away_goals": ag,
+                         "is_bet": False, "bet_odds": np.nan})
+    return evaluate, pd.DataFrame(rows)
+
+
+def test_score_and_go_live_rule():
+    evaluate, p = _settled(edge=0.0)
+    s = evaluate.score(p, pd.DataFrame(columns=["match_id", "bookmaker_id", "market", "selection", "odds"]))
+    m = s["markets"]["1x2"]
+    assert m["matches"] == 600 and m["log_loss_final"] == pytest.approx(m["log_loss_market"])
+    assert not s["eligible"] and s["clv"]["model_lean"]["n"] == 0          # no closing prices, no CLV
+    assert s["roi"]["most_probable"]["n"] == 600
+    evaluate, p = _settled(edge=0.05)                                      # better than the market on every match
+    s = evaluate.score(p, pd.DataFrame(columns=["match_id", "bookmaker_id", "market", "selection", "odds"]))
+    assert s["checks"]["log_loss"] and s["eligible"]
+    assert s["markets"]["1x2"]["diff_final_market"]["ci90"][1] < 0
+    evaluate, p = _settled(n=400, edge=0.05)                               # too few matches
+    assert not evaluate.score(p, pd.DataFrame(columns=["match_id", "bookmaker_id", "market", "selection", "odds"]))["eligible"]
+
+
+def test_fair_closing_devigs_per_bookmaker():
+    from engine.live import evaluate
+    c = pd.DataFrame({"match_id": 1, "bookmaker_id": [1, 1, 1, 2, 2], "market": "1x2",
+                      "selection": ["home", "draw", "away", "home", "draw"], "odds": [2.0, 3.5, 4.0, 2.1, 3.4]})
+    f = evaluate.fair_closing(c)
+    inv = np.array([1 / 2.0, 1 / 3.5, 1 / 4.0])
+    assert f[(1, "1x2", "home")] == pytest.approx(inv[0] / inv.sum())     # bookmaker 2 lacks 'away' and is skipped
+
+
+@db
+def test_settle_and_evaluate(conn, run):
+    from engine.live import evaluate, write
+    write.write(conn, run, "abc1234")
+    later = NOW + pd.Timedelta(days=5)
+    assert evaluate.settle(conn, later) == {"results_settled": 0, "closing_rows": 0}   # nothing finished yet
+    conn.execute("""UPDATE "Event" SET status = 'finished', "homeScore" = 2, "awayScore" = 1 WHERE id LIKE 'apf-9%%'""")
+    got = evaluate.settle(conn, later)
+    assert got == {"results_settled": 4, "closing_rows": 4 * 3 * 5}
+    assert evaluate.settle(conn, later)["results_settled"] == 0                        # settled once
+    s = evaluate.evaluate(conn, later)
+    assert s["matches"] == 4 and s["markets"]["1x2"]["matches"] == 4 and s["markets"]["ou"]["matches"] == 4
+    assert s["eligible"] is False and s["clv"]["model_lean"]["n"] == 8
+    assert s["roi"]["most_probable"]["n"] == 8
+    q = lambda sql: conn.execute(sql).fetchall()  # noqa: E731
+    assert q("SELECT matches, eligible FROM pe.evaluation") == [(4, False)]
+    assert q("SELECT count(*) FROM pe.result")[0][0] == 4
+    assert q("SELECT count(*) FROM pe.closing_odds")[0][0] == 4 * 3 * 5

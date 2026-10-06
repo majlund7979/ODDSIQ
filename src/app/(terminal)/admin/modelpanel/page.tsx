@@ -9,7 +9,9 @@ import {
   loadPanel,
   SELECTION_LABEL,
   statusOf,
+  type EvalStat,
   type PanelData,
+  type PanelEvaluation,
   type PanelMatch,
   type PanelSelection,
 } from "@/lib/prediction-engine/panel";
@@ -87,6 +89,90 @@ function Status({ data }: { data: PanelData }) {
         </div>
       )}
     </section>
+  );
+}
+
+const ci = (x: EvalStat | undefined, f: (v: number) => string) =>
+  x?.ci90 ? `90 %-interval ${f(x.ci90[0])} til ${f(x.ci90[1])}` : "for få til et interval";
+const llDiff = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(4).replace(".", ",")}`;
+
+function Progress({ label, have, need, ok }: { label: string; have: number; need: number; ok: boolean }) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3 text-sm">
+        <span className="text-ink-2">{label}</span>
+        <span className="num text-ink">
+          {have.toLocaleString("da-DK")} af {need.toLocaleString("da-DK")} · {ok ? <span className="text-good">bestået</span> : <span className="text-muted">ikke bestået</span>}
+        </span>
+      </div>
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
+        <div className={`h-full rounded-full ${ok ? "bg-good" : "bg-accent"}`} style={{ width: `${Math.min(100, (have / need) * 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function Evaluation({ e }: { e: PanelEvaluation | null }) {
+  if (!e) return null;
+  const m1 = e.markets["1x2"];
+  const ou = e.markets["ou"];
+  const live = <>Live · {when(e.periodFrom)} – {when(e.periodTo)} · motorens sidste prediction før kickoff · sitets odds</>;
+  const llOk = Boolean(m1?.matches && m1.matches >= e.minMatches && m1.diff_final_market?.ci90 && m1.diff_final_market.ci90[1] < 0);
+  const bets = e.clv.bets;
+  const clvOk = Boolean(bets && bets.n >= e.minBets && bets.ci90 && bets.ci90[0] > 0);
+  return (
+    <Panel title="Live-evaluering" right={`opdateret ${when(e.evaluatedAt)}`}>
+      {e.matches === 0 ? (
+        <p className="px-5 py-6 text-sm text-ink-2">
+          Ingen af motorens kampe er afgjort endnu. Efter hver kampdag hentes resultater og lukkeodds, og tallene kommer her.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Tile
+            label="Log loss 1X2: motor mod marked"
+            value={m1?.log_loss_final != null ? `${dec(m1.log_loss_final, 4)} mod ${dec(m1.log_loss_market, 4)}` : "—"}
+            hint={<>Forskel {m1?.diff_final_market?.mean != null ? llDiff(m1.diff_final_market.mean) : "—"}, {ci(m1?.diff_final_market, llDiff)} · n = {m1?.matches ?? 0} kampe · {live}</>}
+          />
+          <Tile
+            label="Log loss 1X2: modellen alene"
+            value={m1?.log_loss_model != null ? dec(m1.log_loss_model, 4) : "—"}
+            hint={<>Uden markedet. Forskel til markedet {m1?.diff_model_market?.mean != null ? llDiff(m1.diff_model_market.mean) : "—"}, {ci(m1?.diff_model_market, llDiff)} · n = {m1?.matches ?? 0} · {live}</>}
+          />
+          <Tile
+            label="Log loss Over/Under 2,5: motor mod marked"
+            value={ou?.log_loss_final != null ? `${dec(ou.log_loss_final, 4)} mod ${dec(ou.log_loss_market, 4)}` : "—"}
+            hint={<>n = {ou?.matches ?? 0} kampe · {live}</>}
+          />
+          <Tile
+            label="CLV på modellens retning"
+            value={signedPct(e.clv.model_lean?.mean)}
+            hint={<>Den side, modellen tror mere på end markedet, til bedste odds, mod lukkeodds uden margin. {ci(e.clv.model_lean, signedPct)} · n = {e.clv.model_lean?.n ?? 0} · {live}</>}
+          />
+          <Tile
+            label="Mest sandsynlige udfald (sitets regel)"
+            value={`${signedPct(e.roi.most_probable?.mean)} ROI`}
+            hint={<>Flad indsats til bedste odds. CLV {signedPct(e.clv.most_probable?.mean)} · {ci(e.roi.most_probable, signedPct)} · n = {e.roi.most_probable?.n ?? 0} · Simuleret · {live}</>}
+          />
+          <Tile
+            label="Godkendte bets"
+            value={bets?.n ?? 0}
+            hint={<>ROI {signedPct(e.roi.bets?.mean)} · CLV {signedPct(bets?.mean)} · Simuleret (papirbets) · {live}</>}
+          />
+        </div>
+      )}
+      <div className="space-y-3 border-t border-line px-5 py-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-ink">Regel for at gå live</span>
+          {e.eligible ? <Badge tone="good">Opfyldt: klar til dit ja</Badge> : <Badge tone="warning">Ikke opfyldt</Badge>}
+        </div>
+        <p className="text-[12px] leading-relaxed text-muted">Motoren må foreslås til Dagens bedste bets, når én af to betingelser holder: {e.rule}.</p>
+        <Progress label="Afgjorte 1X2-kampe (log loss skal være under markedet)" have={m1?.matches ?? 0} need={e.minMatches} ok={llOk} />
+        <Progress label="Godkendte bets (CLV skal være over 0)" have={bets?.n ?? 0} need={e.minBets} ok={clvOk} />
+        <p className="text-[12px] leading-relaxed text-muted">
+          Backtesten (trin 5) bestod ikke reglen. Selv når reglen er opfyldt live, ændres Dagens bedste bets kun, hvis du siger ja.
+        </p>
+      </div>
+    </Panel>
   );
 }
 
@@ -274,6 +360,8 @@ export default async function ModelPanelPage() {
         <>
           <Status data={data} />
 
+          <Evaluation e={data.evaluation} />
+
           <Panel title="Kommende kampe" right={`${data.matches.length} kampe · live`}>
             {data.matches.length === 0 ? (
               <p className="px-5 py-8 text-center text-sm text-ink-2">Ingen kommende kampe i motorens 16 ligaer lige nu.</p>
@@ -341,7 +429,7 @@ export default async function ModelPanelPage() {
           ))}
         </div>
         <p className="border-t border-line px-5 py-3 text-[11px] text-muted">
-          Ingen strategi tjente penge i backtesten. Den daglige evaluering af live-kørslerne kommer i næste trin.
+          Ingen strategi tjente penge i backtesten. Live-tallene står under Live-evaluering.
         </p>
       </Panel>
     </div>

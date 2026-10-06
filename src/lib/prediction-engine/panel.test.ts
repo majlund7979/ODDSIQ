@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BACKTEST, shapeMatches, shapeModel, shapeRuns, statusOf, type PredictionRow } from "./panel";
+import { BACKTEST, shapeEvaluation, shapeMatches, shapeModel, shapeRuns, statusOf, type PredictionRow } from "./panel";
 
 const t = (h: number) => new Date(Date.UTC(2026, 9, 10, h));
 
@@ -64,5 +64,18 @@ describe("modelpanel", () => {
       expect(b.m.modelVersion).toBeTruthy();
       expect(["historical", "simulated"]).toContain(b.m.basis);
     }
+  });
+
+  it("reads the newest evaluation with its rule and thresholds", () => {
+    expect(shapeEvaluation(undefined)).toBeNull();
+    const e = shapeEvaluation({
+      evaluated_at: t(5), period_from: t(1), period_to: t(3), matches: 4, eligible: false,
+      summary: { rule: "regel", min_matches: 500, min_bets: 500,
+        markets: { "1x2": { matches: 4, log_loss_final: 1.01, log_loss_market: 1.01 } },
+        clv: { model_lean: { n: 8, mean: 0.01, ci90: [-0.02, 0.04] } }, roi: { most_probable: { n: 8, mean: -0.1, ci90: null } } },
+    });
+    expect(e).toMatchObject({ matches: 4, eligible: false, rule: "regel", minMatches: 500 });
+    expect(e?.markets["1x2"].matches).toBe(4);
+    expect(e?.clv.model_lean?.ci90).toEqual([-0.02, 0.04]);
   });
 });

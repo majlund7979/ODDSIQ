@@ -61,10 +61,51 @@ export interface PanelMatch {
   selections: PanelSelection[];
 }
 
+/** A mean with its 90 % bootstrap interval, as pe.evaluation stores it. */
+export interface EvalStat {
+  n: number;
+  mean: number | null;
+  ci90: [number, number] | null;
+}
+
+export interface EvalMarket {
+  matches: number;
+  log_loss_final?: number;
+  log_loss_model?: number;
+  log_loss_market?: number;
+  diff_final_market?: EvalStat;
+  diff_model_market?: EvalStat;
+}
+
+/** The newest row of pe.evaluation (written by pe/engine/live/evaluate.py). */
+export interface PanelEvaluation {
+  evaluatedAt: Date;
+  periodFrom: Date | null;
+  periodTo: Date | null;
+  matches: number;
+  eligible: boolean;
+  rule: string;
+  minMatches: number;
+  minBets: number;
+  markets: Record<string, EvalMarket>;
+  clv: { bets?: EvalStat; model_lean?: EvalStat; most_probable?: EvalStat };
+  roi: { bets?: EvalStat; most_probable?: EvalStat };
+}
+
+export interface EvaluationRow {
+  evaluated_at: Date;
+  period_from: Date | null;
+  period_to: Date | null;
+  matches: number;
+  eligible: boolean;
+  summary: Record<string, unknown> | null;
+}
+
 export interface PanelData {
   runs: PanelRun[];
   model: PanelModel | null;
   matches: PanelMatch[];
+  evaluation: PanelEvaluation | null;
 }
 
 /** Raw row of the prediction query (snake_case as Postgres returns it). */
@@ -166,6 +207,24 @@ export function shapeModel(r: ModelRow | undefined): PanelModel | null {
   };
 }
 
+export function shapeEvaluation(r: EvaluationRow | undefined): PanelEvaluation | null {
+  if (!r) return null;
+  const s = (r.summary ?? {}) as Record<string, unknown>;
+  return {
+    evaluatedAt: r.evaluated_at,
+    periodFrom: r.period_from,
+    periodTo: r.period_to,
+    matches: Number(r.matches),
+    eligible: Boolean(r.eligible),
+    rule: typeof s.rule === "string" ? s.rule : "",
+    minMatches: num(s.min_matches) ?? 500,
+    minBets: num(s.min_bets) ?? 500,
+    markets: (s.markets ?? {}) as Record<string, EvalMarket>,
+    clv: (s.clv ?? {}) as PanelEvaluation["clv"],
+    roi: (s.roi ?? {}) as PanelEvaluation["roi"],
+  };
+}
+
 const ORDER: Record<string, number> = { home: 0, draw: 1, away: 2, over: 3, under: 4 };
 
 export function shapeMatches(rows: PredictionRow[]): PanelMatch[] {
@@ -262,6 +321,10 @@ const MODEL_SQL = `
          params->'validation' AS validation
   FROM pe.model WHERE family = 'ensemble' ORDER BY created_at DESC LIMIT 1`;
 
+const EVALUATION_SQL = `
+  SELECT evaluated_at, period_from, period_to, matches, eligible, summary
+  FROM pe.evaluation ORDER BY evaluated_at DESC, id DESC LIMIT 1`;
+
 // Newest prediction per match and selection (shadow models included), with the value
 // evaluation made from it. Matches that kicked off more than two hours ago are left out.
 const PREDICTIONS_SQL = `
@@ -294,5 +357,7 @@ export async function loadPanel(now: number): Promise<PanelData> {
     q.$queryRawUnsafe<ModelRow[]>(MODEL_SQL),
     q.$queryRawUnsafe<PredictionRow[]>(PREDICTIONS_SQL, new Date(now - 2 * 3_600_000)),
   ]);
-  return { runs: shapeRuns(runs), model: shapeModel(models[0]), matches: shapeMatches(preds) };
+  // The evaluation table arrives with migration 0019; until it exists the rest of the page still works.
+  const evaluation = await q.$queryRawUnsafe<EvaluationRow[]>(EVALUATION_SQL).then((r) => shapeEvaluation(r[0]), () => null);
+  return { runs: shapeRuns(runs), model: shapeModel(models[0]), matches: shapeMatches(preds), evaluation };
 }
