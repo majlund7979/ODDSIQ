@@ -1,0 +1,76 @@
+# Prediction engine, daily shadow run (step 10, part 2). Reads the site's upcoming
+# matches and odds from Neon, trains the step-5 model on football-data history and
+# writes predictions and value bets to schema pe with the model in status "shadow",
+# so nothing shows on the site. The database login comes from the site itself
+# (/api/cron/pe-credentials, role pe_writer, new password every run), so only the
+# existing SITE_URL and CRON_SECRET are needed; a PE_DATABASE_URL secret overrides it.
+# Scheduled runs on GitHub can be late or missing; a late run only predicts matches
+# that have not started.
+
+name: PE predict
+
+on:
+  schedule:
+    - cron: "30 5 * * *"    # 07:30 Danish summer time
+    - cron: "30 14 * * *"   # 16:30 Danish summer time
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Read only, write nothing to the database
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pe-predict
+  cancel-in-progress: false
+
+jobs:
+  predict:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: pe
+    steps:
+      - name: Database login
+        id: secret
+        working-directory: .
+        env:
+          PE_DATABASE_URL: ${{ secrets.PE_DATABASE_URL }}
+          SITE_URL: ${{ vars.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          url="$PE_DATABASE_URL"
+          if [ -z "$url" ] && [ -n "$SITE_URL" ] && [ -n "$CRON_SECRET" ]; then
+            body=$(curl -sS --max-time 60 -X POST -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/pe-credentials" || true)
+            url=$(printf '%s' "$body" | jq -r '.url // empty' 2>/dev/null || true)
+            if [ -z "$url" ]; then echo "::warning::The site gave no database login: $(printf '%s' "$body" | jq -r '.error // empty' 2>/dev/null | head -c 300)"; fi
+          fi
+          if [ -z "$url" ]; then
+            echo "::warning::No database login, so the shadow run is skipped (see pe/README.md)."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::add-mask::$url"
+          pw=$(printf '%s' "$url" | sed -E 's#^[^:]+://[^:]+:([^@]+)@.*#\1#'); [ -n "$pw" ] && echo "::add-mask::$pw"
+          echo "PE_DATABASE_URL=$url" >> "$GITHUB_ENV"
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        if: steps.secret.outputs.ok == 'true'
+      - uses: actions/setup-python@v5
+        if: steps.secret.outputs.ok == 'true'
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pe/requirements.txt
+      - if: steps.secret.outputs.ok == 'true'
+        run: pip install -r requirements.txt
+      - name: Fetch football-data history
+        if: steps.secret.outputs.ok == 'true'
+        run: curl -sSfL --retry 3 -o Matches.csv https://raw.githubusercontent.com/xgabora/Club-Football-Match-Data-2000-2025/main/data/Matches.csv
+      - name: Predict
+        if: steps.secret.outputs.ok == 'true'
+        run: python scripts/run_daily.py --history Matches.csv ${{ inputs.dry_run && '--dry-run' || '' }}

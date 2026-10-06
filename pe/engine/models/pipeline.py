@@ -80,9 +80,12 @@ class FoldResult:
 def run_fold(matches: pd.DataFrame, feats: pd.DataFrame, features: list[str], fold: Fold,
              families=ML_FAMILIES, seed: int = 0, time_decay_days: float | None = 730.0) -> FoldResult:
     """feats: build_features output for all finished matches (one row per match, with match_id, season,
-    cutoff), joined with home_goals/away_goals."""
+    cutoff), joined with home_goals/away_goals. Test rows may be unplayed (live run): they get
+    probabilities but no scores."""
     tr, va, te = split(feats, fold)
-    y_tr, y_va, y_te = (outcome_1x2(d["home_goals"], d["away_goals"]) for d in (tr, va, te))
+    y_tr, y_va = (outcome_1x2(d["home_goals"], d["away_goals"]) for d in (tr, va))
+    labelled = te["home_goals"].notna().all() and len(te) > 0
+    y_te = outcome_1x2(te["home_goals"], te["away_goals"]) if labelled else None
     w_tr = None
     if time_decay_days:
         age = (va["cutoff"].min() - tr["cutoff"]).dt.total_seconds() / 86400.0
@@ -120,7 +123,7 @@ def run_fold(matches: pd.DataFrame, feats: pd.DataFrame, features: list[str], fo
         test["market"] = te[["mkt_home", "mkt_draw", "mkt_away"]].to_numpy()
 
     rows = []
-    for name, p in test.items():
+    for name, p in (test.items() if labelled else ()):
         rows.append({"model": name, "log_loss": metrics.log_loss(p, y_te, CLASSES_1X2),
                      "brier": metrics.brier(p, y_te, CLASSES_1X2), "rps": metrics.rps(p, y_te, CLASSES_1X2),
                      "ece_home": metrics.ece(p[:, 0], (y_te == "home").to_numpy().astype(float)),
@@ -130,5 +133,6 @@ def run_fold(matches: pd.DataFrame, feats: pd.DataFrame, features: list[str], fo
     lv["match_id"], lt["match_id"] = va["match_id"].to_numpy(), te["match_id"].to_numpy()
     fpv, fpt = fp.expected_goals(va), fp.expected_goals(te)
     lv["fp_home"], lv["fp_away"], lt["fp_home"], lt["fp_away"] = fpv[0], fpv[1], fpt[0], fpt[1]
-    return FoldResult(fold, weights, cal.method, chosen, pd.DataFrame(rows).set_index("model").sort_values("log_loss"), test,
+    scores = pd.DataFrame(rows).set_index("model").sort_values("log_loss") if rows else pd.DataFrame()
+    return FoldResult(fold, weights, cal.method, chosen, scores, test,
                       val, list(va["match_id"]), list(te["match_id"]), lv, lt)

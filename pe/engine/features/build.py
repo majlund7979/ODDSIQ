@@ -19,10 +19,11 @@ def build_features(matches: pd.DataFrame, targets: pd.DataFrame, stage: str, *,
                    team_stats: pd.DataFrame | None = None, player_stats: pd.DataFrame | None = None,
                    injuries: pd.DataFrame | None = None, lineups: pd.DataFrame | None = None,
                    odds: pd.DataFrame | None = None, referee_history: pd.DataFrame | None = None,
-                   coach_lineups: pd.DataFrame | None = None) -> pd.DataFrame:
-    """matches: all matches (history + targets). targets: subset of matches to featurise."""
+                   coach_lineups: pd.DataFrame | None = None, cutoff: pd.Timestamp | None = None) -> pd.DataFrame:
+    """matches: all matches (history + targets). targets: subset of matches to featurise.
+    cutoff: one moment for every target (live runs: "now"); default is the stage's offset before kickoff."""
     t = targets.copy()
-    t["cutoff"] = cutoffs(t, stage)
+    t["cutoff"] = cutoffs(t, stage) if cutoff is None else pd.Timestamp(cutoff)
     if not (t["cutoff"] < t["kickoff"]).all():
         raise ValueError("A pre-match cutoff must be before kickoff.")
     parts = [t[["match_id", "league", "season", "kickoff", "home_team", "away_team", "cutoff"]]]
