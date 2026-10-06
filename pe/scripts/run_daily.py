@@ -5,6 +5,7 @@
 
 Reads the site's tables (Event, Team, Market, Selection, OddsSnapshot, StatsFixture), never writes them.
 Writes only to schema pe, with the model in status 'shadow', so nothing appears on the site.
+Every run first settles finished matches and scores the earlier runs (engine/live/evaluate.py, pe.evaluation).
 Every run, also a failed one, is logged in pe.job_run.
 """
 from __future__ import annotations
@@ -23,14 +24,14 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 warnings.filterwarnings("ignore")
 
-from engine.live import predict, site, write  # noqa: E402
+from engine.live import evaluate, predict, site, write  # noqa: E402
 from engine.sources import gabora  # noqa: E402
 
 
 def notice(summary: dict) -> None:
     """One GitHub annotation with the run's headline numbers (annotations are readable without the log)."""
     keys = ["upcoming_events", "upcoming_mapped", "results_added", "blend_1x2", "blend_ou25", "matches", "predictions",
-            "value_rows", "approved_bets", "odds_rows", "seconds", "why"]
+            "value_rows", "approved_bets", "odds_rows", "seconds", "why", "results_settled", "closing_rows", "eval_matches", "eligible"]
     short = {k: (round(summary[k], 3) if isinstance(summary[k], float) else summary[k]) for k in keys if k in summary}
     if "validation" in summary:
         short["val_logloss_model_market"] = [round(summary["validation"]["log_loss_model_1x2"], 4),
@@ -38,6 +39,21 @@ def notice(summary: dict) -> None:
     if summary.get("unmapped_names"):
         short["unmapped"] = summary["unmapped_names"][:20]
     print("::notice title=PE predict::" + json.dumps(short, ensure_ascii=False, default=str))
+
+
+def daily_evaluation(conn, now, write: bool) -> dict:
+    """Settles finished matches and scores the shadow runs (pe.evaluation). A failure here is reported
+    but does not stop the day's predictions."""
+    try:
+        settled = evaluate.settle(conn, now) if write else {}
+        s = evaluate.evaluate(conn, now, write=write)
+        m = s["markets"].get("1x2", {})
+        print(f"evaluation: {s['matches']} settled matches; 1x2 log loss final/model/market "
+              f"{m.get('log_loss_final')}/{m.get('log_loss_model')}/{m.get('log_loss_market')}; eligible={s['eligible']}")
+        return {**settled, "eval_matches": s["matches"], "eligible": s["eligible"]}
+    except Exception as e:  # noqa: BLE001
+        print(f"::warning title=PE evaluation::{type(e).__name__}: {str(e)[:500]}")
+        return {"eval_error": f"{type(e).__name__}: {e}"[:500]}
 
 
 def main():
@@ -59,13 +75,15 @@ def main():
     now = pd.Timestamp(args.now, tz="UTC") if args.now else pd.Timestamp.now(tz="UTC").floor("s")
     t0 = time.time()
     with psycopg.connect(dsn, autocommit=True) as conn:
+        ev = daily_evaluation(conn, now, write=not args.dry_run)
         try:
             history = gabora.to_frames(pd.read_csv(args.history, low_memory=False), first_season=args.first_season)
             last = history["matches"]["kickoff"].max()
-            ev = site.events(conn, last - pd.Timedelta(days=3), now + pd.Timedelta(days=args.days + 1))
+            events = site.events(conn, last - pd.Timedelta(days=3), now + pd.Timedelta(days=args.days + 1))
             res = site.stats_results(conn, last - pd.Timedelta(days=3))
-            print(f"history to {last:%Y-%m-%d}: {len(history['matches'])} matches; site: {len(ev)} events, {len(res)} stats results")
-            frames, upcoming, report = predict.assemble(history, ev, res, now, horizon_days=args.days)
+            print(f"history to {last:%Y-%m-%d}: {len(history['matches'])} matches; site: {len(events)} events, {len(res)} stats results")
+            frames, upcoming, report = predict.assemble(history, events, res, now, horizon_days=args.days)
+            report = {**report, **ev}
             print(json.dumps(report, ensure_ascii=False, default=str))
             if upcoming.empty:
                 if not args.dry_run:

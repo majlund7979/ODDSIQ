@@ -19,6 +19,8 @@ project files (`prediction-engine/trin-1…9`). Nothing here changes what the si
 | `scripts/run_backtest.py` | full walk-forward backtest |
 | `sql/003_live.sql` | link to the site's events, `job_run` log, value bets of shadow models hidden (migration `0018_pe_live`) |
 | `engine/live/` | daily shadow run: read the site's tables (`site.py`), map team names (`names.py`, `team_aliases.csv`), train and predict (`predict.py`), write to schema pe (`write.py`) |
+| `sql/004_evaluation.sql` | `evaluation`: one row per daily evaluation, with the go-live verdict (migration `0019_pe_evaluation`) |
+| `engine/live/evaluate.py` | settles finished matches (score, closing prices) and scores the shadow runs |
 | `scripts/run_daily.py` | the daily run, scheduled by `.github/workflows/pe-predict.yml` |
 
 ```
@@ -31,6 +33,15 @@ PE_TEST_DSN="postgresql://…" python -m pytest -q tests   # also the database t
 
 `PE predict` (GitHub Actions, 05:30 and 14:30 UTC, or by hand) runs `scripts/run_daily.py`:
 
+0. Evaluates (`engine/live/evaluate.py`): copies the score and each bookmaker's last price before kickoff for
+   finished matches from the site into `pe.result` and `pe.odds_snapshot` (kind `closing`), then scores the last
+   prediction before kickoff of every settled match: log loss of the final, raw-model and market probability
+   (paired difference with a 90 % bootstrap interval), CLV and flat ROI for approved bets, the side the model
+   leans to and the most probable side. One row goes into `pe.evaluation`. Go-live rule (step 5, point 43):
+   final log loss below the market's with the whole 90 % interval below 0 on at least 500 settled 1X2 matches,
+   or mean CLV above 0 (whole interval) on at least 500 approved bets. Passing marks the engine eligible on the
+   Modelpanel; promoting it (and changing "Dagens bedste bets") still needs the owner's yes. A failure here is
+   reported as a warning and does not stop the predictions.
 1. Loads football-data history (the xgabora mirror, seasons from 2019) and the site's newer results.
 2. Reads the site's upcoming matches (next 7 days) and their 1X2 and O/U 2.5 prices from Neon, in the
    16 divisions the engine has history for. Team names are mapped to football-data spelling with
