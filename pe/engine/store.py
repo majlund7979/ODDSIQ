@@ -29,31 +29,34 @@ def write_predictions(conn, rows: pd.DataFrame) -> list[int]:
     """rows: PREDICTION_COLS (missing ones are NULL). Returns the new prediction ids in row order."""
     cols = [c for c in PREDICTION_COLS if c in rows.columns]
     sql = (f"INSERT INTO pe.prediction ({', '.join(cols)}) VALUES ({', '.join(['%s'] * len(cols))}) RETURNING id")
+    params = [[_val(v) for v in r] for r in rows[cols].itertuples(index=False)]
+    if not params:
+        return []
     ids = []
     with conn.cursor() as cur:
-        for r in rows[cols].itertuples(index=False):
-            cur.execute(sql, [_val(v) for v in r])
+        # One pipelined batch: a remote database costs one round trip per batch, not per row.
+        cur.executemany(sql, params, returning=True)
+        while True:
             ids.append(cur.fetchone()[0])
+            if not cur.nextset():
+                break
     return ids
 
 
 def write_value_bets(conn, run_at: datetime, v: pd.DataFrame, prediction_ids: dict) -> int:
     """v: output of engine.value.engine.evaluate (+ stake_share / capped_by from engine.risk.limits).
     prediction_ids: {(match_id, market, selection): prediction id}."""
-    n = 0
-    with conn.cursor() as cur:
-        for r in v.itertuples(index=False):
-            pid = prediction_ids[(r.match_id, r.market, r.selection)]
-            cur.execute(
+    params = [[prediction_ids[(r.match_id, r.market, r.selection)], run_at, _val(r.odds), _val(r.implied), _val(r.p_fair),
+               _val(r.edge), _val(r.ev), _val(r.ev_low), int(r.confidence), bool(r.is_bet), _val(getattr(r, "rank", None)),
+               r.rejected_because, _val(getattr(r, "stake_share", 0.0)), getattr(r, "capped_by", None) or None,
+               json.dumps({"sigma": _val(r.sigma), "spread": _val(r.model_spread)})] for r in v.itertuples(index=False)]
+    if params:
+        with conn.cursor() as cur:
+            cur.executemany(
                 """INSERT INTO pe.value_bet (prediction_id, run_at, odds, implied_probability, fair_probability, edge,
                        ev, ev_low, confidence, is_bet, rank, rejected_because, stake_share, capped_by, uncertainty)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                [pid, run_at, _val(r.odds), _val(r.implied), _val(r.p_fair), _val(r.edge), _val(r.ev), _val(r.ev_low),
-                 int(r.confidence), bool(r.is_bet), _val(getattr(r, "rank", None)), r.rejected_because,
-                 _val(getattr(r, "stake_share", 0.0)), getattr(r, "capped_by", None) or None,
-                 json.dumps({"sigma": _val(r.sigma), "spread": _val(r.model_spread)})])
-            n += 1
-    return n
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""", params)
+    return len(params)
 
 
 def _rows(conn, sql, params=()):

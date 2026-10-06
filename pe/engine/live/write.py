@@ -78,17 +78,17 @@ def _odds(cur, odds: pd.DataFrame, ids: dict, books: dict) -> int:
     cur.execute("SELECT match_id, bookmaker_id, market, selection, observed_at FROM pe.odds_snapshot WHERE match_id = ANY(%s)",
                 (list(set(ids.values())),))
     have = {(m, b, mk, s, pd.Timestamp(t)) for m, b, mk, s, t in cur.fetchall()}
-    n = 0
+    rows = []
     for r in odds.itertuples(index=False):
         key = (ids[r.match_id], books[r.bookmaker], r.market, r.selection, pd.Timestamp(r.available_at))
         if key in have:
             continue
-        cur.execute("""INSERT INTO pe.odds_snapshot (match_id, bookmaker_id, market, line, selection, odds, observed_at, kind, source)
-                       VALUES (%s,%s,%s,%s,%s,%s,%s,'snapshot','site')""",
-                    (key[0], key[1], r.market, None if pd.isna(r.line) else float(r.line), r.selection, float(r.odds), key[4]))
+        rows.append((key[0], key[1], r.market, None if pd.isna(r.line) else float(r.line), r.selection, float(r.odds), key[4]))
         have.add(key)
-        n += 1
-    return n
+    if rows:
+        cur.executemany("""INSERT INTO pe.odds_snapshot (match_id, bookmaker_id, market, line, selection, odds, observed_at, kind, source)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,'snapshot','site')""", rows)
+    return len(rows)
 
 
 def model_version(run: Run, code_sha: str) -> str:
@@ -111,15 +111,15 @@ def write(conn, run: Run, code_sha: str) -> dict:
                     (version, fs, json.dumps(run.model, default=str), f"{min(run.model['train'])}-07-01",
                      f"{run.model['validate'] + 1}-06-30", code_sha or "local",
                      json.dumps(run.model["validation"], default=float)))
-        n_feat = 0
-        for r in run.features.itertuples(index=False):
-            vals = {f: (None if pd.isna(getattr(r, f)) else float(getattr(r, f))) for f in run.feature_names}
-            stage = hist.set_index("match_id").loc[r.match_id, "stage"]
-            cur.execute("""INSERT INTO pe.match_feature (match_id, feature_set, stage, cutoff, values)
-                           VALUES (%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
-                        (ids[r.match_id], fs, stage, r.cutoff, json.dumps(vals)))
-            n_feat += cur.rowcount
         stage = hist.set_index("match_id")["stage"]
+        feat_rows = [(ids[r.match_id], fs, stage[r.match_id], r.cutoff,
+                      json.dumps({f: (None if pd.isna(getattr(r, f)) else float(getattr(r, f))) for f in run.feature_names}))
+                     for r in run.features.itertuples(index=False)]
+        n_feat = 0
+        if feat_rows:
+            cur.executemany("""INSERT INTO pe.match_feature (match_id, feature_set, stage, cutoff, values)
+                               VALUES (%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""", feat_rows)
+            n_feat = cur.rowcount
         p = run.preds.copy()
         best = (run.value.set_index(["match_id", "market", "selection"])[["odds", "best_book"]]
                 if len(run.value) else pd.DataFrame(columns=["odds", "best_book"]))
