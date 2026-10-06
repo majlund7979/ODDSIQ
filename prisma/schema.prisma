@@ -256,6 +256,7 @@ model User {
   /// Receives the morning e-mail with the day's top 5.
   morningEmail     Boolean        @default(true)
   sessions         Session[]
+  passwordResets   PasswordReset[]
   friendBets       FriendBet[]
   friendCoupons    FriendCoupon[]
   tips             TipPick[]
@@ -269,6 +270,19 @@ model Session {
   createdAt DateTime @default(now())
   expiresAt DateTime
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// "Glemt kode": one-time links sent by e-mail. The id is the SHA-256 of the token in the link,
+/// so the database never holds a usable link. A link works once, for RESET_MINUTES.
+model PasswordReset {
+  id        String    @id @db.Char(64)
+  userId    String
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
