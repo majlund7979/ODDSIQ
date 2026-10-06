@@ -25,7 +25,8 @@ import { realSettledSelections } from "@/lib/real/settled";
 import type { TeamNews } from "@/lib/stats/news";
 import type { PickContext } from "@/lib/picks";
 import { rating } from "@/lib/model/elo";
-import { demoPickContext, demoRecordedPicks } from "@/lib/demo/picks";
+import { demoEngineProb, demoPickContext, demoRecordedPicks } from "@/lib/demo/picks";
+import { engineFor, loadEngineProbs, type EngineProb, type EngineProbs } from "@/lib/prediction-engine/bets";
 import type { RecordedPick } from "@/lib/picks-extra";
 import { readRecordedPicks } from "@/lib/real/pick-records";
 import { realFinishedEvents, realMarketDetail, realMatchView, realSnapshot, type EventView, type RealSnapshot, type SourceView } from "@/lib/real/store";
@@ -64,6 +65,8 @@ export interface Terminal {
   replay(eventId: string): Promise<ReplayData | undefined>;
   /** Expected goals and team news behind a match's forecast, for the daily picks. */
   pickContext(eventId: string): PickContext | null;
+  /** The prediction engine's probability for a row (1X2 and over/under 2,5 mål), for the value bets on Dagens bedste bets. */
+  engineProb(row: MarketRow): EngineProb | null;
   /** Picks shown on recent days, settled where the result is known. */
   /** Recorded picks with kickoff in the last `days` days (default 7). Demo mode always replays 7 days, to keep the page fast. */
   recordedPicks(days?: number): Promise<RecordedPick[]>;
@@ -159,6 +162,15 @@ async function predictionsFor(snap: RealSnapshot, now: number): Promise<Map<numb
   return map;
 }
 
+/** The engine writes twice a day, so its numbers are read at most every few minutes. */
+let engineMemo: { at: number; probs: EngineProbs } | null = null;
+async function engineProbsFor(now: number, fresh: boolean): Promise<EngineProbs> {
+  if (!fresh && engineMemo && now - engineMemo.at < PREDICTIONS_FRESH_MS) return engineMemo.probs;
+  const probs = await loadEngineProbs(now);
+  engineMemo = { at: now, probs };
+  return probs;
+}
+
 async function resultsOnVisit(now: number): Promise<void> {
   const s = await settleOnVisit(db(), now).catch(() => null);
   if (s?.some((x) => x.results > 0)) latest = null;
@@ -202,6 +214,7 @@ export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal
       replayEvents: () => demo.replayableEvents(now),
       replay: async (id) => demo.replayData(id, now),
       pickContext: (id) => demoPickContext(id, now),
+      engineProb: demoEngineProb,
       recordedPicks: async () => demoRecordedPicks(now),
     };
   }
@@ -210,7 +223,7 @@ export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal
   // The ledger views need the full snapshot; built only when one of them is asked for.
   let fullSnap: Promise<RealSnapshot> | null = null;
   const full = () => (fullSnap ??= realSnapshot(db(), now));
-  const [clubs, predictions, scoring] = await Promise.all([clubEloRatings(now), predictionsFor(snap, now), scoringFor(snap, now)]);
+  const [clubs, predictions, scoring, engine] = await Promise.all([clubEloRatings(now), predictionsFor(snap, now), scoringFor(snap, now), engineProbsFor(now, Boolean(opts.fresh))]);
   const clubMemo = new Map<string, ClubEloPair | null>();
   const clubEloOf = (e: RealSnapshot["events"][number]) => {
     if (!clubs || !clubEloCovers(e.view.leagueId)) return null;
@@ -239,6 +252,7 @@ export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal
     replayEvents: () => realReplayEvents(snap),
     replay: async (id) => realReplayData(db(), await full(), id),
     recordedPicks: (days) => readRecordedPicks(db(), now, days),
+    engineProb: engineFor(engine),
     pickContext: (id) => {
       const e = snap.events.find((x) => x.view.id === id);
       if (!e) return null;

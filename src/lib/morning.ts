@@ -60,7 +60,7 @@ forslag ${pctOf(s.share)} af puljen${s.note.includes("ingen værdi") ? " (ingen 
 <div style="max-width:560px;margin:0 auto;padding:24px 20px">
 <div style="font-size:13px;font-weight:700;letter-spacing:1px">Oddsanalyse</div>
 <h1 style="font-size:22px;margin:8px 0 4px">Dagens top ${picks.length || ""}</h1>
-<p style="margin:0 0 12px;color:#3d3c38;font-size:14px">De udfald med størst chance for at gå hjem i kampene de næste 24 timer.</p>
+<p style="margin:0 0 12px;color:#3d3c38;font-size:14px">Value bets fra prediction engine'n i kampene de næste 24 timer: chancen gange den bedste odds giver mere end indsatsen tilbage.</p>
 ${body}
 <p style="margin:20px 0"><a href="${esc(siteUrl)}/picks" style="background:#1f6fd1;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">Se hele analysen</a></p>
 <p style="font-size:12px;color:#77756f;line-height:1.5">Procenterne er skøn, ikke garantier. Spil kun for penge, du har råd til at tabe. 18+. Kilde: ${esc(dataLabel)}.<br>

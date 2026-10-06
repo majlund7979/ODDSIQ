@@ -7,8 +7,7 @@ import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { MAIL_CONFIGURED, sendMails } from "@/lib/mail";
 import { MORNING_COUNT, morningDay, morningHtml, morningSubject, morningText, recipients } from "@/lib/morning";
-import { dailyPicks } from "@/lib/picks";
-import { applyLearningToPicks, LEARN_DAYS, learn } from "@/lib/picks-learning";
+import { valueBetPicks } from "@/lib/picks";
 import { terminal } from "@/lib/terminal";
 
 export const maxDuration = 60;
@@ -33,8 +32,7 @@ export async function GET(req: Request): Promise<Response> {
   const to = recipients(users, process.env.MORNING_EMAIL_TO);
   if (!to.length) return Response.json({ ok: false, error: "No recipients: nobody has the morning e-mail on and MORNING_EMAIL_TO is empty." }, { status: 503 });
 
-  const learned = learn(await t.recordedPicks(LEARN_DAYS), t.dataLabel).get("bedste");
-  const picks = applyLearningToPicks(dailyPicks(t.marketRows(), t.now, MORNING_COUNT, t.pickContext), learned);
+  const picks = valueBetPicks(t.marketRows(), t.now, MORNING_COUNT, t.pickContext, t.engineProb);
   const site = (process.env.APP_URL || `https://${req.headers.get("host")}`).replace(/\/$/, "");
   const subject = morningSubject(picks, t.now);
   const html = morningHtml(picks, t.now, site, t.dataLabel);

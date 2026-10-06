@@ -16,7 +16,7 @@ export const RESULTS_DAYS = 7;
 export const leagueCodeOf = (leagueId: string) => leagueForOddsKey(leagueId.slice(leagueId.indexOf("-") + 1))?.code ?? null;
 
 export async function recordPicks(prisma: PrismaClient, t: Terminal): Promise<number> {
-  const drafts = allPickDrafts(t.marketRows(), t.now, RECORD_COUNT, t.pickContext);
+  const drafts = allPickDrafts(t.marketRows(), t.now, RECORD_COUNT, t.pickContext, t.engineProb);
   if (!drafts.length) return 0;
   const r = await prisma.pickRecord.createMany({
     data: drafts.map((d) => {
