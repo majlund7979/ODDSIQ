@@ -17,6 +17,8 @@ import { STATS_LEAGUES } from "@/lib/stats/leagues";
 import { refreshPredictions } from "@/lib/stats/af-predictions";
 import { loadScoring, refreshScorerForm } from "@/lib/real/scorers";
 import { topScorer } from "@/lib/top-scorer";
+import { inviteOnly, ownerEmails } from "@/lib/auth/friends";
+import { MAIL_CONFIGURED } from "@/lib/mail";
 import { clubEloCovers, clubEloLastError, clubEloRatings, findClub } from "@/lib/stats/clubelo";
 
 export const maxDuration = 60;
@@ -37,6 +39,22 @@ async function timed<T>(f: () => Promise<T>): Promise<[T, number]> {
 const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
 const message = (e: unknown) => (e instanceof Error ? e.message.trim().split("\n").at(-1)! : String(e));
 
+/** Whether the Resend key works, without sending anything: Resend answers 401 to a bad key on any endpoint. */
+async function mailCheck(): Promise<Record<string, unknown>> {
+  const from = process.env.MAIL_FROM || "onboarding@resend.dev";
+  const r: Record<string, unknown> = { configured: MAIL_CONFIGURED, senderDomain: /@([^>\s]+)/.exec(from)?.[1] ?? null };
+  if (!MAIL_CONFIGURED) return r;
+  try {
+    const res = await fetch("https://api.resend.com/domains", { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` }, cache: "no-store" });
+    const body = (await res.json().catch(() => ({}))) as { name?: string; message?: string; data?: { name: string; status: string }[] };
+    // A sending-only key may not list domains (restricted_api_key); that still proves the key is valid.
+    r.resend = res.ok ? { http: res.status, domains: body.data?.map((d) => `${d.name} ${d.status}`) ?? [] } : { http: res.status, error: body.name ?? null, message: body.message?.slice(0, 160) ?? null };
+  } catch (e) {
+    r.resend = `error ${message(e)}`;
+  }
+  return r;
+}
+
 export async function GET(req: Request): Promise<Response> {
   if (!authorized(req)) return new Response("Unauthorized.", { status: 401 });
   const now = Date.now();
@@ -50,6 +68,7 @@ export async function GET(req: Request): Promise<Response> {
     statsKeyConfigured: Boolean(process.env.STATS_API_KEY),
     sports: feedConfig().sports,
     // Filled in at the end; listed here so it lands inside the workflow's 12 000-character annotation.
+    accounts: null,
     clubElo: null,
     afPredictions: null,
     scorers: null,
@@ -77,6 +96,17 @@ export async function GET(req: Request): Promise<Response> {
       playerStats: await prisma.playerSeasonStat.count(),
       statsFixtures: await prisma.statsFixture.count({ where: { kickoff: { gte: new Date(now - 2 * 86_400_000) } } }),
       eventsByLeague: (await prisma.event.groupBy({ by: ["leagueId"], where: { externalId: { not: null }, kickoff: { gte: new Date(now) } }, _count: true })).map((g) => `${g.leagueId}: ${g._count}`),
+    };
+    // Login and mail, for "Glemt adgangskode?": counts and yes/no only, never an address.
+    const owners = ownerEmails();
+    const since = new Date(now - 86_400_000);
+    out.accounts = {
+      inviteOnly: inviteOnly(),
+      ownerEmails: owners.length,
+      ownerAccounts: owners.length ? await prisma.user.count({ where: { email: { in: owners } } }) : 0,
+      resetLinks24h: await prisma.passwordReset.count({ where: { createdAt: { gte: since } } }),
+      resetLinksUsed24h: await prisma.passwordReset.count({ where: { usedAt: { gte: since } } }),
+      mail: await mailCheck(),
     };
     out.lastRuns = (await prisma.ingestRun.findMany({ orderBy: { startedAt: "desc" }, take: 6 })).map(
       (r) => `${r.startedAt.toISOString().slice(5, 16)} ${r.provider}/${r.kind} events=${r.events} snaps=${r.snapshots} credits=${r.creditsUsed ?? "?"}/${r.creditsRemaining ?? "?"}${r.error ? ` error=${r.error.slice(0, 120)}` : ""}`,
