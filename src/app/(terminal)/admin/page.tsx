@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { inviteOnly, isOwner, requireOwner } from "@/lib/auth/friends";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { wallClock } from "@/lib/data";
@@ -53,6 +54,9 @@ export default async function AdminPage() {
       <header>
         <h1 className="display text-[40px] text-ink sm:text-5xl">Admin</h1>
         <p className="mt-2 text-[15px] text-ink-2">Kun du kan se denne side. Her er alle, der har oprettet en konto på Oddsanalyse.</p>
+        <Link href="/admin/modelpanel" className="mt-3 inline-block text-sm font-semibold text-accent hover:underline">
+          Modelpanel: den nye prediction engine →
+        </Link>
       </header>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
