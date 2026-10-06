@@ -38,7 +38,7 @@ def main():
     args = ap.parse_args()
     dsn = os.environ.get("PE_DATABASE_URL")
     if not dsn:
-        print("::error::PE_DATABASE_URL is not set. Add it as a GitHub secret (see pe/README.md, 'Daily shadow run').")
+        print("::error::PE_DATABASE_URL is not set (the workflow gets it from the site, see pe/README.md, 'Daily shadow run').")
         sys.exit(1)
     import psycopg
 

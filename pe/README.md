@@ -42,22 +42,11 @@ PE_TEST_DSN="postgresql://…" python -m pytest -q tests   # also the database t
    selection is rejected) to schema pe. The model is stored with status `shadow`, so `latest_prediction`
    and `latest_value_bet` (what the site reads) show nothing until a model is promoted.
 
-It reads the site's tables and never writes them. It needs the secret `PE_DATABASE_URL`: a Neon role that
-may read those tables and insert into schema pe. Create it once in the Neon SQL editor (after migration
-`0018_pe_live` has been applied by a deploy), with a password of your own:
+It reads the site's tables and never writes them. Its database login comes from the site: before each run the
+workflow calls `POST /api/cron/pe-credentials` (with the existing `CRON_SECRET`), which keeps a role `pe_writer`
+that may only read the site's fixture and odds tables and insert into schema pe (plus moving a match's kickoff),
+and gives it a new random password each time, so a login works only until the next run. The login is masked in
+the Actions log. A repository secret `PE_DATABASE_URL` overrides this, for a role created by hand with the same
+grants (`src/lib/pe/credentials.ts`).
 
-```sql
-CREATE ROLE pe_writer LOGIN PASSWORD '…';
-GRANT USAGE ON SCHEMA public TO pe_writer;
-GRANT SELECT ON "Event", "Team", "Market", "Selection", "OddsSnapshot", "StatsFixture" TO pe_writer;
-GRANT USAGE ON SCHEMA pe TO pe_writer;
-GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA pe TO pe_writer;
-GRANT USAGE ON ALL SEQUENCES IN SCHEMA pe TO pe_writer;
-GRANT UPDATE (kickoff) ON pe.match TO pe_writer;           -- a moved fixture keeps its row
-ALTER DEFAULT PRIVILEGES IN SCHEMA pe GRANT SELECT, INSERT ON TABLES TO pe_writer;
-ALTER DEFAULT PRIVILEGES IN SCHEMA pe GRANT USAGE ON SEQUENCES TO pe_writer;
-```
-
-Then copy that role's connection string from Neon (Connect → role `pe_writer`) into the repository's
-Actions secrets as `PE_DATABASE_URL`. Without the secret the workflow is skipped with a warning.
 Promoting a model (`UPDATE pe.model SET status = 'live'`) is a separate decision (step 10, part 4).
