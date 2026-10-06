@@ -228,7 +228,6 @@ export function GoodSingles({ rows }: { rows: SingleRow[] }) {
             <a href={`#bet-${i + 1}`} className="min-w-0 flex-1">
               <span className="flex items-center gap-2">
                 <span className="truncate font-semibold">{r.outcome}</span>
-                {r.value && <span className="shrink-0 rounded-full border border-good/40 bg-good/10 px-1.5 text-[10px] font-semibold text-good">Værdi</span>}
               </span>
               <span className="block truncate text-xs text-muted">
                 {r.match.replace(" vs ", " – ")} · {r.league} · kl. {clock(r.kickoff)}

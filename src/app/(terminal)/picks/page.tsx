@@ -240,14 +240,13 @@ function BookTable({ quotes, fairOdds, marketOnly }: { quotes: Pick["row"]["quot
             <span className="truncate">{r.book}</span>
             <span className="flex shrink-0 items-center gap-2">
               {r.best && <span className="text-[11px] font-semibold text-accent">Bedst</span>}
-              {r.value && !marketOnly && <span className="rounded-full border border-good/40 bg-good/10 px-1.5 text-[10px] font-semibold text-good">Værdi</span>}
               <span className={`num ${r.best ? "font-semibold" : ""}`}>{dec(r.odds)}</span>
             </span>
           </li>
         ))}
       </ul>
       <div className="text-xs text-muted">
-        Den bedste odds er {String(pctDiff).replace(".", ",")} % over snittet ({dec(c.median)}). Over mange bets betyder den forskel meget.{marketOnly ? "" : ` Værdi: oddsen er højere end vores fair odds ${dec(fairOdds)}.`}
+        Den bedste odds er {String(pctDiff).replace(".", ",")} % over snittet ({dec(c.median)}). Over mange bets betyder den forskel meget.{marketOnly ? "" : ` Vores fair odds: ${dec(fairOdds)}.`}
       </div>
     </Fact>
   );
@@ -452,7 +451,6 @@ function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: number; 
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted">Vores bud</span>
             <span className="rounded-full bg-lime-soft px-3.5 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
-            {p.value && <span className="rounded-full border border-good/40 bg-good/10 px-2 py-0.5 text-[11px] font-semibold text-good">Værdi</span>}
             <OddsMoveTag row={p.row} />
             {p.lineupsConfirmed ? (
               <span className="rounded-full border border-good/40 bg-good/10 px-2 py-0.5 text-[11px] font-semibold text-good">Opstilling bekræftet</span>
@@ -632,7 +630,6 @@ function ExtraCard({ p, rank, now, save }: { p: ExtraPick; rank: number; now: nu
               <div className="text-[11px] font-medium text-muted">Bedste odds</div>
               <div className="num text-2xl font-semibold">{dec(p.best.odds)}</div>
               <div className="truncate text-[11px] text-ink-2">{p.best.book}</div>
-              {p.best.odds * p.probability > 1 && <div className="mt-1 rounded-full bg-good/15 px-2 py-0.5 text-[10px] font-semibold text-good">Værdi</div>}
             </div>
           )}
           <div className="min-w-[96px] rounded-2xl bg-surface-2 px-3 py-2.5 text-center">
@@ -1087,8 +1084,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
           hjørnespark, kort og frispark for hvert hold, dommerens kortstatistik og målene i 1. halvleg.
         </div>
         <div>
-          <div className="mb-1 font-semibold text-ink">Hvad &quot;Værdi&quot; betyder</div>
-          Oddsen betaler mere, end vores procent siger den burde. Høj procent giver ofte lav odds, så værdi er ikke det samme som et sikkert bet.
+          <div className="mb-1 font-semibold text-ink">Sådan vælger vi</div>
+          Vi vælger altid det bet, der oftest går hjem, ikke det der betaler mest. Høj procent giver ofte lav odds.
         </div>
         <div>
           <div className="mb-1 font-semibold text-ink">Husk</div>
