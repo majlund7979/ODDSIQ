@@ -9,6 +9,8 @@ import { LIVE_WINDOW_MS, liveState, type LivePick } from "@/lib/live/scores";
 import { rating } from "@/lib/model/elo";
 import type { HistMatch } from "@/lib/model/openfootball";
 import type { PickContext } from "@/lib/picks";
+import type { EngineProb } from "@/lib/prediction-engine/bets";
+import type { MarketRow } from "./store";
 import { COMPARISON_KEYS, type AfPrediction } from "@/lib/stats/af-predictions";
 import type { PlayerMatch } from "@/lib/stats/api-football";
 import type { PlayerSeason } from "@/lib/stats/types";
@@ -31,6 +33,10 @@ const REFEREES: { name: string; cards: number }[] = [
   { name: "R Jones", cards: 0.8 },
   { name: "T Robinson", cards: 1.35 },
 ];
+/** DEMO DATA stand-in for the prediction engine: the demo model's own probability. */
+export const demoEngineProb = (row: MarketRow): EngineProb | null =>
+  row.modelProbability != null && row.modelProbability > 0 && row.modelProbability < 1 ? { probability: row.modelProbability, modelVersion: "DEMO DATA", dataAsOf: null } : null;
+
 const refereeFor = (eventId: string) => REFEREES[new Rng(`ref:${eventId}`).int(0, REFEREES.length - 1)];
 
 function poisson(rng: Rng, mean: number): number {
@@ -189,7 +195,7 @@ function computeRecorded(now: number, t: number, days: number): RecordedPick[] {
   const out: RecordedPick[] = [];
   for (let d = 1; d <= days; d++) {
     const at = Math.floor((t - d * 86_400_000) / 86_400_000) * 86_400_000 + 10 * 3_600_000;
-    const drafts = allPickDrafts(marketRows(at), at, 10, (id) => demoPickContext(id, at));
+    const drafts = allPickDrafts(marketRows(at), at, 10, (id) => demoPickContext(id, at), demoEngineProb);
     for (const p of drafts) {
       if (p.row.kickoff > t - 2 * 3_600_000) continue;
       const o = demoLeague(p.row.leagueId, now).outcomes.get(p.row.eventId);
@@ -224,7 +230,7 @@ function computeRecorded(now: number, t: number, days: number): RecordedPick[] {
 export function demoLivePicks(category: string, now: number): LivePick[] {
   const t = feedTime(now);
   const at = t - 3 * 3_600_000;
-  const drafts = allPickDrafts(marketRows(at), at, 10, (id) => demoPickContext(id, at)).filter((p) => p.category === category && p.row.kickoff <= t && p.row.kickoff > t - LIVE_WINDOW_MS);
+  const drafts = allPickDrafts(marketRows(at), at, 10, (id) => demoPickContext(id, at), demoEngineProb).filter((p) => p.category === category && p.row.kickoff <= t && p.row.kickoff > t - LIVE_WINDOW_MS);
   return drafts.map((p) => {
     const raw = Math.floor((t - p.row.kickoff) / 60_000);
     const minute = raw < 45 ? raw + 1 : raw < 60 ? 45 : Math.min(90, raw - 14);

@@ -14,7 +14,7 @@ const SETTLE_AFTER_MS = 2 * 3_600_000;
 
 /** The pick the page shows for this match and bet type, if it is still open. */
 export function findDraft(t: Terminal, eventId: string, category: string): PickDraft | null {
-  return allPickDrafts(t.marketRows(), t.now, DRAFT_COUNT, t.pickContext).find((d) => d.row.eventId === eventId && d.category === category) ?? null;
+  return allPickDrafts(t.marketRows(), t.now, DRAFT_COUNT, t.pickContext, t.engineProb).find((d) => d.row.eventId === eventId && d.category === category) ?? null;
 }
 
 export async function saveFriendBet(prisma: PrismaClient, userId: string, d: PickDraft, odds: number | null, stake: number): Promise<void> {

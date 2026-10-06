@@ -9,7 +9,8 @@ import {
   COUNT_CATEGORIES,
   countPicks,
   couponCandidates,
-  dailyPicks,
+  valueBetPicks,
+  VALUE_MIN_ODDS,
   GOAL_CATEGORIES,
   lineLabel,
   marketPicks,
@@ -330,7 +331,8 @@ function GoalBets({ p, home, away }: { p: Pick; home: string; away: string }) {
         {isNationalTeams(p.row.leagueId) && ` I landskampe foreslås over 1,5 og 2,5 mål kun, når begge hold har scoret i mindst ${NATIONAL_OVER_MIN_SCORED} af de seneste ${BTTS_FORM_GAMES} kampe.`}
       </div>
       <div className="mt-1 text-xs text-muted">
-        Tilbage pr. 100 kr er chance gange odds, et skøn. Vi foreslår altid det bet, der oftest går hjem.
+        Tilbage pr. 100 kr er chance gange odds, et skøn.{" "}
+        {p.ev !== undefined ? "Dagens bedste bets foreslår value bets: prediction engine'ns chance gange den bedste odds giver over 100 kr tilbage." : "Vi foreslår altid det bet, der oftest går hjem."}
       </div>
     </Fact>
   );
@@ -841,7 +843,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   const history = await t.recordedPicks(LEARN_DAYS);
   const allLearning = learn(history, t.dataLabel);
   const learned = allLearning.get(tab);
-  const picks = applyLearningToPicks(tab === "bedste" ? dailyPicks(rows, t.now, count, t.pickContext) : goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [], learned);
+  // The value bets carry the engine's own calibrated probability, so the per-type learning is not applied on top.
+  const picks = tab === "bedste" ? valueBetPicks(rows, t.now, count, t.pickContext, t.engineProb) : applyLearningToPicks(goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [], learned);
   const couponPool = tab === "bedste" ? applyLearningToPicks(couponCandidates(rows, t.now, t.pickContext), allLearning.get("bedste")) : [];
   const cPicks = applyLearning(countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [], learned);
   const xPicks = applyLearning(EXTRA[tab] ? EXTRA[tab](rows, t.now, count, t.pickContext) : [], learned);
@@ -874,7 +877,11 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
       <header className="rounded-[28px] border border-line bg-gradient-to-br from-accent/15 to-surface px-4 py-5 sm:px-10 sm:py-10">
         <div className="text-sm font-medium text-muted">{today.charAt(0).toUpperCase() + today.slice(1)}</div>
         <h1 className="display mt-2 text-[36px] text-ink sm:text-6xl">{tab === "bedste" ? "Dagens bedste bets" : tabLabel}</h1>
-        <p className="mt-3 hidden max-w-2xl text-[16px] leading-relaxed text-ink-2 sm:mt-4 sm:block sm:text-[17px]">De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste.</p>
+        <p className="mt-3 hidden max-w-2xl text-[16px] leading-relaxed text-ink-2 sm:mt-4 sm:block sm:text-[17px]">
+          {tab === "bedste"
+            ? `Value bets fra prediction engine'n i kampene de næste 24 timer: bets, hvor chancen gange den bedste odds giver mere end indsatsen tilbage, og odds er mindst ${dec(VALUE_MIN_ODDS)}. Øverst er den største forventede gevinst.`
+            : "De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste."}
+        </p>
         {tab === "bedste" ? (
           <div className="mt-4 sm:mt-6">
             <Overview
@@ -1061,6 +1068,11 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
             ))}
           </ol>
         )
+      ) : picks.length === 0 && tab === "bedste" ? (
+        <Empty
+          title="Ingen value bets lige nu"
+          text={`Prediction engine'n har ingen bets med odds på mindst ${dec(VALUE_MIN_ODDS)}, hvor chancen gange odds giver mere end indsatsen tilbage, i kampene de næste 24 timer. Den dækker vinder og over/under 2,5 mål i 16 ligaer og regner kl. 07.30 og 16.30. Se de andre faner for de mest sandsynlige bets.`}
+        />
       ) : picks.length === 0 ? (
         <Empty
           title="Ingen kampe at vise lige nu"

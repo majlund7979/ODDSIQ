@@ -21,6 +21,12 @@ export function explainPick(p: Pick): string[] {
       `Det svarer til fair odds på ${dec(p.fairOdds)}, og den bedste odds lige nu er ${dec(p.row.bestOdds)}${p.row.bestBook ? ` hos ${p.row.bestBook}` : ""}. ` +
       (p.value ? "Oddsen betaler altså mere, end vores procent siger den burde." : "Oddsen betaler ikke mere, end procenten er værd, så det er et bet på sandsynlighed, ikke på værdi."),
   );
+  if (p.ev !== undefined) {
+    out.push(
+      `Procenten kommer fra prediction engine'n (${p.engine}). Chance gange odds giver ${dec(100 * (1 + p.ev), 0)} kr tilbage pr. 100 kr i snit, et skøn. ` +
+        "I backtesten på ti sæsoner tabte bets valgt på den måde i gennemsnit, så der er ingen dokumenteret fordel endnu. Modelpanelet følger, om det ændrer sig.",
+    );
+  }
 
   const club = i.clubElo;
   const af = i.afPrediction;

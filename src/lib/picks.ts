@@ -19,6 +19,7 @@ import { TOP_SCORER_MODEL, type TopScorer } from "@/lib/top-scorer";
 import { AF_PREDICTION_MODEL, AF_PREDICTION_WEIGHT, flooredPercent, type AfPrediction } from "@/lib/stats/af-predictions";
 import { CLUBELO_MODEL, CLUBELO_WEIGHT, clubEloProbs, type ClubEloPair } from "@/lib/stats/clubelo";
 import type { TeamNews } from "@/lib/stats/news";
+import type { EngineProb } from "@/lib/prediction-engine/bets";
 
 export const PICK_WINDOW_MS = 24 * 3_600_000;
 export const PICK_COUNTS = [5, 10] as const;
@@ -146,6 +147,10 @@ export interface Pick {
   instead?: GoalAlt;
   /** In how many of their last BTTS_FORM_GAMES matches each team scored, from the results data; null without it. */
   scoring?: BothScore | null;
+  /** On a value bet: expected return per krone staked at the best odds, minus the stake (0.05 = +5 %). */
+  ev?: number;
+  /** On a value bet: the prediction engine's model version. */
+  engine?: string;
 }
 
 /** Begge hold scorer is only suggested when both teams scored in every one of this many recent matches. */
@@ -465,6 +470,58 @@ export function dailyPicks(
   return picks
     .sort((a, b) => Number(Boolean(a.instead)) - Number(Boolean(b.instead)) || b.probability - a.probability || a.row.kickoff - b.row.kickoff)
     .slice(0, count);
+}
+
+/**
+ * "Dagens bedste bets" since 2026-10-06 (Mads: "brug den nye version", value bets from odds 1,25, and on the decision
+ * card the looser filter): the prediction engine's probability times the live best odds must pay more than the stake.
+ * Each match keeps its bet with the highest expected return; matches are ranked by it. The engine covers 1X2 and
+ * over/under 2,5 mål in its 16 leagues, so other matches get no bet here. In the backtest this filter lost about 9 %.
+ */
+export const VALUE_MIN_ODDS = 1.25;
+const VALUE_MARKETS: ReadonlySet<string> = new Set(["1X2", "OU25"]);
+
+export function valueBetPicks(
+  rows: MarketRow[],
+  now: number,
+  count: number,
+  context: (eventId: string) => PickContext | null,
+  engine: (row: MarketRow) => EngineProb | null,
+): Pick[] {
+  const best = new Map<string, Pick & { ev: number }>();
+  for (const r of rows) {
+    if (r.sportId !== "football" || r.status !== "scheduled" || r.kickoff <= now || r.kickoff > now + PICK_WINDOW_MS) continue;
+    if (!VALUE_MARKETS.has(r.marketType) || !(r.bestOdds >= VALUE_MIN_ODDS)) continue;
+    const e = engine(r);
+    if (!e) continue;
+    const ev = e.probability * r.bestOdds - 1;
+    if (!(ev > 0) || (best.get(r.eventId)?.ev ?? -Infinity) >= ev) continue;
+    const ctx = context(r.eventId);
+    const a = analysePick(r, ctx);
+    const insights = a?.insights ?? { expectedGoals: null, elo: null, clubElo: null, afPrediction: null, scorers: null, form: null, h2h: null, movement: r.movement, lineupsConfirmed: false };
+    const pct = (x: number) => `${(x * 100).toFixed(1).replace(".", ",")} %`;
+    const factors: PickFactor[] = [
+      { label: "Prediction engine", pp: null, detail: `${pct(e.probability)} chance (${e.modelVersion})` },
+      { label: "Bookmakernes pris", pp: null, detail: `${pct(r.marketProbability)} uden margin` },
+      { label: "Forventet gevinst", pp: null, detail: `${ev >= 0 ? "+" : ""}${pct(ev)} pr. krone ved odds ${r.bestOdds.toFixed(2).replace(".", ",")} (${r.bestBook})` },
+    ];
+    best.set(r.eventId, {
+      row: r,
+      outcome: outcomeLabel(r),
+      probability: e.probability,
+      fairOdds: 1 / e.probability,
+      value: true,
+      lineupsConfirmed: a?.lineupsConfirmed ?? false,
+      factors,
+      insights,
+      strength: strengthOf(e.probability),
+      marketOnly: false,
+      scoring: bothScore(ctx),
+      ev,
+      engine: e.modelVersion,
+    });
+  }
+  return [...best.values()].sort((a, b) => b.ev - a.ev || a.row.kickoff - b.row.kickoff).slice(0, count);
 }
 
 /** Markets the coupons draw from: who wins, over/under 1,5 and 2,5, begge hold scorer, and double chance (Mads, 2026-10-05). */
