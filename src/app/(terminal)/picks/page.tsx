@@ -675,13 +675,13 @@ const COUPON_TITLE: Record<Coupon["kind"], (n: number) => string> = {
   odds: (n) => `${n} bets`,
   chance: (n) => `${n} bets`,
   rocket: (n) => `Raketten · ${n} bets`,
-  goals: (n) => `Dagens over 2,5 mål · ${n} bets`,
+  goals: (n) => `Dagens over 1,5 mål · ${n} bets`,
 };
 const COUPON_NOTE: Record<Coupon["kind"], string> = {
   odds: `De mest sandsynlige bets med samlet odds mindst ${dec(COUPON_MIN_ODDS, 1)}`,
   chance: "Det mest sandsynlige bet i hver af dagens mest sandsynlige kampe",
   rocket: `Det mest sandsynlige bet i hver kamp, alle med mindst ${Math.round(ROCKET_MIN_CHANCE * 100)} % chance`,
-  goals: "Dagens mest sandsynlige over 2,5 mål",
+  goals: "Dagens mest sandsynlige over 1,5 mål",
 };
 
 function CouponCard({ coupons }: { coupons: Coupon[] }) {

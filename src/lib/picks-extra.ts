@@ -177,7 +177,7 @@ export interface Coupon {
   /**
    * Every coupon takes the likeliest bets, never value first (Mads, 2026-10-05).
    * "odds": likeliest combination reaching COUPON_MIN_ODDS. "chance": the likeliest bet in each of the likeliest matches.
-   * "rocket" (Raketten): every leg at least ROCKET_MIN_CHANCE. "goals": the day's likeliest over 2,5 mål.
+   * "rocket" (Raketten): every leg at least ROCKET_MIN_CHANCE. "goals": the day's likeliest over 1,5 mål (over 2,5 until Mads changed it, 2026-10-06).
    */
   kind: "odds" | "chance" | "rocket" | "goals";
   /** Legs whose best odds pay more than our fair odds. */
@@ -192,7 +192,7 @@ export const ROCKET_MIN_CHANCE = 0.65;
 /** Raketten takes at most this many legs, and needs at least ROCKET_MIN_LEGS. */
 export const ROCKET_MAX_LEGS = 5;
 export const ROCKET_MIN_LEGS = 3;
-/** Legs on the over 2,5 mål coupon. */
+/** Legs on the over 1,5 mål coupon. */
 export const GOALS_COUPON_LEGS = 3;
 
 /** A pick is a value bet when the model (not only the market) rates it and the best price beats the fair odds. */
@@ -255,16 +255,16 @@ export function rocketCoupon(pool: Pick[]): Coupon | null {
   return legs.length >= ROCKET_MIN_LEGS ? coupon(legs, "rocket") : null;
 }
 
-/** Dagens over 2,5 mål: the GOALS_COUPON_LEGS likeliest over 2,5 mål, one per match. */
+/** Dagens over 1,5 mål: the GOALS_COUPON_LEGS likeliest over 1,5 mål, one per match. */
 export function goalsCoupon(pool: Pick[]): Coupon | null {
-  const legs = likeliestPerMatch(pool, GOALS_COUPON_LEGS, (p) => p.row.marketType === "OU25" && p.row.side === "over");
+  const legs = likeliestPerMatch(pool, GOALS_COUPON_LEGS, (p) => p.row.marketType === "OU15" && p.row.side === "over");
   return legs.length === GOALS_COUPON_LEGS ? coupon(legs, "goals") : null;
 }
 
 /**
  * Today's coupons from every bet type (couponCandidates), always the likeliest bets (Mads, 2026-10-05): 2 bets with
  * combined odds of at least 2.0, and 3 bets from the matches the 2-bet coupon leaves out, so the two never share a
- * bet. Then Raketten and Dagens over 2,5 mål, which may share matches with them.
+ * bet. Then Raketten and Dagens over 1,5 mål, which may share matches with them.
  */
 export function coupons(pool: Pick[]): Coupon[] {
   const two = oddsCoupon(pool);
