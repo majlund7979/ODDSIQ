@@ -27,6 +27,19 @@ from engine.live import predict, site, write  # noqa: E402
 from engine.sources import gabora  # noqa: E402
 
 
+def notice(summary: dict) -> None:
+    """One GitHub annotation with the run's headline numbers (annotations are readable without the log)."""
+    keys = ["upcoming_events", "upcoming_mapped", "results_added", "blend_1x2", "blend_ou25", "matches", "predictions",
+            "value_rows", "approved_bets", "odds_rows", "seconds", "why"]
+    short = {k: (round(summary[k], 3) if isinstance(summary[k], float) else summary[k]) for k in keys if k in summary}
+    if "validation" in summary:
+        short["val_logloss_model_market"] = [round(summary["validation"]["log_loss_model_1x2"], 4),
+                                             round(summary["validation"]["log_loss_market_1x2"], 4)]
+    if summary.get("unmapped_names"):
+        short["unmapped"] = summary["unmapped_names"][:20]
+    print("::notice title=PE predict::" + json.dumps(short, ensure_ascii=False, default=str))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--history", required=True, help="xgabora Matches.csv (football-data history)")
@@ -58,6 +71,7 @@ def main():
                 if not args.dry_run:
                     write.log_run(conn, now, "skipped", {**report, "why": "no upcoming matches in covered leagues"}, sha)
                 print("no upcoming matches in the covered leagues; nothing to predict")
+                notice({**report, "why": "no upcoming matches"})
                 return
             run = predict.predict(frames, upcoming, site.odds(conn, upcoming["event_id"]), now)
             summary = {**report, "blend_1x2": run.model["blend_1x2"], "blend_ou25": run.model["blend_ou25"],
@@ -71,12 +85,15 @@ def main():
                 (out / "summary.json").write_text(json.dumps({**summary, "model": run.model}, indent=1, default=str))
             if args.dry_run:
                 print(json.dumps(summary, default=str))
+                notice({**summary, "why": "dry run, nothing written"})
                 return
             counts = write.write(conn, run, sha)
             summary.update(counts, seconds=round(time.time() - t0))
             write.log_run(conn, now, "ok", summary, sha, counts["model_version"])
             print(json.dumps(summary, default=str))
+            notice(summary)
         except Exception as e:  # logged, then the job fails visibly
+            print(f"::error title=PE predict::{type(e).__name__}: {str(e)[:500]}")
             if not args.dry_run:
                 write.log_run(conn, now, "failed", {"error": f"{type(e).__name__}: {e}", "trace": traceback.format_exc()[-3000:]}, sha)
             raise
