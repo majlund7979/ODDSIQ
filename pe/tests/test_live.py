@@ -164,11 +164,11 @@ def test_write_shadow_run_twice(conn, run):
     from engine.live import write
     c1 = write.write(conn, run, "abc1234")
     assert c1["matches"] == 4 and c1["predictions"] == 20 and c1["value_rows"] == 20 and c1["approved_bets"] == 0
-    assert c1["odds_rows"] == 4 * 3 * 5
+    assert c1["odds_rows"] == 4 * 3 * 5 and c1["feature_rows"] == 4
     write.log_run(conn, NOW, "ok", c1, "abc1234", c1["model_version"])
     later = predict.Run(**{**run.__dict__, "now": NOW + pd.Timedelta(hours=9)})
     c2 = write.write(conn, later, "abc1234")
-    assert c2["odds_rows"] == 0                              # same prices are not stored twice
+    assert c2["odds_rows"] == 0 and c2["feature_rows"] == 0  # same prices and features are not stored twice
     q = lambda sql: conn.execute(sql).fetchall()  # noqa: E731
     assert q("SELECT count(*) FROM pe.match")[0][0] == 4
     assert q("SELECT count(*) FROM pe.prediction")[0][0] == 40     # append-only: the second run adds rows
