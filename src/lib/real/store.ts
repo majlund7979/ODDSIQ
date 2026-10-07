@@ -153,6 +153,8 @@ function buildRow(e: EventData, m: MarketData, i: number, now: number, books: Ma
   if (!current || !mine || !opening) return null;
   const latest = latestPointsByBook(m.points, last).get(sel.id) ?? new Map<string, BookPoint>();
   const quotes = new Map([...latest].map(([b, p]) => [b, p.odds]));
+  // API-Football's Pinnacle can sit next to The Odds API's (enrich.ts); one bookmaker counts once.
+  const booksQuoting = new Set([...quotes.keys()].map((b) => books.get(b) ?? b)).size;
   let bestBookId = "";
   let bestOdds = 0;
   for (const [b, o] of quotes) if (o > bestOdds) [bestOdds, bestBookId] = [o, b];
@@ -221,7 +223,7 @@ function buildRow(e: EventData, m: MarketData, i: number, now: number, books: Ma
       currentOdds,
       relativeVelocityPerHour,
       booksMovingWithConsensus: booksMovedSince(Math.max(runs[0], last - 6 * HOUR)),
-      booksQuoting: quotes.size,
+      booksQuoting,
       volatility: vol,
       baselineVolatility: 0.012,
       hoursToKickoff,
@@ -237,10 +239,10 @@ function buildRow(e: EventData, m: MarketData, i: number, now: number, books: Ma
       lineupConfirmedAt: e.view.lineupConfirmedAt,
       hoursToKickoff,
       sourceReliability: 0.9,
-      booksQuoting: quotes.size,
+      booksQuoting,
       booksTracked: tracked,
     }),
-    booksQuoting: quotes.size,
+    booksQuoting,
     booksMoving: booksMovedSince(Math.max(runs[0], last - 6 * HOUR)),
     booksMovedSinceOpen: booksMovedSince(runs[0]),
     lastUpdate: last,

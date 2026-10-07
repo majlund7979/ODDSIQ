@@ -486,7 +486,7 @@ export function sharpPicks(rows: MarketRow[], now: number, count: number, contex
   const upcoming = rows.filter((r) => r.sportId === "football" && r.status === "scheduled" && r.kickoff > now && r.kickoff <= now + PICK_WINDOW_MS);
   const pct = (x: number) => `${(x * 100).toFixed(1).replace(".", ",")} %`;
   const odds = (x: number) => x.toFixed(2).replace(".", ",");
-  return sharpBets(upcoming, books)
+  return sharpBets(upcoming, books, now)
     .slice(0, count)
     .map((b) => {
       const row: MarketRow = { ...b.row, bestOdds: b.price, bestBook: b.book, bestBookId: b.bookId };

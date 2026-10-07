@@ -141,6 +141,13 @@ describe("closing line", () => {
     expect(line.observedAt).toBe(K - 10 * 60_000);
   });
 
+  it("keeps the consensus on The Odds API's books where API-Football's are added next to them", () => {
+    const line = closingLine([...pts("toa-a", K - H, [2.0, 3.5, 4.0]), ...pts("toa-b", K - H, [2.2, 3.4, 3.6]), ...pts("apf-bet365", K - H, [1.5, 4, 7])], ids, K)!;
+    expect(line.books).toBe(2);
+    expect(line.selections[0].medianOdds).toBeCloseTo(2.1);
+    expect(closingLine(pts("apf-bet365", K - H, [1.5, 4, 7]), ids, K)!.books).toBe(1);
+  });
+
   it("ignores stale books and incomplete quotes", () => {
     expect(closingLine(pts("b1", K - 7 * H, [2, 3.5, 4]), ids, K)).toBeNull();
     const partial = pts("b2", K - H, [2, 3.5, 4]).slice(0, 2);

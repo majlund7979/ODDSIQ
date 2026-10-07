@@ -3,6 +3,7 @@
 
 import type { Pick } from "@/lib/picks";
 import { oddsMove, riskOf, stakeAdvice, type RiskLevel } from "@/lib/picks-advice";
+import { SHARP_MAX_ODDS, SHARP_MIN_EV, SHARP_MIN_ODDS } from "@/lib/sharp";
 
 export const MORNING_COUNT = 5;
 const TZ = "Europe/Copenhagen";
@@ -23,26 +24,32 @@ export function morningSubject(picks: Pick[], now: number): string {
   return picks.length ? `Dagens top ${picks.length}, ${day}` : `Ingen bets i dag, ${day}`;
 }
 
-const NONE = "Ingen bets i dag: i kampene de næste 24 timer betaler hverken bet365 eller bwin mindst 1 % over Pinnacles fair pris.";
-const INTRO = "Forsøg: bets, hvor bet365 eller bwin betaler mindst 1 % mere end Pinnacles odds uden margin. Den historiske test viste ingen sikker fordel.";
-/** "· spil kun til mindst 2,15" on a Dagens bedste bets pick. */
-const minOddsNote = (p: Pick) => (p.minOdds !== undefined ? ` · spil kun til mindst ${dec(p.minOdds)}` : "");
+const MIN_EV = `${Math.round(SHARP_MIN_EV * 100)} %`;
+/** Why there is nothing to send: no matches at all, or no price that clears the rule (or no prices from one run). */
+const none = (matches: number) =>
+  matches
+    ? `Ingen bets i dag: i kampene de næste 24 timer betaler hverken bet365 eller bwin mindst ${MIN_EV} over Pinnacles (ellers Betfair Exchanges) fair pris ved odds ${dec(SHARP_MIN_ODDS)}–${dec(SHARP_MAX_ODDS)}, eller vi mangler deres odds fra samme opdatering.`
+    : "Ingen bets i dag: der er ingen kampe de næste 24 timer.";
+const INTRO = `Forsøg: bets, hvor bet365 eller bwin betaler mindst ${MIN_EV} mere end Pinnacles odds uden margin. Vi henter odds hver 5.–6. time, så tjek prisen, før du spiller. Den historiske test viste ingen sikker fordel.`;
+/** " (hentet kl. 06.15) · spil kun til mindst 2,15" on a Dagens bedste bets pick. */
+const priceNote = (p: Pick) => `${p.pricedAt !== undefined ? ` (hentet kl. ${clock(p.pricedAt)})` : ""}${p.minOdds !== undefined ? ` · spil kun til mindst ${dec(p.minOdds)}` : ""}`;
 
-export function morningText(picks: Pick[], now: number, siteUrl: string, dataLabel: string): string {
-  if (!picks.length) return `${NONE}\n\n${siteUrl}/picks`;
+/** `matches`: football matches in the next 24 hours, to tell "no matches" from "no bets". */
+export function morningText(picks: Pick[], now: number, siteUrl: string, dataLabel: string, matches = 1): string {
+  if (!picks.length) return `${none(matches)}\n\n${siteUrl}/picks`;
   const lines = picks.map((p, i) => {
     const s = stakeAdvice(p.probability, p.row.bestOdds);
     const m = oddsMove(p.row.movement, p.row.openingOdds, p.row.currentOdds);
     return [
       `${i + 1}. ${p.outcome} (${Math.round(p.probability * 100)} %, ${riskOf(p.probability).label.toLowerCase()})`,
       `   ${p.row.match.replace(" vs ", " – ")} · ${p.row.league} · ${kickoff(p.row.kickoff, now)}`,
-      `   Odds ${dec(p.row.bestOdds)} hos ${p.row.bestBook}${minOddsNote(p)} · forslag: ${pctOf(s.share)} af puljen${s.note.includes("ingen værdi") ? " (ingen værdi)" : ""}${m ? ` · odds ${m.direction === "down" ? "faldet" : "steget"} ${Math.round(m.size * 100)} %` : ""}`,
+      `   Odds ${dec(p.row.bestOdds)} hos ${p.row.bestBook}${priceNote(p)} · forslag: ${pctOf(s.share)} af puljen${s.note.includes("ingen værdi") ? " (ingen værdi)" : ""}${m ? ` · odds ${m.direction === "down" ? "faldet" : "steget"} ${Math.round(m.size * 100)} %` : ""}`,
     ].join("\n");
   });
   return `${INTRO}\n\n${lines.join("\n\n")}\n\nSe hele analysen: ${siteUrl}/picks\n\nProcenterne er skøn, ikke garantier. Spil kun for penge, du har råd til at tabe. 18+.\nKilde: ${dataLabel}.\nSlå mailen fra under Vennerligaen: ${siteUrl}/picks/liga`;
 }
 
-export function morningHtml(picks: Pick[], now: number, siteUrl: string, dataLabel: string): string {
+export function morningHtml(picks: Pick[], now: number, siteUrl: string, dataLabel: string, matches = 1): string {
   const rows = picks
     .map((p, i) => {
       const r = riskOf(p.probability);
@@ -55,12 +62,12 @@ export function morningHtml(picks: Pick[], now: number, siteUrl: string, dataLab
 <div style="font-size:13px;color:#3d3c38;margin-top:6px">
 <b>${Math.round(p.probability * 100)} %</b> chance ·
 <span style="color:${RISK_COLOR[r.level]};font-weight:600">● ${r.label}</span> ·
-odds ${dec(p.row.bestOdds)} (${esc(p.row.bestBook)})${minOddsNote(p)} ·
+odds ${dec(p.row.bestOdds)} (${esc(p.row.bestBook)})${priceNote(p)} ·
 forslag ${pctOf(s.share)} af puljen${s.note.includes("ingen værdi") ? " (ingen værdi)" : ""}${m ? ` · odds ${m.direction === "down" ? "↓ faldet" : "↑ steget"} ${Math.round(m.size * 100)} %` : ""}
 </div></td></tr>`;
     })
     .join("");
-  const body = picks.length ? `<table style="width:100%;border-collapse:collapse">${rows}</table>` : `<p>${NONE}</p>`;
+  const body = picks.length ? `<table style="width:100%;border-collapse:collapse">${rows}</table>` : `<p>${none(matches)}</p>`;
   return `<!doctype html><html lang="da"><body style="margin:0;background:#f6f6f3;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1a1a19">
 <div style="max-width:560px;margin:0 auto;padding:24px 20px">
 <div style="font-size:13px;font-weight:700;letter-spacing:1px">Oddsanalyse</div>

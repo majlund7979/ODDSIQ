@@ -21,7 +21,10 @@ export function explainPick(p: Pick): string[] {
       `${p.reference}s odds uden deres margin giver "${p.outcome}" ${pct(p.probability)} chance, altså fair odds på ${dec(p.fairOdds)}. ` +
         `${p.row.bestBook} giver ${dec(p.row.bestOdds)}, ${dec(p.ev * 100, 1)} % mere${p.minOdds !== undefined ? `, og bettet holder kun, så længe oddsen er mindst ${dec(p.minOdds)}` : ""}. ` +
         `${p.reference} regnes for en af de mest præcise priser på markedet, så den bruges som fair pris. ` +
-        "I den historiske test gav bets valgt på den måde ingen sikker fordel, og fra januar 2025 slog de ikke lukkeprisen. Det er et forsøg, som vi følger live.",
+        (/betfair/i.test(p.reference ?? "")
+          ? "Med Betfair Exchange som fair pris gav den historiske test ingen fordel (156 bets, 2024/25–2025/26). "
+          : "I den historiske test med Pinnacle gav bets valgt på den måde ingen sikker fordel, og fra januar 2025 slog de ikke lukkeprisen. ") +
+        "Det er et forsøg, som vi følger live.",
     );
   } else {
     out.push(
@@ -109,7 +112,8 @@ export function explainPick(p: Pick): string[] {
 
   const model = p.row.modelProbability;
   const market = p.row.marketProbability;
-  if (model != null && !p.marketOnly) {
+  // A price-comparison pick's chance is the reference price alone; the model is not blended in.
+  if (model != null && !p.marketOnly && p.ev === undefined) {
     const gap = (market - model) * 100;
     out.push(
       Math.abs(gap) < 3
@@ -128,6 +132,10 @@ export function explainPick(p: Pick): string[] {
   if (learned) out.push(`Læring: ${learned.detail}.`);
 
   const every = Math.max(2, Math.round(1 / (1 - p.probability)));
-  out.push(`Husk: med ${pct(p.probability)} taber et bet som dette stadig omtrent hver ${every}. gang.`);
+  out.push(
+    p.probability >= 0.5
+      ? `Husk: med ${pct(p.probability)} taber et bet som dette stadig omtrent hver ${every}. gang.`
+      : `Husk: med ${pct(p.probability)} går et bet som dette kun hjem omtrent ${Math.max(1, Math.round(p.probability * 10))} af 10 gange.`,
+  );
   return out;
 }

@@ -28,14 +28,22 @@ export const SHARP_MIN_ODDS = 1.25;
 export const SHARP_MAX_ODDS = 5;
 /** The fair price and the bet's price must be observed this close together, i.e. in the same data run. */
 export const SHARP_MAX_GAP_MS = 10 * 60_000;
+/**
+ * Prices older than this are not used. The backtest assumed prices at most 15 minutes old, but the site fetches odds
+ * every 5–6 hours, so this matches that cadence; the page and the mail show when the price was fetched and the lowest
+ * odds still worth taking, so the reader checks the bookmaker's current price first.
+ */
+export const SHARP_MAX_AGE_MS = 6 * 3_600_000;
 /** A reference with more margin than this is not a sharp price; an exchange's back prices carry almost none. */
 const REFERENCE_MAX_MARGIN: Record<string, number> = { pinnacle: 0.15, betfair_ex_eu: 0.05 };
 const DEFAULT_MAX_MARGIN = 0.15;
+/** The Odds API lists the exchange as plain "Betfair", the same name as Betfair's sportsbook. */
+const REFERENCE_NAMES: Record<string, string> = { betfair_ex_eu: "Betfair Exchange" };
 /** A price this many times the bookmakers' median for the selection is taken as a data error. */
 const OUTLIER = 1.5;
 const SIDES = ["home", "draw", "away"] as const;
 
-const ROI_DEFINITION = "Afkast pr. indsat krone med fast indsats, ét bet pr. kamp, i testsæsoner reglen ikke var tunet på";
+const ROI_DEFINITION = "Afkast pr. indsat krone med fast indsats, ét bet pr. kamp, i testsæsonerne 2019/20–2025/26";
 
 /** The rule's backtest (trin 11): football-data.co.uk's Friday/Tuesday prices, test seasons 2019/20–2025/26. */
 export const SHARP_BACKTEST: Metric<{ roi: number; roiLow: number; roiHigh: number; clv: number; clvLow: number; clvHigh: number }> = metric(
@@ -118,18 +126,19 @@ export interface SharpBet {
   ev: number;
   /** The lowest odds at which the bet still clears SHARP_MIN_EV. */
   minOdds: number;
-  /** The reference bookmaker's name. */
+  /** The reference bookmaker's name, e.g. "Pinnacle" or "Betfair Exchange". */
   reference: string;
   /** When the bet's price was observed. */
   at: number;
 }
 
 /**
- * For each match with a 1X2 price from a reference book and from a price book in the same data run: the outcome where
- * the price book pays most over the fair price, if that is at least SHARP_MIN_EV, with odds from SHARP_MIN_ODDS to
- * SHARP_MAX_ODDS. Ties go to the earlier price book, then home, draw, away. Pure; sorted by EV, highest first.
+ * For each match with a 1X2 price from a reference book and from a price book in the same data run, at most
+ * SHARP_MAX_AGE_MS old: the outcome where the price book pays most over the fair price, if that is at least SHARP_MIN_EV,
+ * with odds from SHARP_MIN_ODDS to SHARP_MAX_ODDS. Ties go to the earlier price book, then home, draw, away. Pure;
+ * sorted by EV, highest first.
  */
-export function sharpBets(rows: MarketRow[], books: SharpBooks): SharpBet[] {
+export function sharpBets(rows: MarketRow[], books: SharpBooks, now: number): SharpBet[] {
   const byEvent = new Map<string, MarketRow[]>();
   for (const r of rows) if (r.marketType === "1X2") byEvent.set(r.eventId, [...(byEvent.get(r.eventId) ?? []), r]);
   const out: SharpBet[] = [];
@@ -137,7 +146,9 @@ export function sharpBets(rows: MarketRow[], books: SharpBooks): SharpBet[] {
     const sides = SIDES.map((s) => list.find((r) => r.side === s));
     if (sides.some((r) => !r)) continue;
     const rs = sides as MarketRow[];
-    const all = triples(rs);
+    // A price far above the bookmakers' median is taken as a data error, in the reference as in the bet's price.
+    const sane = (t: Triple) => t.odds.every((o, i) => o <= OUTLIER * rs[i].currentOdds);
+    const all = triples(rs).filter((t) => now - t.at <= SHARP_MAX_AGE_MS && sane(t));
     const refs = all.filter((t) => {
       const key = bookKey(t.bookId);
       const o = overround(t.odds);
@@ -153,10 +164,11 @@ export function sharpBets(rows: MarketRow[], books: SharpBooks): SharpBet[] {
         const fair = powerDevig(ref.odds);
         for (let i = 0; i < rs.length; i++) {
           const price = t.odds[i];
-          if (price < SHARP_MIN_ODDS || price > SHARP_MAX_ODDS || price > OUTLIER * rs[i].currentOdds) continue;
+          if (price < SHARP_MIN_ODDS || price > SHARP_MAX_ODDS) continue;
           const ev = fair[i] * price - 1;
           if (ev < SHARP_MIN_EV || (best && ev <= best.ev)) continue;
-          best = { row: rs[i], fair: fair[i], price, book: t.book, bookId: t.bookId, ev, minOdds: (1 + SHARP_MIN_EV) / fair[i], reference: ref.book, at: t.at };
+          const minOdds = Math.max(SHARP_MIN_ODDS, (1 + SHARP_MIN_EV) / fair[i]);
+          best = { row: rs[i], fair: fair[i], price, book: t.book, bookId: t.bookId, ev, minOdds, reference: REFERENCE_NAMES[bookKey(ref.bookId)] ?? ref.book, at: t.at };
         }
       }
     }

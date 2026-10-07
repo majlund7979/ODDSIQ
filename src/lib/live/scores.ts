@@ -6,6 +6,7 @@
 
 import type { PrismaClient } from "@/generated/prisma/client";
 import { matchTeam } from "@/lib/model/teams";
+import { recordedCategory } from "@/lib/pick-categories";
 import { settle } from "@/lib/picks-extra";
 import { apiFootballGet } from "@/lib/stats/api-football";
 
@@ -129,7 +130,7 @@ export function liveState(spec: string, f: LiveFixture): Pick<LivePick, "clock" 
 /** Recorded picks of one bet type whose matches kicked off within the live window, with their live score. */
 export async function livePicks(prisma: PrismaClient, apiKey: string | null, category: string, now: number): Promise<LivePick[]> {
   if (!apiKey) return [];
-  const rows = await prisma.pickRecord.findMany({ where: { category, kickoff: { gte: new Date(now - LIVE_WINDOW_MS), lte: new Date(now) } }, orderBy: { kickoff: "asc" } });
+  const rows = await prisma.pickRecord.findMany({ where: { category: recordedCategory(category), kickoff: { gte: new Date(now - LIVE_WINDOW_MS), lte: new Date(now) } }, orderBy: { kickoff: "asc" } });
   if (!rows.length) return [];
   // A late kickoff can still be playing after midnight UTC, so fetch every day the picks started on.
   const days = [...new Set(rows.map((r) => r.kickoff.toISOString().slice(0, 10)))];

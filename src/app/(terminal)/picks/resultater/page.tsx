@@ -6,6 +6,7 @@ import { terminal } from "@/lib/terminal";
 import { byDay, HitBars, ProfitBars, Tile } from "@/components/picks/Overview";
 import { CLV_VERSION } from "@/lib/real/clv";
 import { CATEGORY_LABEL } from "@/lib/pick-categories";
+import { SHARP_VERSION } from "@/lib/sharp";
 import { LEARN_DAYS, LEARN_MIN, LEARNING_VERSION, learn, type CategoryLearning } from "@/lib/picks-learning";
 
 export const metadata = { title: "Resultater · Oddsanalyse" };
@@ -46,7 +47,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   const period = settledKick.length
     ? `${new Date(Math.min(...settledKick)).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: "Europe/Copenhagen" })}–${new Date(Math.max(...settledKick)).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: "Europe/Copenhagen" })}`
     : "sidste 7 dage";
-  const context = `Historisk · n = ${total.settled} · ${period} · ${t.dataLabel} · ${LEARNING_VERSION}`;
+  const context = `Historisk · n = ${total.settled} · ${period} · ${t.dataLabel} · ${type === "bedste" ? SHARP_VERSION : LEARNING_VERSION}`;
   const history = await t.recordedPicks(LEARN_DAYS);
   const learning = learn(history, t.dataLabel);
   const cal = calibration(history);
@@ -88,6 +89,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
         </div>
         <p className="text-xs text-muted">
           {CATEGORY_LABEL[type]} · {context}. Søjlerne er andelen, der gik hjem pr. dag (stregen er det, vi regnede med), og gevinsten pr. dag.
+          {type === "bedste" && " Bedste bets tæller kun bets efter den nuværende regel (Pinnacles pris mod bet365 og bwin); bets efter de tidligere regler er ikke med. CLV måles mod bookmakernes median-lukkepris, ikke Pinnacles."}
         </p>
       </header>
 

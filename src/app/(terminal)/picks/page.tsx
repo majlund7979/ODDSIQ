@@ -42,7 +42,7 @@ import { demoShotBoard } from "@/lib/demo/player-shots";
 import { demoLivePicks } from "@/lib/demo/picks";
 import { POSITION_LABEL, SHOTS_MODEL_VERSION, topShotPicks, TYPICAL_TEAM_GOALS, type ShotPick } from "@/lib/player-shots";
 import { realShotBoard, type ShotBoard } from "@/lib/real/player-shots";
-import { SHARP_BACKTEST, SHARP_MAX_ODDS, SHARP_MIN_EV, SHARP_MIN_ODDS, SHARP_RECENT } from "@/lib/sharp";
+import { SHARP_BACKTEST, SHARP_MAX_AGE_MS, SHARP_MAX_ODDS, SHARP_MIN_EV, SHARP_MIN_ODDS, SHARP_RECENT, SHARP_VERSION } from "@/lib/sharp";
 
 export const metadata = { title: "Dagens bedste bets · Oddsanalyse" };
 
@@ -229,7 +229,8 @@ function ClubEloFact({ c, home, away }: { c: ClubEloPair; home: string; away: st
   );
 }
 
-function BookTable({ quotes, fairOdds, marketOnly }: { quotes: Pick["row"]["quotes"]; fairOdds: number; marketOnly: boolean }) {
+/** With a reference (Dagens bedste bets), fairOdds is that book's price without margin and no "Værdi" is claimed. */
+function BookTable({ quotes, fairOdds, marketOnly, reference }: { quotes: Pick["row"]["quotes"]; fairOdds: number; marketOnly: boolean; reference?: string }) {
   const c = compareBooks(quotes, fairOdds);
   if (!c) return null;
   const pctDiff = Math.round(c.bestOverMedian * 1000) / 10;
@@ -241,14 +242,15 @@ function BookTable({ quotes, fairOdds, marketOnly }: { quotes: Pick["row"]["quot
             <span className="truncate">{r.book}</span>
             <span className="flex shrink-0 items-center gap-2">
               {r.best && <span className="text-[11px] font-semibold text-accent">Bedst</span>}
-              {r.value && !marketOnly && <span className="rounded-full border border-good/40 bg-good/10 px-1.5 text-[10px] font-semibold text-good">Værdi</span>}
+              {r.value && !marketOnly && !reference && <span className="rounded-full border border-good/40 bg-good/10 px-1.5 text-[10px] font-semibold text-good">Værdi</span>}
               <span className={`num ${r.best ? "font-semibold" : ""}`}>{dec(r.odds)}</span>
             </span>
           </li>
         ))}
       </ul>
       <div className="text-xs text-muted">
-        Den bedste odds er {String(pctDiff).replace(".", ",")} % over snittet ({dec(c.median)}). Over mange bets betyder den forskel meget.{marketOnly ? "" : ` Værdi: oddsen er højere end vores fair odds ${dec(fairOdds)}.`}
+        Den bedste odds er {String(pctDiff).replace(".", ",")} % over snittet ({dec(c.median)}). Over mange bets betyder den forskel meget.
+        {reference ? ` ${reference}s fair odds uden margin: ${dec(fairOdds)}.` : marketOnly ? "" : ` Værdi: oddsen er højere end vores fair odds ${dec(fairOdds)}.`}
       </div>
     </Fact>
   );
@@ -429,10 +431,10 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
             "Stort set uændret siden markedet åbnede."
           )}
           <div className="text-xs text-muted">
-            {p.row.booksQuoting} bookmakere · fair odds efter vores procent: {dec(p.fairOdds)}
+            {p.row.booksQuoting} bookmakere · {p.reference ? `fair odds fra ${p.reference} uden margin` : "fair odds efter vores procent"}: {dec(p.fairOdds)}
           </div>
         </Fact>
-        <BookTable quotes={p.row.quotes} fairOdds={p.fairOdds} marketOnly={p.marketOnly} />
+        <BookTable quotes={p.row.quotes} fairOdds={p.fairOdds} marketOnly={p.marketOnly} reference={p.reference} />
         <GoalBets p={p} home={home} away={away} />
         <Fact label="Startopstilling">{i.lineupsConfirmed ? "Bekræftet for begge hold." : "Ikke meldt endnu. Den kommer typisk en time før kampstart, og så bliver procenten mere præcis."}</Fact>
       </div>
@@ -469,7 +471,7 @@ function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: number; 
         <div className="flex items-center gap-5">
           <Gauge p={p.probability} />
           <div className="min-w-[96px] rounded-2xl bg-surface-2 px-3 py-2.5 text-center">
-            <div className="text-[11px] font-medium text-muted">Bedste odds</div>
+            <div className="text-[11px] font-medium text-muted">{p.ev !== undefined ? "Odds hos" : "Bedste odds"}</div>
             <div className="num text-2xl font-semibold">{dec(p.row.bestOdds)}</div>
             <div className="truncate text-[11px] text-ink-2">{p.row.bestBook}</div>
           </div>
@@ -833,8 +835,9 @@ function SharpBacktestNote() {
   return (
     <p className="mt-3 max-w-3xl text-xs leading-relaxed text-muted">
       Historisk test ({b.source}, {b.n.toLocaleString("da-DK")} bets, {month(b.periodFrom)} til {month(b.periodTo)}, {b.modelVersion}): afkast {signedPct(b.value.roi)} (90 %-interval{" "}
-      {signedPct(b.value.roiLow)} til {signedPct(b.value.roiHigh)}), {signedPct(b.value.clv)} mod lukkeprisen. Fra {month(r.periodFrom)} slog reglen ikke lukkeprisen ({signedPct(r.value.clv)},{" "}
-      {r.n} bets). Ingen dokumenteret fordel; vi følger resultaterne live.
+      {signedPct(b.value.roiLow)} til {signedPct(b.value.roiHigh)}), {signedPct(b.value.clv)} mod Pinnacles lukkepris uden margin. Grænsen på {dec(SHARP_MIN_EV * 100, 0)} % blev valgt efter
+      testen, så tallene er nok for pæne. Fra {month(r.periodFrom)} slog reglen ikke lukkeprisen ({signedPct(r.value.clv)}, {r.n} bets). Ingen dokumenteret fordel; vi følger resultaterne
+      live, hvor lukkeprisen er bookmakernes median, ikke Pinnacles.
     </p>
   );
 }
@@ -868,7 +871,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   const learned = allLearning.get(tab);
   // The price comparison's probability is Pinnacle's price without margin, so the per-type learning is not applied on top.
   const picks = tab === "bedste" ? sharpPicks(rows, t.now, count, t.pickContext, t.sharpBooks) : applyLearningToPicks(goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [], learned);
-  const couponPool = tab === "bedste" ? applyLearningToPicks(couponCandidates(rows, t.now, t.pickContext), allLearning.get("bedste")) : [];
+  // The coupons pick the likeliest bets; "bedste"'s record now follows the price comparison, so its learning does not fit them.
+  const couponPool = tab === "bedste" ? couponCandidates(rows, t.now, t.pickContext) : [];
   const cPicks = applyLearning(countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [], learned);
   const xPicks = applyLearning(EXTRA[tab] ? EXTRA[tab](rows, t.now, count, t.pickContext) : [], learned);
   const shots: ShotBoard | null =
@@ -902,7 +906,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         <h1 className="display mt-2 text-[36px] text-ink sm:text-6xl">{tab === "bedste" ? "Dagens bedste bets" : tabLabel}</h1>
         <p className="mt-3 hidden max-w-2xl text-[16px] leading-relaxed text-ink-2 sm:mt-4 sm:block sm:text-[17px]">
           {tab === "bedste"
-            ? `Forsøg: vinder-bets i kampene de næste 24 timer, hvor bet365 eller bwin betaler mindst ${dec(SHARP_MIN_EV * 100, 0)} % mere end Pinnacles odds uden margin, ved odds ${dec(SHARP_MIN_ODDS)}–${dec(SHARP_MAX_ODDS)}. Øverst er den største forskel.`
+            ? `Forsøg: vinder-bets i kampene de næste 24 timer, hvor bet365 eller bwin betaler mindst ${dec(SHARP_MIN_EV * 100, 0)} % mere end Pinnacles odds uden margin (ellers Betfair Exchanges), ved odds ${dec(SHARP_MIN_ODDS)}–${dec(SHARP_MAX_ODDS)}. Vi henter odds hver 5.–6. time, så tjek prisen hos bookmakeren, før du spiller. Øverst er den største forskel.`
             : "De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste."}
         </p>
         {tab === "bedste" ? (
@@ -917,11 +921,13 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
                       kickoff: picks[0].row.kickoff,
                       probability: picks[0].probability,
                       odds: picks[0].row.bestOdds,
-                      note: `Chance fra ${picks[0].reference}s odds uden margin. ${picks[0].row.bestBook} betaler ${dec((picks[0].ev ?? 0) * 100, 1)} % mere. Ikke en garanti.`,
+                      headline: { value: signedPct(picks[0].ev ?? 0), caption: `over ${picks[0].reference}s fair pris · chance ${Math.round(picks[0].probability * 100)} %` },
+                      note: `${picks[0].row.bestBook} betaler ${dec((picks[0].ev ?? 0) * 100, 1)} % mere end ${picks[0].reference}s odds uden margin. Spil kun til mindst ${dec(picks[0].minOdds ?? 0)}. Ingen dokumenteret fordel.`,
                     }
                   : null
               }
               topLabel="Største prisforskel"
+              version={SHARP_VERSION}
               empty={scope.matches ? "Ingen bets lige nu." : "Ingen kampe de næste 24 timer."}
               matches={scope.matches}
               leagues={scope.leagues}
@@ -1030,6 +1036,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
               odds: p.row.bestOdds,
               value: p.value,
             }))}
+            subtitle="Største prisforskel først"
           />
         )}
 
@@ -1109,7 +1116,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
       ) : picks.length === 0 && tab === "bedste" ? (
         <Empty
           title="Ingen bets lige nu"
-          text={`I kampene de næste 24 timer betaler hverken bet365 eller bwin mindst ${dec(SHARP_MIN_EV * 100, 0)} % over Pinnacles fair pris ved odds ${dec(SHARP_MIN_ODDS)}–${dec(SHARP_MAX_ODDS)}, eller vi mangler Pinnacles odds fra samme opdatering. Se de andre faner for de mest sandsynlige bets.`}
+          text={`I kampene de næste 24 timer betaler hverken bet365 eller bwin mindst ${dec(SHARP_MIN_EV * 100, 0)} % over Pinnacles (ellers Betfair Exchanges) fair pris ved odds ${dec(SHARP_MIN_ODDS)}–${dec(SHARP_MAX_ODDS)}, eller vi mangler deres odds fra samme opdatering inden for ${SHARP_MAX_AGE_MS / 3_600_000} timer. Se de andre faner for de mest sandsynlige bets.`}
         />
       ) : picks.length === 0 ? (
         <Empty
@@ -1128,7 +1135,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
 
       <MyCoupon canPlay={ACCOUNTS_ENABLED && !!user} />
 
-      {learned && tab !== "straffe" && <LearningNote l={learned} />}
+      {/* Bedste bets' chance is the reference price without margin and is never adjusted. */}
+      {learned && tab !== "straffe" && tab !== "bedste" && <LearningNote l={learned} />}
 
       <section className="grid gap-5 rounded-[28px] bg-surface-2 p-6 text-sm leading-relaxed text-ink-2 md:grid-cols-3">
         <div>

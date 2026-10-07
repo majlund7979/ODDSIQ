@@ -7,7 +7,7 @@ import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { MAIL_CONFIGURED, sendMails } from "@/lib/mail";
 import { MORNING_COUNT, morningDay, morningHtml, morningSubject, morningText, recipients } from "@/lib/morning";
-import { sharpPicks } from "@/lib/picks";
+import { analysedMatches, sharpPicks } from "@/lib/picks";
 import { terminal } from "@/lib/terminal";
 
 export const maxDuration = 60;
@@ -34,9 +34,10 @@ export async function GET(req: Request): Promise<Response> {
 
   const picks = sharpPicks(t.marketRows(), t.now, MORNING_COUNT, t.pickContext, t.sharpBooks);
   const site = (process.env.APP_URL || `https://${req.headers.get("host")}`).replace(/\/$/, "");
+  const { matches } = analysedMatches(t.marketRows(), t.now);
   const subject = morningSubject(picks, t.now);
-  const html = morningHtml(picks, t.now, site, t.dataLabel);
-  const text = morningText(picks, t.now, site, t.dataLabel);
+  const html = morningHtml(picks, t.now, site, t.dataLabel, matches);
+  const text = morningText(picks, t.now, site, t.dataLabel, matches);
   const result = await sendMails(to.map((email) => ({ to: email, subject, html, text })));
   if (result.sent && DATABASE_CONFIGURED) await db().morningMail.upsert({ where: { day }, create: { day, recipients: result.sent }, update: { recipients: result.sent, sentAt: new Date() } });
   // Some addresses can fail (Resend's test sender only reaches the account owner); the run is fine when any mail went out.

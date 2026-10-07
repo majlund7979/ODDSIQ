@@ -4,6 +4,7 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 import { leagueForOddsKey } from "@/lib/model/openfootball";
 import { matchTeam } from "@/lib/model/teams";
+import { recordedCategory, shownCategory } from "@/lib/pick-categories";
 import { allPickDrafts, settle, type MatchOutcome, type RecordedPick } from "@/lib/picks-extra";
 import type { Terminal } from "@/lib/terminal";
 import { closes } from "./clv";
@@ -29,7 +30,7 @@ export async function recordPicks(prisma: PrismaClient, t: Terminal): Promise<nu
         leagueCode: leagueCodeOf(d.row.leagueId),
         home,
         away,
-        category: d.category,
+        category: recordedCategory(d.category),
         outcome: d.outcome,
         spec: d.spec,
         probability: d.probability,
@@ -81,7 +82,7 @@ export async function readRecordedPicks(prisma: PrismaClient, now: number, days 
     kickoff: r.kickoff.getTime(),
     league: r.leagueName,
     match: `${r.home} vs ${r.away}`,
-    category: r.category,
+    category: shownCategory(r.category),
     outcome: r.outcome,
     probability: r.probability,
     odds: r.odds,
