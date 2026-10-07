@@ -39,6 +39,7 @@ export async function GET(req: Request): Promise<Response> {
   const text = morningText(picks, t.now, site, t.dataLabel);
   const result = await sendMails(to.map((email) => ({ to: email, subject, html, text })));
   if (result.sent && DATABASE_CONFIGURED) await db().morningMail.upsert({ where: { day }, create: { day, recipients: result.sent }, update: { recipients: result.sent, sentAt: new Date() } });
-  const ok = !result.error;
+  // Some addresses can fail (Resend's test sender only reaches the account owner); the run is fine when any mail went out.
+  const ok = result.sent > 0;
   return Response.json({ ok, day, picks: picks.length, recipients: to.length, ...result }, { status: ok ? 200 : 502 });
 }
