@@ -128,8 +128,14 @@ export interface BookComparison {
 }
 
 /** The bookmakers' prices for one bet side by side: the best one marked, and which pay more than our fair odds. */
-export function compareBooks(quotes: { book: string; odds: number }[] | undefined, fairOdds: number): BookComparison | null {
-  const list = (quotes ?? []).filter((q) => Number.isFinite(q.odds) && q.odds > 1).sort((a, b) => b.odds - a.odds);
+export function compareBooks(quotes: { book: string; odds: number; at?: number }[] | undefined, fairOdds: number): BookComparison | null {
+  // A bookmaker quoted by both odds feeds is listed once, at its latest price.
+  const byBook = new Map<string, { book: string; odds: number; at?: number }>();
+  for (const q of quotes ?? []) {
+    const prev = byBook.get(q.book);
+    if (!prev || (q.at ?? 0) > (prev.at ?? 0)) byBook.set(q.book, q);
+  }
+  const list = [...byBook.values()].filter((q) => Number.isFinite(q.odds) && q.odds > 1).sort((a, b) => b.odds - a.odds);
   if (list.length < 2) return null;
   const sorted = list.map((q) => q.odds).sort((a, b) => a - b);
   const m = sorted.length >> 1;

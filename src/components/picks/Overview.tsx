@@ -22,6 +22,10 @@ export interface TopBet {
   kickoff: number;
   probability: number;
   odds: number | null;
+  /** Footnote under the tile; defaults to the model's estimated chance. */
+  note?: string;
+  /** Shown as the big number instead of the chance, with a caption under the outcome. */
+  headline?: { value: string; caption: string };
 }
 
 interface DayStat {
@@ -119,8 +123,16 @@ export function Overview({
   feedTime,
   week,
   source,
+  topLabel = "Dagens sikreste bet",
+  empty = "Ingen kampe de næste 24 timer.",
+  version = LEARNING_VERSION,
 }: {
   top: TopBet | null;
+  topLabel?: string;
+  /** The rule or model version the week's picks were made with. */
+  version?: string;
+  /** Shown in the first tile when there is no bet. */
+  empty?: string;
   matches: number;
   leagues: number;
   nextKickoff: number | null;
@@ -138,24 +150,25 @@ export function Overview({
     from && to
       ? `${new Date(from).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: TZ })}–${new Date(to).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: TZ })}`
       : "sidste 7 dage";
-  const context = `Historisk · n = ${s.settled} · ${period} · ${source} · ${LEARNING_VERSION}`;
+  const context = `Historisk · n = ${s.settled} · ${period} · ${source} · ${version}`;
 
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <Tile label="Dagens sikreste bet" className="col-span-2 lg:col-span-1" foot={top ? "Estimeret chance fra modellen og bookmakernes odds. Ikke en garanti." : undefined}>
+      <Tile label={topLabel} className="col-span-2 lg:col-span-1" foot={top ? (top.note ?? "Estimeret chance fra modellen og bookmakernes odds. Ikke en garanti.") : undefined}>
         {top ? (
           <a href="#bet-1" className="group block">
             <div className="flex items-baseline justify-between gap-3">
-              <span className="num whitespace-nowrap text-4xl font-extrabold tracking-[-0.03em] text-ink">{big(top.probability)}</span>
+              <span className="num whitespace-nowrap text-4xl font-extrabold tracking-[-0.03em] text-ink">{top.headline?.value ?? big(top.probability)}</span>
               {top.odds && <span className="num text-sm text-ink-2">odds {dec(top.odds)}</span>}
             </div>
+            {top.headline && <div className="text-sm text-ink-2">{top.headline.caption}</div>}
             <div className="mt-1 truncate font-semibold text-accent group-hover:underline">{top.outcome}</div>
             <div className="truncate text-sm text-ink-2">
               {top.match.replace(" vs ", " – ")} · kl. {clock(top.kickoff)}
             </div>
           </a>
         ) : (
-          <div className="text-sm text-ink-2">Ingen kampe de næste 24 timer.</div>
+          <div className="text-sm text-ink-2">{empty}</div>
         )}
       </Tile>
 
@@ -213,13 +226,13 @@ export interface SingleRow {
 }
 
 /** The day's best single bets as a compact list; each row jumps to its full card below. */
-export function GoodSingles({ rows }: { rows: SingleRow[] }) {
+export function GoodSingles({ rows, subtitle = "Højest chance først" }: { rows: SingleRow[]; subtitle?: string }) {
   if (rows.length === 0) return null;
   return (
     <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-5 py-3.5">
         <h2 className="text-lg font-bold">Gode enkeltbets</h2>
-        <span className="text-xs text-muted">Højest chance først · tryk for analysen</span>
+        <span className="text-xs text-muted">{subtitle} · tryk for analysen</span>
       </div>
       <ol className="divide-y divide-line">
         {rows.map((r, i) => (

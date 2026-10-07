@@ -28,6 +28,15 @@ const median = (xs: number[]) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
+/**
+ * API-Football's bet365, bwin and Pinnacle prices are added to The Odds API's match-winner markets only so Dagens bedste
+ * bets can compare them (enrich.ts). Where The Odds API quotes a market, its books alone make the consensus, as before,
+ * so a move between two runs is never just a change in which books are counted.
+ */
+function consensusBooks(books: string[]): string[] {
+  return books.some((b) => b.startsWith("toa-")) ? books.filter((b) => !b.startsWith("apf-")) : books;
+}
+
 export function closingLine(points: PricePoint[], selectionIds: string[], kickoff: number, maxAgeMs = CLOSE_MAX_AGE_MS): ClosingLine | null {
   const last = new Map<string, PricePoint>();
   for (const p of points) {
@@ -36,7 +45,7 @@ export function closingLine(points: PricePoint[], selectionIds: string[], kickof
     const prev = last.get(k);
     if (!prev || p.observedAt > prev.observedAt) last.set(k, p);
   }
-  const books = [...new Set(points.map((p) => p.bookmakerId))].filter((b) => selectionIds.every((s) => last.has(`${b}|${s}`)));
+  const books = consensusBooks([...new Set(points.map((p) => p.bookmakerId))].filter((b) => selectionIds.every((s) => last.has(`${b}|${s}`))));
   if (!books.length) return null;
 
   const fair = books.map((b) => devig(selectionIds.map((s) => last.get(`${b}|${s}`)!.odds)));

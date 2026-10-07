@@ -1,6 +1,9 @@
-// Extra markets for the leagues whose match odds come from The Odds API: its
+// Extra markets and bookmakers for the leagues whose match odds come from The Odds API: its
 // free plan only covers the match winner (h2h), so over/under 1.5 and 2.5, both teams
-// score and double chance come from API-Football's odds for the same matches.
+// score and double chance come from API-Football's odds for the same matches. For the match
+// winner only bet365 and bwin (which The Odds API lacks) and Pinnacle are added: Dagens bedste
+// bets compares bet365 and bwin with Pinnacle's price from the same run (sharp.ts), and The Odds
+// API refreshes a league only every 11 hours. The consensus keeps to The Odds API's books (closing.ts).
 // Prices attach to the existing events (matched by kickoff and team names), so
 // no match is listed twice.
 
@@ -11,9 +14,11 @@ import { MARKET_SELECTIONS } from "./ingest";
 import type { FeedMarketType, FeedPrice } from "./types";
 
 const HOUR = 3_600_000;
-/** Markets taken from API-Football for these events; the match winner stays with The Odds API. */
-export const ENRICH_MARKETS: FeedMarketType[] = ["OU15", "OU25", "BTTS", "DC"];
-const NAMES: Record<string, string> = { OU15: "Total Goals 1.5", OU25: "Total Goals 2.5", BTTS: "Both Teams To Score", DC: "Double Chance" };
+/** Markets taken from API-Football for these events; its match-winner prices (ENRICH_1X2_BOOKS only) sit next to The Odds API's books. */
+export const ENRICH_MARKETS: FeedMarketType[] = ["1X2", "OU15", "OU25", "BTTS", "DC"];
+/** API-Football books whose match-winner prices are stored next to The Odds API's. */
+export const ENRICH_1X2_BOOKS = ["bet365", "bwin", "pinnacle"];
+const NAMES: Record<string, string> = { "1X2": "Match Winner", OU15: "Total Goals 1.5", OU25: "Total Goals 2.5", BTTS: "Both Teams To Score", DC: "Double Chance" };
 /** Refresh a league's extra markets at most this often. */
 export const ENRICH_INTERVAL_MS = 5 * HOUR;
 const KICKOFF_TOLERANCE_MS = 2 * HOUR;
@@ -27,6 +32,7 @@ export interface EnrichSummary {
 }
 
 function selectionName(m: FeedMarketType, sel: string, home: string, away: string): string {
+  if (m === "1X2") return sel === "home" ? home : sel === "away" ? away : "Draw";
   if (m === "OU15") return `${sel === "over" ? "Over" : "Under"} 1.5`;
   if (m === "OU25") return `${sel === "over" ? "Over" : "Under"} 2.5`;
   if (m === "BTTS") return sel === "yes" ? "Yes" : "No";
@@ -73,7 +79,7 @@ export async function enrichMarkets(prisma: PrismaClient, feed: ApiFootballOddsF
 }
 
 async function storeExtraPrices(prisma: PrismaClient, eventId: string, home: string, away: string, prices: FeedPrice[], now: number): Promise<number> {
-  const kept = prices.filter((p) => ENRICH_MARKETS.includes(p.market));
+  const kept = prices.filter((p) => ENRICH_MARKETS.includes(p.market) && (p.market !== "1X2" || ENRICH_1X2_BOOKS.includes(p.bookmakerKey)));
   if (!kept.length) return 0;
   for (const [book, name] of new Map(kept.map((p) => [p.bookmakerKey, p.bookmakerName]))) {
     // Margin and reliability are not measured for these books; 0 marks them as unknown.

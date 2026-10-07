@@ -92,21 +92,22 @@ const SPORT_NAMES: Record<string, string> = { football: "Football", basketball: 
 const side = (selectionId: string) => selectionId.slice(selectionId.lastIndexOf("-") + 1);
 const oddsKeyOf = (leagueId: string) => leagueId.slice(leagueId.indexOf("-") + 1);
 
-/** Each book's latest price per selection observed in (at − window, at]. */
-export function latestByBook(points: BookPoint[], at: number, window = PRICE_WINDOW_MS): Map<string, Map<string, number>> {
-  const best = new Map<string, BookPoint>();
+/** Each book's latest observation per selection in (at − window, at]: selection → book → point. */
+export function latestPointsByBook(points: BookPoint[], at: number, window = PRICE_WINDOW_MS): Map<string, Map<string, BookPoint>> {
+  const out = new Map<string, Map<string, BookPoint>>();
   for (const p of points) {
     if (p.observedAt > at || p.observedAt <= at - window) continue;
-    const k = `${p.bookmakerId}|${p.selectionId}`;
-    const prev = best.get(k);
-    if (!prev || p.observedAt > prev.observedAt) best.set(k, p);
-  }
-  const out = new Map<string, Map<string, number>>();
-  for (const p of best.values()) {
     if (!out.has(p.selectionId)) out.set(p.selectionId, new Map());
-    out.get(p.selectionId)!.set(p.bookmakerId, p.odds);
+    const books = out.get(p.selectionId)!;
+    const prev = books.get(p.bookmakerId);
+    if (!prev || p.observedAt > prev.observedAt) books.set(p.bookmakerId, p);
   }
   return out;
+}
+
+/** Each book's latest price per selection observed in (at − window, at]. */
+export function latestByBook(points: BookPoint[], at: number, window = PRICE_WINDOW_MS): Map<string, Map<string, number>> {
+  return new Map([...latestPointsByBook(points, at, window)].map(([sel, books]) => [sel, new Map([...books].map(([b, p]) => [b, p.odds]))]));
 }
 
 export function consensusAt(m: MarketData, at: number) {
@@ -150,7 +151,10 @@ function buildRow(e: EventData, m: MarketData, i: number, now: number, books: Ma
   const opening = consensusAt(m, runs[0]);
   const mine = current?.selections[i];
   if (!current || !mine || !opening) return null;
-  const quotes = latestByBook(m.points, last).get(sel.id) ?? new Map<string, number>();
+  const latest = latestPointsByBook(m.points, last).get(sel.id) ?? new Map<string, BookPoint>();
+  const quotes = new Map([...latest].map(([b, p]) => [b, p.odds]));
+  // API-Football's Pinnacle can sit next to The Odds API's (enrich.ts); one bookmaker counts once.
+  const booksQuoting = new Set([...quotes.keys()].map((b) => books.get(b) ?? b)).size;
   let bestBookId = "";
   let bestOdds = 0;
   for (const [b, o] of quotes) if (o > bestOdds) [bestOdds, bestBookId] = [o, b];
@@ -196,7 +200,7 @@ function buildRow(e: EventData, m: MarketData, i: number, now: number, books: Ma
     bestOdds,
     bestBook: books.get(bestBookId) ?? bestBookId,
     bestBookId: bestBookId || null,
-    quotes: [...quotes].map(([b, odds]) => ({ book: books.get(b) ?? b, odds })).sort((a, b) => b.odds - a.odds),
+    quotes: [...latest].map(([b, p]) => ({ book: books.get(b) ?? b, bookId: b, odds: p.odds, at: p.observedAt })).sort((a, b) => b.odds - a.odds),
     openingOdds,
     currentOdds,
     openingFavourite: openingOdds <= Math.min(...opening.selections.map((s) => s.medianOdds)),
@@ -219,7 +223,7 @@ function buildRow(e: EventData, m: MarketData, i: number, now: number, books: Ma
       currentOdds,
       relativeVelocityPerHour,
       booksMovingWithConsensus: booksMovedSince(Math.max(runs[0], last - 6 * HOUR)),
-      booksQuoting: quotes.size,
+      booksQuoting,
       volatility: vol,
       baselineVolatility: 0.012,
       hoursToKickoff,
@@ -235,10 +239,10 @@ function buildRow(e: EventData, m: MarketData, i: number, now: number, books: Ma
       lineupConfirmedAt: e.view.lineupConfirmedAt,
       hoursToKickoff,
       sourceReliability: 0.9,
-      booksQuoting: quotes.size,
+      booksQuoting,
       booksTracked: tracked,
     }),
-    booksQuoting: quotes.size,
+    booksQuoting,
     booksMoving: booksMovedSince(Math.max(runs[0], last - 6 * HOUR)),
     booksMovedSinceOpen: booksMovedSince(runs[0]),
     lastUpdate: last,

@@ -106,11 +106,19 @@ describe("morning e-mail", () => {
     expect(recipients([], undefined)).toEqual([]);
   });
   it("escapes team names and says when there are no picks", () => {
-    expect(morningHtml([], 0, "https://x", "src")).toContain("ingen fodboldkampe");
+    expect(morningHtml([], 0, "https://x", "src")).toContain("Ingen bets i dag");
+  });
+  it("tells no matches apart from no bets", () => {
+    expect(morningHtml([], 0, "https://x", "src", 0)).toContain("ingen kampe de næste 24 timer");
+    expect(morningHtml([], 0, "https://x", "src", 4)).toContain("eller vi mangler deres odds fra samme opdatering");
   });
 });
 
 describe("bookmaker comparison", () => {
+  it("lists a bookmaker quoted by both feeds once, at its latest price", () => {
+    const c = compareBooks([{ book: "Pinnacle", odds: 2.0, at: 1 }, { book: "Pinnacle", odds: 2.1, at: 2 }, { book: "Unibet", odds: 1.9, at: 2 }], 1.95)!;
+    expect(c.rows.map((r) => [r.book, r.odds])).toEqual([["Pinnacle", 2.1], ["Unibet", 1.9]]);
+  });
   it("marks the best price and the ones above fair odds", () => {
     const c = compareBooks([{ book: "A", odds: 1.9 }, { book: "B", odds: 2.1 }, { book: "C", odds: 2.0 }], 1.95)!;
     expect(c.rows.map((r) => r.book)).toEqual(["B", "C", "A"]);
