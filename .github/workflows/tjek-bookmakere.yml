@@ -1,0 +1,74 @@
+# One-off, read-only check (Mads, 2026-10-07: "tjek"): which bookmakers' match-winner odds the site has stored,
+# and whether upcoming matches have Pinnacle (or Betfair Exchange) next to bet365 or bwin from the same run.
+# Runs only on pushes to this branch; prints counts and bookmaker ids, nothing else.
+
+name: Tjek bookmakere
+
+on:
+  push:
+    branches: [tjek-bookmakere]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pe-predict
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read bookmaker coverage
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          body=$(curl -sS --max-time 60 -X POST -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/pe-credentials" || true)
+          url=$(printf '%s' "$body" | jq -r '.url // empty' 2>/dev/null || true)
+          if [ -z "$url" ]; then echo "::error title=Tjek bookmakere::No database login"; exit 1; fi
+          echo "::add-mask::$url"
+          pw=$(printf '%s' "$url" | sed -E 's#^[^:]+://[^:]+:([^@]+)@.*#\1#'); [ -n "$pw" ] && echo "::add-mask::$pw"
+          export PGCONNECT_TIMEOUT=30
+          q() { psql "$url" -v ON_ERROR_STOP=1 -At -c "BEGIN READ ONLY; $1; COMMIT;" | sed -n 2p; }
+          books=$(q "WITH s AS (
+              SELECT o.\"bookmakerId\" b, o.\"observedAt\" t, sel.\"eventId\" e
+              FROM \"OddsSnapshot\" o
+              JOIN \"Selection\" sel ON sel.id = o.\"selectionId\"
+              JOIN \"Market\" m ON m.id = sel.\"marketId\" AND m.type = '1X2'
+              WHERE o.\"observedAt\" > now() - interval '14 days')
+            SELECT coalesce(json_agg(x ORDER BY x.events DESC), '[]') FROM (
+              SELECT b AS book, count(DISTINCT e) AS events, count(*) AS snapshots,
+                     to_char(max(t) AT TIME ZONE 'Europe/Copenhagen', 'MM-DD HH24:MI') AS latest
+              FROM s GROUP BY b) x")
+          echo "::notice title=1X2 books, last 14 days (CEST)::$books"
+          ever=$(q "SELECT coalesce(json_agg(x), '[]') FROM (
+              SELECT \"bookmakerId\" AS book, count(*) AS snapshots,
+                     to_char(max(\"observedAt\") AT TIME ZONE 'Europe/Copenhagen', 'YYYY-MM-DD HH24:MI') AS latest
+              FROM \"OddsSnapshot\"
+              WHERE \"bookmakerId\" ~ '(pinnacle|betfair|bet365|bwin)'
+              GROUP BY 1) x")
+          echo "::notice title=Key books, all time (CEST)::$ever"
+          upcoming=$(q "WITH up AS (
+              SELECT id, \"leagueId\" FROM \"Event\"
+              WHERE status = 'scheduled' AND kickoff > now() AND kickoff <= now() + interval '48 hours'),
+            p AS (
+              SELECT sel.\"eventId\" e, regexp_replace(o.\"bookmakerId\", '^(toa|apf)-', '') k, o.\"bookmakerId\" b, max(o.\"observedAt\") t
+              FROM \"OddsSnapshot\" o
+              JOIN \"Selection\" sel ON sel.id = o.\"selectionId\"
+              JOIN \"Market\" m ON m.id = sel.\"marketId\" AND m.type = '1X2'
+              WHERE sel.\"eventId\" IN (SELECT id FROM up) AND o.\"observedAt\" > now() - interval '6 hours'
+              GROUP BY 1, 2, 3)
+            SELECT json_build_object(
+              'upcoming48h', (SELECT count(*) FROM up),
+              'upcomingByFeed', (SELECT json_object_agg(f, n) FROM (SELECT split_part(\"leagueId\", '-', 1) f, count(*) n FROM up GROUP BY 1) z),
+              'with1x2Last6h', (SELECT count(DISTINCT e) FROM p),
+              'pinnacle', (SELECT count(DISTINCT e) FROM p WHERE k = 'pinnacle'),
+              'betfairExchange', (SELECT count(DISTINCT e) FROM p WHERE k = 'betfair_ex_eu'),
+              'bet365', (SELECT count(DISTINCT e) FROM p WHERE k = 'bet365'),
+              'bwin', (SELECT count(DISTINCT e) FROM p WHERE k = 'bwin'),
+              'referenceAndPriceSameRun', (SELECT count(DISTINCT a.e) FROM p a JOIN p c ON a.e = c.e
+                AND a.k IN ('pinnacle', 'betfair_ex_eu') AND c.k IN ('bet365', 'bwin')
+                AND abs(extract(epoch FROM a.t - c.t)) <= 600))")
+          echo "::notice title=Upcoming 48 h, prices from the last 6 h::$upcoming"
