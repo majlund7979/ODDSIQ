@@ -106,7 +106,7 @@ describe("morning e-mail", () => {
     expect(recipients([], undefined)).toEqual([]);
   });
   it("escapes team names and says when there are no picks", () => {
-    expect(morningHtml([], 0, "https://x", "src")).toContain("ingen fodboldkampe");
+    expect(morningHtml([], 0, "https://x", "src")).toContain("Ingen bets i dag");
   });
 });
 

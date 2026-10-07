@@ -16,15 +16,18 @@ export function explainPick(p: Pick): string[] {
   const i = p.insights;
   const out: string[] = [];
 
-  out.push(
-    `Vi giver "${p.outcome}" ${pct(p.probability)} chance. ` +
-      `Det svarer til fair odds på ${dec(p.fairOdds)}, og den bedste odds lige nu er ${dec(p.row.bestOdds)}${p.row.bestBook ? ` hos ${p.row.bestBook}` : ""}. ` +
-      (p.value ? "Oddsen betaler altså mere, end vores procent siger den burde." : "Oddsen betaler ikke mere, end procenten er værd, så det er et bet på sandsynlighed, ikke på værdi."),
-  );
   if (p.ev !== undefined) {
     out.push(
-      `Procenten kommer fra prediction engine'n (${p.engine}). Chance gange odds giver ${dec(100 * (1 + p.ev), 0)} kr tilbage pr. 100 kr i snit, et skøn. ` +
-        "I backtesten på ti sæsoner tabte bets valgt på den måde i gennemsnit, så der er ingen dokumenteret fordel endnu. Modelpanelet følger, om det ændrer sig.",
+      `${p.reference}s odds uden deres margin giver "${p.outcome}" ${pct(p.probability)} chance, altså fair odds på ${dec(p.fairOdds)}. ` +
+        `${p.row.bestBook} giver ${dec(p.row.bestOdds)}, ${dec(p.ev * 100, 1)} % mere${p.minOdds !== undefined ? `, og bettet holder kun, så længe oddsen er mindst ${dec(p.minOdds)}` : ""}. ` +
+        `${p.reference} regnes for en af de mest præcise priser på markedet, så den bruges som fair pris. ` +
+        "I den historiske test gav bets valgt på den måde ingen sikker fordel, og fra januar 2025 slog de ikke lukkeprisen. Det er et forsøg, som vi følger live.",
+    );
+  } else {
+    out.push(
+      `Vi giver "${p.outcome}" ${pct(p.probability)} chance. ` +
+        `Det svarer til fair odds på ${dec(p.fairOdds)}, og den bedste odds lige nu er ${dec(p.row.bestOdds)}${p.row.bestBook ? ` hos ${p.row.bestBook}` : ""}. ` +
+        (p.value ? "Oddsen betaler altså mere, end vores procent siger den burde." : "Oddsen betaler ikke mere, end procenten er værd, så det er et bet på sandsynlighed, ikke på værdi."),
     );
   }
 

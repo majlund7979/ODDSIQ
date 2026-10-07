@@ -9,12 +9,11 @@ import {
   COUNT_CATEGORIES,
   countPicks,
   couponCandidates,
-  valueBetPicks,
-  VALUE_MIN_ODDS,
   GOAL_CATEGORIES,
   lineLabel,
   marketPicks,
   PICK_COUNTS,
+  sharpPicks,
   signedPp,
   type CountPick,
   type FormGame,
@@ -43,6 +42,7 @@ import { demoShotBoard } from "@/lib/demo/player-shots";
 import { demoLivePicks } from "@/lib/demo/picks";
 import { POSITION_LABEL, SHOTS_MODEL_VERSION, topShotPicks, TYPICAL_TEAM_GOALS, type ShotPick } from "@/lib/player-shots";
 import { realShotBoard, type ShotBoard } from "@/lib/real/player-shots";
+import { SHARP_BACKTEST, SHARP_MAX_ODDS, SHARP_MIN_EV, SHARP_MIN_ODDS, SHARP_RECENT } from "@/lib/sharp";
 
 export const metadata = { title: "Dagens bedste bets · Oddsanalyse" };
 
@@ -332,7 +332,7 @@ function GoalBets({ p, home, away }: { p: Pick; home: string; away: string }) {
       </div>
       <div className="mt-1 text-xs text-muted">
         Tilbage pr. 100 kr er chance gange odds, et skøn.{" "}
-        {p.ev !== undefined ? "Dagens bedste bets foreslår value bets: prediction engine'ns chance gange den bedste odds giver over 100 kr tilbage." : "Vi foreslår altid det bet, der oftest går hjem."}
+        {p.ev !== undefined ? "Dagens bedste bets sammenligner kun vinder-oddsene med Pinnacles fair pris; mål-bets er ikke med i sammenligningen." : "Vi foreslår altid det bet, der oftest går hjem."}
       </div>
     </Fact>
   );
@@ -475,6 +475,13 @@ function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: number; 
           </div>
         </div>
       </div>
+      {p.ev !== undefined && p.minOdds !== undefined && (
+        <div className="border-t border-line bg-surface-2 px-5 py-2.5 text-sm text-ink-2">
+          {p.reference}s fair pris {dec(p.fairOdds)} · {p.row.bestBook} {dec(p.row.bestOdds)} ({p.ev >= 0 ? "+" : ""}
+          {dec(p.ev * 100, 1)} %) · <span className="font-semibold text-ink">spil kun til mindst {dec(p.minOdds)}</span>
+          {p.pricedAt !== undefined && <> · odds hentet kl. {clock(p.pricedAt)}</>}
+        </div>
+      )}
       {p.instead && (
         <div className="border-t border-line bg-surface-2 px-5 py-2.5 text-sm text-ink-2">
           Går oftere hjem til næsten samme odds: <span className="font-semibold text-ink">{p.instead.outcome}</span> · {Math.round(p.instead.probability * 100)} % · odds {dec(p.instead.odds)}
@@ -816,6 +823,22 @@ const TAB_GROUPS = [
   { title: "Statistik", ids: [...COUNT_CATEGORIES.map((c) => c.id), "straffe"] },
 ].map((g) => ({ ...g, tabs: g.ids.map((id) => TABS.find((x) => x.id === id)!).filter(Boolean) }));
 
+const month = (t: number | null) => (t === null ? "?" : new Date(t).toLocaleDateString("da-DK", { month: "long", year: "numeric", timeZone: TZ }));
+const signedPct = (x: number, d = 1) => `${x >= 0 ? "+" : "−"}${dec(Math.abs(x) * 100, d)} %`;
+
+/** The rule's historical test, with sample size, period, source and version, so the list is never read as a proven edge. */
+function SharpBacktestNote() {
+  const b = SHARP_BACKTEST;
+  const r = SHARP_RECENT;
+  return (
+    <p className="mt-3 max-w-3xl text-xs leading-relaxed text-muted">
+      Historisk test ({b.source}, {b.n.toLocaleString("da-DK")} bets, {month(b.periodFrom)} til {month(b.periodTo)}, {b.modelVersion}): afkast {signedPct(b.value.roi)} (90 %-interval{" "}
+      {signedPct(b.value.roiLow)} til {signedPct(b.value.roiHigh)}), {signedPct(b.value.clv)} mod lukkeprisen. Fra {month(r.periodFrom)} slog reglen ikke lukkeprisen ({signedPct(r.value.clv)},{" "}
+      {r.n} bets). Ingen dokumenteret fordel; vi følger resultaterne live.
+    </p>
+  );
+}
+
 function Empty({ title, text }: { title: string; text: string }) {
   return (
     <div className="rounded-[20px] bg-surface-2 px-6 py-12 text-center">
@@ -843,8 +866,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   const history = await t.recordedPicks(LEARN_DAYS);
   const allLearning = learn(history, t.dataLabel);
   const learned = allLearning.get(tab);
-  // The value bets carry the engine's own calibrated probability, so the per-type learning is not applied on top.
-  const picks = tab === "bedste" ? valueBetPicks(rows, t.now, count, t.pickContext, t.engineProb) : applyLearningToPicks(goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [], learned);
+  // The price comparison's probability is Pinnacle's price without margin, so the per-type learning is not applied on top.
+  const picks = tab === "bedste" ? sharpPicks(rows, t.now, count, t.pickContext, t.sharpBooks) : applyLearningToPicks(goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [], learned);
   const couponPool = tab === "bedste" ? applyLearningToPicks(couponCandidates(rows, t.now, t.pickContext), allLearning.get("bedste")) : [];
   const cPicks = applyLearning(countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [], learned);
   const xPicks = applyLearning(EXTRA[tab] ? EXTRA[tab](rows, t.now, count, t.pickContext) : [], learned);
@@ -879,13 +902,27 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         <h1 className="display mt-2 text-[36px] text-ink sm:text-6xl">{tab === "bedste" ? "Dagens bedste bets" : tabLabel}</h1>
         <p className="mt-3 hidden max-w-2xl text-[16px] leading-relaxed text-ink-2 sm:mt-4 sm:block sm:text-[17px]">
           {tab === "bedste"
-            ? `Value bets fra prediction engine'n i kampene de næste 24 timer: bets, hvor chancen gange den bedste odds giver mere end indsatsen tilbage, og odds er mindst ${dec(VALUE_MIN_ODDS)}. Øverst er den største forventede gevinst.`
+            ? `Forsøg: vinder-bets i kampene de næste 24 timer, hvor bet365 eller bwin betaler mindst ${dec(SHARP_MIN_EV * 100, 0)} % mere end Pinnacles odds uden margin, ved odds ${dec(SHARP_MIN_ODDS)}–${dec(SHARP_MAX_ODDS)}. Øverst er den største forskel.`
             : "De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste."}
         </p>
         {tab === "bedste" ? (
           <div className="mt-4 sm:mt-6">
             <Overview
-              top={picks[0] ? { outcome: picks[0].outcome, match: picks[0].row.match, league: picks[0].row.league, kickoff: picks[0].row.kickoff, probability: picks[0].probability, odds: picks[0].row.bestOdds } : null}
+              top={
+                picks[0]
+                  ? {
+                      outcome: picks[0].outcome,
+                      match: picks[0].row.match,
+                      league: picks[0].row.league,
+                      kickoff: picks[0].row.kickoff,
+                      probability: picks[0].probability,
+                      odds: picks[0].row.bestOdds,
+                      note: `Chance fra ${picks[0].reference}s odds uden margin. ${picks[0].row.bestBook} betaler ${dec((picks[0].ev ?? 0) * 100, 1)} % mere. Ikke en garanti.`,
+                    }
+                  : null
+              }
+              topLabel="Største prisforskel"
+              empty={scope.matches ? "Ingen bets lige nu." : "Ingen kampe de næste 24 timer."}
               matches={scope.matches}
               leagues={scope.leagues}
               nextKickoff={nextKickoff}
@@ -900,6 +937,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
             <span className="num">{clock(t.feedTime)}</span>
           </p>
         )}
+        {tab === "bedste" && <SharpBacktestNote />}
         <p className="mt-4 hidden text-xs text-muted sm:block">Procenterne bliver mere præcise, når holdopstillingen er meldt, typisk en time før kampstart.</p>
       </header>
 
@@ -1070,8 +1108,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         )
       ) : picks.length === 0 && tab === "bedste" ? (
         <Empty
-          title="Ingen value bets lige nu"
-          text={`Prediction engine'n har ingen bets med odds på mindst ${dec(VALUE_MIN_ODDS)}, hvor chancen gange odds giver mere end indsatsen tilbage, i kampene de næste 24 timer. Den dækker vinder og over/under 2,5 mål i 16 ligaer og regner kl. 07.30 og 16.30. Se de andre faner for de mest sandsynlige bets.`}
+          title="Ingen bets lige nu"
+          text={`I kampene de næste 24 timer betaler hverken bet365 eller bwin mindst ${dec(SHARP_MIN_EV * 100, 0)} % over Pinnacles fair pris ved odds ${dec(SHARP_MIN_ODDS)}–${dec(SHARP_MAX_ODDS)}, eller vi mangler Pinnacles odds fra samme opdatering. Se de andre faner for de mest sandsynlige bets.`}
         />
       ) : picks.length === 0 ? (
         <Empty

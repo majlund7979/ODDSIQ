@@ -1,6 +1,8 @@
-// Extra markets for the leagues whose match odds come from The Odds API: its
+// Extra markets and bookmakers for the leagues whose match odds come from The Odds API: its
 // free plan only covers the match winner (h2h), so over/under 1.5 and 2.5, both teams
-// score and double chance come from API-Football's odds for the same matches.
+// score and double chance come from API-Football's odds for the same matches. API-Football's
+// match-winner prices are added too, because The Odds API has no bet365 or bwin, the books
+// Dagens bedste bets compares with Pinnacle (sharp.ts).
 // Prices attach to the existing events (matched by kickoff and team names), so
 // no match is listed twice.
 
@@ -11,9 +13,9 @@ import { MARKET_SELECTIONS } from "./ingest";
 import type { FeedMarketType, FeedPrice } from "./types";
 
 const HOUR = 3_600_000;
-/** Markets taken from API-Football for these events; the match winner stays with The Odds API. */
-export const ENRICH_MARKETS: FeedMarketType[] = ["OU15", "OU25", "BTTS", "DC"];
-const NAMES: Record<string, string> = { OU15: "Total Goals 1.5", OU25: "Total Goals 2.5", BTTS: "Both Teams To Score", DC: "Double Chance" };
+/** Markets taken from API-Football for these events; its match-winner prices sit next to The Odds API's books. */
+export const ENRICH_MARKETS: FeedMarketType[] = ["1X2", "OU15", "OU25", "BTTS", "DC"];
+const NAMES: Record<string, string> = { "1X2": "Match Winner", OU15: "Total Goals 1.5", OU25: "Total Goals 2.5", BTTS: "Both Teams To Score", DC: "Double Chance" };
 /** Refresh a league's extra markets at most this often. */
 export const ENRICH_INTERVAL_MS = 5 * HOUR;
 const KICKOFF_TOLERANCE_MS = 2 * HOUR;
@@ -27,6 +29,7 @@ export interface EnrichSummary {
 }
 
 function selectionName(m: FeedMarketType, sel: string, home: string, away: string): string {
+  if (m === "1X2") return sel === "home" ? home : sel === "away" ? away : "Draw";
   if (m === "OU15") return `${sel === "over" ? "Over" : "Under"} 1.5`;
   if (m === "OU25") return `${sel === "over" ? "Over" : "Under"} 2.5`;
   if (m === "BTTS") return sel === "yes" ? "Yes" : "No";

@@ -22,6 +22,8 @@ export interface TopBet {
   kickoff: number;
   probability: number;
   odds: number | null;
+  /** Footnote under the tile; defaults to the model's estimated chance. */
+  note?: string;
 }
 
 interface DayStat {
@@ -119,8 +121,13 @@ export function Overview({
   feedTime,
   week,
   source,
+  topLabel = "Dagens sikreste bet",
+  empty = "Ingen kampe de næste 24 timer.",
 }: {
   top: TopBet | null;
+  topLabel?: string;
+  /** Shown in the first tile when there is no bet. */
+  empty?: string;
   matches: number;
   leagues: number;
   nextKickoff: number | null;
@@ -142,7 +149,7 @@ export function Overview({
 
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <Tile label="Dagens sikreste bet" className="col-span-2 lg:col-span-1" foot={top ? "Estimeret chance fra modellen og bookmakernes odds. Ikke en garanti." : undefined}>
+      <Tile label={topLabel} className="col-span-2 lg:col-span-1" foot={top ? (top.note ?? "Estimeret chance fra modellen og bookmakernes odds. Ikke en garanti.") : undefined}>
         {top ? (
           <a href="#bet-1" className="group block">
             <div className="flex items-baseline justify-between gap-3">
@@ -155,7 +162,7 @@ export function Overview({
             </div>
           </a>
         ) : (
-          <div className="text-sm text-ink-2">Ingen kampe de næste 24 timer.</div>
+          <div className="text-sm text-ink-2">{empty}</div>
         )}
       </Tile>
 

@@ -23,18 +23,23 @@ export function morningSubject(picks: Pick[], now: number): string {
   return picks.length ? `Dagens top ${picks.length}, ${day}` : `Ingen bets i dag, ${day}`;
 }
 
+const NONE = "Ingen bets i dag: i kampene de næste 24 timer betaler hverken bet365 eller bwin mindst 1 % over Pinnacles fair pris.";
+const INTRO = "Forsøg: bets, hvor bet365 eller bwin betaler mindst 1 % mere end Pinnacles odds uden margin. Den historiske test viste ingen sikker fordel.";
+/** "· spil kun til mindst 2,15" on a Dagens bedste bets pick. */
+const minOddsNote = (p: Pick) => (p.minOdds !== undefined ? ` · spil kun til mindst ${dec(p.minOdds)}` : "");
+
 export function morningText(picks: Pick[], now: number, siteUrl: string, dataLabel: string): string {
-  if (!picks.length) return `Der er ingen fodboldkampe med en analyse de næste 24 timer.\n\n${siteUrl}/picks`;
+  if (!picks.length) return `${NONE}\n\n${siteUrl}/picks`;
   const lines = picks.map((p, i) => {
     const s = stakeAdvice(p.probability, p.row.bestOdds);
     const m = oddsMove(p.row.movement, p.row.openingOdds, p.row.currentOdds);
     return [
       `${i + 1}. ${p.outcome} (${Math.round(p.probability * 100)} %, ${riskOf(p.probability).label.toLowerCase()})`,
       `   ${p.row.match.replace(" vs ", " – ")} · ${p.row.league} · ${kickoff(p.row.kickoff, now)}`,
-      `   Bedste odds ${dec(p.row.bestOdds)} hos ${p.row.bestBook} · forslag: ${pctOf(s.share)} af puljen${s.note.includes("ingen værdi") ? " (ingen værdi)" : ""}${m ? ` · odds ${m.direction === "down" ? "faldet" : "steget"} ${Math.round(m.size * 100)} %` : ""}`,
+      `   Odds ${dec(p.row.bestOdds)} hos ${p.row.bestBook}${minOddsNote(p)} · forslag: ${pctOf(s.share)} af puljen${s.note.includes("ingen værdi") ? " (ingen værdi)" : ""}${m ? ` · odds ${m.direction === "down" ? "faldet" : "steget"} ${Math.round(m.size * 100)} %` : ""}`,
     ].join("\n");
   });
-  return `${lines.join("\n\n")}\n\nSe hele analysen: ${siteUrl}/picks\n\nProcenterne er skøn, ikke garantier. Spil kun for penge, du har råd til at tabe. 18+.\nKilde: ${dataLabel}.\nSlå mailen fra under Vennerligaen: ${siteUrl}/picks/liga`;
+  return `${INTRO}\n\n${lines.join("\n\n")}\n\nSe hele analysen: ${siteUrl}/picks\n\nProcenterne er skøn, ikke garantier. Spil kun for penge, du har råd til at tabe. 18+.\nKilde: ${dataLabel}.\nSlå mailen fra under Vennerligaen: ${siteUrl}/picks/liga`;
 }
 
 export function morningHtml(picks: Pick[], now: number, siteUrl: string, dataLabel: string): string {
@@ -50,17 +55,17 @@ export function morningHtml(picks: Pick[], now: number, siteUrl: string, dataLab
 <div style="font-size:13px;color:#3d3c38;margin-top:6px">
 <b>${Math.round(p.probability * 100)} %</b> chance ·
 <span style="color:${RISK_COLOR[r.level]};font-weight:600">● ${r.label}</span> ·
-odds ${dec(p.row.bestOdds)} (${esc(p.row.bestBook)}) ·
+odds ${dec(p.row.bestOdds)} (${esc(p.row.bestBook)})${minOddsNote(p)} ·
 forslag ${pctOf(s.share)} af puljen${s.note.includes("ingen værdi") ? " (ingen værdi)" : ""}${m ? ` · odds ${m.direction === "down" ? "↓ faldet" : "↑ steget"} ${Math.round(m.size * 100)} %` : ""}
 </div></td></tr>`;
     })
     .join("");
-  const body = picks.length ? `<table style="width:100%;border-collapse:collapse">${rows}</table>` : `<p>Der er ingen fodboldkampe med en analyse de næste 24 timer.</p>`;
+  const body = picks.length ? `<table style="width:100%;border-collapse:collapse">${rows}</table>` : `<p>${NONE}</p>`;
   return `<!doctype html><html lang="da"><body style="margin:0;background:#f6f6f3;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1a1a19">
 <div style="max-width:560px;margin:0 auto;padding:24px 20px">
 <div style="font-size:13px;font-weight:700;letter-spacing:1px">Oddsanalyse</div>
 <h1 style="font-size:22px;margin:8px 0 4px">Dagens top ${picks.length || ""}</h1>
-<p style="margin:0 0 12px;color:#3d3c38;font-size:14px">Value bets fra prediction engine'n i kampene de næste 24 timer: chancen gange den bedste odds giver mere end indsatsen tilbage.</p>
+<p style="margin:0 0 12px;color:#3d3c38;font-size:14px">${INTRO}</p>
 ${body}
 <p style="margin:20px 0"><a href="${esc(siteUrl)}/picks" style="background:#1f6fd1;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">Se hele analysen</a></p>
 <p style="font-size:12px;color:#77756f;line-height:1.5">Procenterne er skøn, ikke garantier. Spil kun for penge, du har råd til at tabe. 18+. Kilde: ${esc(dataLabel)}.<br>
