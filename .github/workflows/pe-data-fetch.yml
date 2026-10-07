@@ -14,21 +14,27 @@ permissions:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Download CSVs
         run: |
+          UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+          probe=$(curl -sS -A "$UA" -o probe.csv -w "%{http_code} %{size_download} %{content_type}" "https://www.football-data.co.uk/mmz4281/2425/E0.csv" || true)
+          echo "::notice title=probe::$probe $(head -c 120 probe.csv | tr -d '\r\n,' )"
           mkdir -p fd/main fd/new
+          ok=0; bad=0
           for s in 1213 1314 1415 1516 1617 1718 1819 1920 2021 2122 2223 2324 2425 2526; do
             for d in E0 E1 D1 D2 SP1 SP2 I1 I2 F1 F2 N1 P1 B1 SC0 T1 G1; do
-              curl -sS -f --retry 3 -o "fd/main/${d}_${s}.csv" "https://www.football-data.co.uk/mmz4281/${s}/${d}.csv" || echo "missing ${d} ${s}"
-              sleep 0.3
+              code=$(curl -sS -A "$UA" --retry 3 -o "fd/main/${d}_${s}.csv" -w "%{http_code}" "https://www.football-data.co.uk/mmz4281/${s}/${d}.csv" || echo 000)
+              if [ "$code" = "200" ] && [ -s "fd/main/${d}_${s}.csv" ]; then ok=$((ok+1)); else bad=$((bad+1)); echo "::warning::${d} ${s} http ${code}"; rm -f "fd/main/${d}_${s}.csv"; fi
+              sleep 0.5
             done
           done
           for c in DNK SWE NOR AUT SWZ POL; do
-            curl -sS -f --retry 3 -o "fd/new/${c}.csv" "https://www.football-data.co.uk/new/${c}.csv" || echo "missing ${c}"
+            curl -sS -f -A "$UA" --retry 3 -o "fd/new/${c}.csv" "https://www.football-data.co.uk/new/${c}.csv" || echo "::warning::missing ${c}"
           done
-          ls fd/main | wc -l; du -sh fd
+          echo "::notice title=files::ok=${ok} bad=${bad} size=$(du -sh fd | cut -f1)"
+          test "$ok" -gt 100
       - name: Save archive on pe-data
         run: |
           tar czf football-data.tar.gz fd
