@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { NavItem } from "./nav";
+import { SIMPLE_NAV, type NavItem } from "./nav";
 
 const ICONS: Record<NavItem["icon"], React.ReactNode> = {
   bets: <path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7L12 3z" />,
@@ -54,16 +54,21 @@ function activeHref(pathname: string, items: NavItem[]) {
   return items.filter((i) => pathname === i.href || pathname.startsWith(`${i.href}/`)).sort((a, b) => b.href.length - a.href.length)[0]?.href;
 }
 
+/**
+ * The menu in the header from 1280 px. The owner's longer menu packs its items closer so the header fits the page
+ * width; should it still not fit, the menu scrolls sideways instead of widening the page.
+ */
 export function TopNav({ items }: { items: NavItem[] }) {
   const active = activeHref(usePathname(), items);
+  const long = items.length > SIMPLE_NAV.length;
   return (
-    <nav aria-label="Menu" className="hidden items-center gap-1 rounded-full bg-surface-2 p-1 xl:flex">
+    <nav aria-label="Menu" className={`scroll-fade-x hidden min-w-0 items-center overflow-x-auto rounded-full bg-surface-2 p-1 [scrollbar-width:none] xl:flex ${long ? "" : "gap-1"}`}>
       {items.map((i) => (
         <Link
           key={i.href}
           href={i.href}
           aria-current={i.href === active ? "page" : undefined}
-          className={`whitespace-nowrap rounded-full px-3 py-2 text-sm font-semibold transition-colors 2xl:px-4 2xl:text-[15px] ${i.href === active ? "bg-lime text-accent" : "text-ink-2 hover:bg-surface-3 hover:text-ink"}`}
+          className={`whitespace-nowrap rounded-full py-2 text-sm font-semibold transition-colors ${long ? "px-2" : "px-3"} ${i.href === active ? "bg-lime text-accent" : "text-ink-2 hover:bg-surface-3 hover:text-ink"}`}
         >
           {i.label}
         </Link>

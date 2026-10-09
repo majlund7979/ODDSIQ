@@ -29,10 +29,9 @@ export default async function TerminalLayout({ children }: Readonly<{ children: 
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-page">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 xl:gap-5">
-          <Logo />
-          {DEMO_MODE && <Badge tone="warning" className="whitespace-nowrap">DEMO DATA</Badge>}
-          <div className="ml-auto flex items-center gap-2 xl:gap-3">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
+          <Logo badge={DEMO_MODE ? <Badge tone="warning" className="whitespace-nowrap">DEMO DATA</Badge> : null} />
+          <div className="ml-auto flex min-w-0 items-center gap-2 xl:gap-3">
             <TopNav items={items.filter((i) => i !== ACCOUNT_NAV)} />
             {user && <InviteBar count={count} />}
             {user && (

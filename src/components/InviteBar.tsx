@@ -1,6 +1,7 @@
 "use client";
 
-// Top right of the header: how many have signed up, and a button that e-mails a friend an invite.
+// Top right of the header: how many have signed up (left out below 360 px, where the
+// header has no room for it), and a button that e-mails a friend an invite.
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { inviteFriend, type InviteState } from "@/app/invite-actions";
@@ -41,10 +42,10 @@ export function InviteBar({ count }: { count: number | null }) {
     <div ref={box} className="relative">
       <div className="flex h-10 items-center gap-1 rounded-full border border-line bg-surface-2 p-1 pl-3">
         {count !== null && (
-          <span className="flex items-center gap-1.5 pr-1 text-sm text-ink-2" title={`Live tal: ${count} konti oprettet i alt, fra vores database.`}>
+          <span className="hidden items-center gap-1.5 pr-1 text-sm text-ink-2 min-[360px]:flex" title={`Live tal: ${count} konti oprettet i alt, fra vores database.`}>
             {people}
             <span className="num font-semibold text-ink">{count}</span>
-            <span className="hidden 2xl:inline">tilmeldt</span>
+            <span className="sr-only"> tilmeldt</span>
           </span>
         )}
         <button
