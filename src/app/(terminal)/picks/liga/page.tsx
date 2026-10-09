@@ -12,6 +12,7 @@ import { readFriendBets } from "@/lib/real/friend-bets";
 import { readFriendCoupons } from "@/lib/real/friend-coupons";
 import { terminal } from "@/lib/terminal";
 import { Tile } from "@/components/picks/charts";
+import { PendingButton } from "@/components/forms";
 import { TipsStandings } from "@/components/tips/TipsStandings";
 import { loadTips, modelWeekTips } from "@/lib/tips-data";
 import { previousWeek, weekOf } from "@/lib/tips";
@@ -234,9 +235,9 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
                   <form action={deleteBet}>
                     <input type="hidden" name="id" value={b.id} />
                     <input type="hidden" name="back" value={back} />
-                    <button type="submit" className="text-xs text-muted hover:text-critical" aria-label={b.legs ? "Slet kupon" : "Slet bet"}>
+                    <PendingButton className="text-xs text-muted hover:text-critical" aria-label={b.legs ? "Slet kupon" : "Slet bet"} confirm={b.legs ? "Slet kuponen?" : "Slet bettet?"}>
                       Slet
-                    </button>
+                    </PendingButton>
                   </form>
                 )}
                 {b.legs && (
@@ -276,9 +277,9 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
               <input type="checkbox" name="morningEmail" defaultChecked={profile.morningEmail} className="h-4 w-4 accent-[var(--accent)]" />
               Send mig dagens top 5 på mail hver morgen
             </label>
-            <button type="submit" className="rounded-full bg-lime px-4 py-1.5 text-sm font-semibold text-accent hover:brightness-125">
+            <PendingButton className="rounded-full bg-lime px-4 py-1.5 text-sm font-semibold text-accent hover:brightness-125">
               Gem
-            </button>
+            </PendingButton>
           </form>
         </section>
       )}

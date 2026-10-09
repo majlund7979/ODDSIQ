@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { removeFriend } from "@/app/auth-actions";
 import { FriendForm } from "@/components/FriendForm";
+import { PendingButton } from "@/components/forms";
 import { inviteOnly, parseEmails, requireOwner } from "@/lib/auth/friends";
 import { db } from "@/lib/db";
 import { siteOrigin } from "@/lib/site-url";
@@ -53,9 +54,9 @@ export default async function FriendsPage() {
                 </div>
                 <form action={removeFriend}>
                   <input type="hidden" name="email" value={f.email} />
-                  <button type="submit" className="rounded-lg border border-line-strong px-3 py-1.5 text-xs text-ink-2 hover:border-critical/60 hover:text-serious">
+                  <PendingButton className="rounded-lg border border-line-strong px-3 py-1.5 text-xs text-ink-2 hover:border-critical/60 hover:text-serious" confirm={`Fjern adgangen for ${f.email}?`}>
                     Fjern
-                  </button>
+                  </PendingButton>
                 </form>
               </li>
             ))}

@@ -21,7 +21,7 @@ export function MyCoupon({ canPlay = false }: { canPlay?: boolean }) {
   if (!m) {
     if (!state.ok) return null;
     return (
-      <div role="status" className="sticky bottom-24 z-20 ml-auto flex w-full max-w-md items-center gap-3 rounded-full border border-good/40 bg-surface-2/95 px-4 py-2 text-sm shadow-lg backdrop-blur lg:bottom-4">
+      <div role="status" className="sticky bottom-24 z-20 ml-auto flex w-full max-w-md items-center gap-3 rounded-full border border-good/40 bg-surface-2/95 px-4 py-2 text-sm shadow-lg backdrop-blur xl:bottom-4">
         <span className="text-good">✓</span>
         <span className="min-w-0 flex-1 truncate">Kuponen er spillet</span>
         <Link href="/picks/liga" className="shrink-0 font-semibold text-accent hover:underline">
@@ -31,8 +31,12 @@ export function MyCoupon({ canPlay = false }: { canPlay?: boolean }) {
     );
   }
   const ret = m.expectedReturn === null ? null : Math.round(m.expectedReturn * 100);
+  const clear = () => {
+    if (!window.confirm("Ryd hele kuponen?")) return;
+    clearLegs();
+  };
   return (
-    <details className="group sticky bottom-24 z-20 ml-auto w-full max-w-md overflow-hidden rounded-full border border-line-strong bg-surface-2/95 shadow-lg backdrop-blur open:rounded-[20px] lg:bottom-4">
+    <details className="group sticky bottom-24 z-20 ml-auto w-full max-w-md overflow-hidden rounded-full border border-line-strong bg-surface-2/95 shadow-lg backdrop-blur open:rounded-[20px] xl:bottom-4">
       <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-2 text-sm">
         <span className="num flex h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-bold text-white">{m.legs}</span>
         <span className="font-semibold">Din kupon</span>
@@ -59,7 +63,7 @@ export function MyCoupon({ canPlay = false }: { canPlay?: boolean }) {
               {pct(l.probability)}
               {l.odds ? ` · ${dec(l.odds)}` : ""}
             </span>
-            <button type="button" onClick={() => removeLeg(l.key)} aria-label={`Fjern ${l.outcome}`} className="text-muted hover:text-critical">
+            <button type="button" onClick={() => removeLeg(l.key)} aria-label={`Fjern ${l.outcome}`} className="-my-2 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center text-muted hover:text-critical">
               ×
             </button>
           </li>
@@ -90,7 +94,7 @@ export function MyCoupon({ canPlay = false }: { canPlay?: boolean }) {
           {m.missingOdds ? ` (${m.missingOdds} uden odds)` : ""}
           {ret !== null ? ` · snit ${ret} kr pr. 100 kr` : ""}. Fair samlet odds efter vores procenter: {dec(m.fairOdds)}. Skøn, ikke garantier.
         </p>
-        <button type="button" onClick={clearLegs} className="shrink-0 text-xs font-medium text-ink-2 hover:text-ink">
+        <button type="button" onClick={clear} className="-my-1.5 -mr-2 shrink-0 px-2 py-1.5 text-xs font-medium text-ink-2 hover:text-ink">
           Ryd
         </button>
       </div>
