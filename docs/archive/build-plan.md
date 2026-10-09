@@ -1,3 +1,5 @@
+> Historical: the original ODDSIQ terminal plan. The terminal was retired on 2026-10-02; see the README for the site as it is now.
+
 # ODDSIQ — build plan (from scratch)
 
 Audience: serious football/sports fans who want to understand markets, not tipsters.

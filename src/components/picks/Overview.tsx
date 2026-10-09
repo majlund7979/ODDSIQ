@@ -1,4 +1,4 @@
-// The dashboard strip at the top of Dagens bedste bets: today's safest bet, what was
+// The dashboard strip at the top of Dagens bedste bets: today's top bet, what was
 // analysed, and how the last seven days went, each with a small day-by-day chart.
 
 import Link from "next/link";
