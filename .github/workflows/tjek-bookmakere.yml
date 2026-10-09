@@ -89,14 +89,14 @@ jobs:
         run: |
           for f in out/0-now.txt out/1-books-14d.txt out/2-key-books-all-time.txt out/3-runs-48h.txt out/5-sides.txt; do
             t=$(basename "$f" .txt)
-            msg=$(head -c 9000 "$f" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            msg=$(head -c 3900 "$f" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
             echo "::notice title=$t::$msg"
           done
           echo "::notice title=4-prices lines::$(wc -l < out/4-prices.txt)"
 
       - name: Report prices part 1
         run: |
-          split -C 8000 -d -a 2 out/4-prices.txt out/p-
+          split -C 3900 -d -a 2 out/4-prices.txt out/p-
           for f in $(ls out/p-* | head -9); do
             echo "::notice title=$(basename "$f")::$(sed 's/%/%25/g' "$f" | awk '{printf "%s%%0A", $0}')"
           done
