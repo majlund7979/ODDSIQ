@@ -35,9 +35,6 @@ function freshness(now: number, at: number | undefined, freshMin: number, staleM
 
 const points: Record<Freshness, number> = { Fresh: 1, Aging: 0.6, Stale: 0.2, Missing: 0 };
 
-export const DATA_QUALITY_DEFINITION =
-  "Data Quality (0–100) weights odds freshness (35%), bookmaker coverage (20%), statistics freshness (15%), injury news freshness (10%), lineup status near kickoff (10%) and historical source reliability (10%).";
-
 export function dataQuality(i: DataQualityInput): DataQualityResult {
   const odds = freshness(i.now, i.oddsUpdatedAt, 2, 15);
   const statistics = freshness(i.now, i.statsUpdatedAt, 60, 24 * 60);

@@ -1,14 +1,6 @@
-import type { ModelFamily, ModelVersion, SportId } from "@/lib/domain/types";
+import type { ModelVersion, SportId } from "@/lib/domain/types";
 
 const d = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
-
-export const MODEL_FAMILIES: ModelFamily[] = [
-  { id: "poisson", name: "Poisson", kind: "poisson", description: "Bivariate Poisson goal model on attack/defence ratings (score-based model for non-football sports)." },
-  { id: "xgboost", name: "XGBoost", kind: "gbm", description: "Gradient-boosted trees on form, xG, schedule and availability features." },
-  { id: "elo", name: "Elo", kind: "elo", description: "Margin-adjusted Elo ratings with home advantage." },
-  { id: "neural", name: "Neural", kind: "neural", description: "Feed-forward network on rolling team and player features." },
-  { id: "ensemble", name: "Ensemble", kind: "ensemble", description: "Weighted blend of the component models; the only model recorded in the prediction ledger." },
-];
 
 export const COMPONENT_MODELS = [
   { familyId: "poisson", versionId: "poisson-v2.1", weight: 0.25 },

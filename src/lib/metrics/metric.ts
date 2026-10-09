@@ -32,6 +32,3 @@ export function periodOf(timestamps: number[]): { periodFrom: number | null; per
   }
   return { periodFrom: min, periodTo: max };
 }
-
-/** Minimum sample before a subgroup statistic is allowed to raise a warning. */
-export const MIN_SAMPLE_FOR_WARNING = 200;
