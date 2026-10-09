@@ -4,7 +4,7 @@
 // fixtures. Returns numbers only, never personal data.
 // Call with `Authorization: Bearer $CRON_SECRET`.
 
-import { timingSafeEqual } from "node:crypto";
+import { cronAuthorized, lastLine } from "@/lib/auth/cron";
 import { DEMO_MODE } from "@/lib/data";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { PICK_WINDOW_MS } from "@/lib/picks";
@@ -23,13 +23,6 @@ import { clubEloCovers, clubEloLastError, clubEloRatings, findClub } from "@/lib
 
 export const maxDuration = 60;
 
-function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  const got = req.headers.get("authorization") ?? "";
-  const want = `Bearer ${secret}`;
-  return Boolean(secret) && got.length === want.length && timingSafeEqual(Buffer.from(got), Buffer.from(want));
-}
-
 async function timed<T>(f: () => Promise<T>): Promise<[T, number]> {
   const t = Date.now();
   const r = await f();
@@ -37,7 +30,6 @@ async function timed<T>(f: () => Promise<T>): Promise<[T, number]> {
 }
 
 const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
-const message = (e: unknown) => (e instanceof Error ? e.message.trim().split("\n").at(-1)! : String(e));
 
 /** Whether the Resend key works, without sending anything: Resend answers 401 to a bad key on any endpoint. */
 async function mailCheck(): Promise<Record<string, unknown>> {
@@ -50,13 +42,13 @@ async function mailCheck(): Promise<Record<string, unknown>> {
     // A sending-only key may not list domains (restricted_api_key); that still proves the key is valid.
     r.resend = res.ok ? { http: res.status, domains: body.data?.map((d) => `${d.name} ${d.status}`) ?? [] } : { http: res.status, error: body.name ?? null, message: body.message?.slice(0, 160) ?? null };
   } catch (e) {
-    r.resend = `error ${message(e)}`;
+    r.resend = `error ${lastLine(e)}`;
   }
   return r;
 }
 
 export async function GET(req: Request): Promise<Response> {
-  if (!authorized(req)) return new Response("Unauthorized.", { status: 401 });
+  if (!cronAuthorized(req)) return new Response("Unauthorized.", { status: 401 });
   const now = Date.now();
   const out: Record<string, unknown> = {
     demoMode: DEMO_MODE,
@@ -112,7 +104,7 @@ export async function GET(req: Request): Promise<Response> {
       (r) => `${r.startedAt.toISOString().slice(5, 16)} ${r.provider}/${r.kind} events=${r.events} snaps=${r.snapshots} credits=${r.creditsUsed ?? "?"}/${r.creditsRemaining ?? "?"}${r.error ? ` error=${r.error.slice(0, 120)}` : ""}`,
     );
   } catch (e) {
-    out.databaseError = message(e);
+    out.databaseError = lastLine(e);
   }
 
   // Upcoming kickoffs per league from the odds feed (free on The Odds API): a scheduled run only buys odds for a
@@ -126,7 +118,7 @@ export async function GET(req: Request): Promise<Response> {
           const t = (await oddsFeed.upcoming(k)).data.filter((x) => x > now).sort((a, b) => a - b);
           return `${k}: ${t.length} upcoming, ${t.filter((x) => x <= now + windowMs).length} inside ${windowMs / 3_600_000} h, next ${t[0] ? new Date(t[0]).toISOString().slice(0, 16) : "none"}`;
         } catch (e) {
-          return `${k}: error ${message(e)}`;
+          return `${k}: error ${lastLine(e)}`;
         }
       }),
     );
@@ -144,12 +136,12 @@ export async function GET(req: Request): Promise<Response> {
           const t = (await afFeed.upcoming(c.key)).data.sort((a, b) => a - b);
           lines.push(`${c.key} (season ${afFeed.seasons.get(c.key)}): ${t.length} in 3 days, ${t.filter((x) => x <= now + AF_ODDS_PLAN.windowMs).length} inside 48 h, next ${t[0] ? new Date(t[0]).toISOString().slice(0, 16) : "none"}`);
         } catch (e) {
-          lines.push(`${c.key}: error ${message(e)}`);
+          lines.push(`${c.key}: error ${lastLine(e)}`);
         }
       }
       out.afOddsUpcoming = lines;
     } catch (e) {
-      out.afOddsUpcoming = `error ${message(e)}`;
+      out.afOddsUpcoming = `error ${lastLine(e)}`;
     }
   }
 
@@ -163,7 +155,7 @@ export async function GET(req: Request): Promise<Response> {
         const r = await feed.fixtures(league, season, isoDay(now - 86_400_000), isoDay(now + 3 * 86_400_000));
         return { season, fixtures: r.data.length, first: r.data[0] ? `${r.data[0].home} vs ${r.data[0].away}` : null, left: r.quota.remaining };
       } catch (e) {
-        return { season, error: message(e) };
+        return { season, error: lastLine(e) };
       }
     };
     out.statsProbe = { league: key, from: isoDay(now - 86_400_000), to: isoDay(now + 3 * 86_400_000), results: [await probe(seasonFor(now)), await probe(seasonFor(now) - 1)] };
@@ -178,7 +170,7 @@ export async function GET(req: Request): Promise<Response> {
         const body = (await res.json()) as { results?: number; errors?: unknown; response?: unknown[] };
         return { http: res.status, results: body.results ?? null, errors: body.errors ?? null, response: body.response ?? [] };
       } catch (e) {
-        return { error: message(e), response: [] };
+        return { error: lastLine(e), response: [] };
       }
     };
     const leagueInfo = await raw("/leagues", { id: league });
@@ -211,7 +203,7 @@ export async function GET(req: Request): Promise<Response> {
       out.clubElo = { clubs: clubs.ratings.length, date: isoDay(clubs.date), teams: teams.size, unmatched: unmatched.slice(0, 60) };
     }
   } catch (e) {
-    out.clubElo = `error ${message(e)}`;
+    out.clubElo = `error ${lastLine(e)}`;
   }
   // API-Football /predictions: fetches up to three due matches (so a run shows the live answer), then what is stored.
   try {
@@ -224,7 +216,7 @@ export async function GET(req: Request): Promise<Response> {
       out.afPredictions = { run, stored: stored.length, usable: usable.length, latest: last ? { fixtureId: last.fixtureId, percent: last.percent, comparisonKeys: last.comparison?.length ?? 0 } : null };
     } else out.afPredictions = "no STATS_API_KEY or database";
   } catch (e) {
-    out.afPredictions = `error ${message(e)}`;
+    out.afPredictions = `error ${lastLine(e)}`;
   }
   // Top scorers for the goal lines: fetches a couple of teams' last matches, then how many upcoming matches have both teams' numbers.
   try {
@@ -244,7 +236,7 @@ export async function GET(req: Request): Promise<Response> {
       };
     } else out.scorers = "no STATS_API_KEY or database";
   } catch (e) {
-    out.scorers = `error ${message(e)}`;
+    out.scorers = `error ${lastLine(e)}`;
   }
   // Lineups for matches around kickoff: whether each is matched to an API-Football fixture and has lineups stored.
   try {
@@ -272,7 +264,7 @@ export async function GET(req: Request): Promise<Response> {
     };
     return Response.json({ picksWeek, resultsVisitAt: resultsVisit?.fetchedAt.toISOString() ?? null, lineupsVisitAt: visit?.fetchedAt.toISOString() ?? null, lineupsNear, ...out });
   } catch (e) {
-    out.lineupsError = message(e);
+    out.lineupsError = lastLine(e);
   }
   return Response.json(out);
 }

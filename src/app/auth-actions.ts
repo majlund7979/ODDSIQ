@@ -10,6 +10,7 @@ import { ACCOUNTS_ENABLED, createSession, currentUser, destroySession, newUserId
 import { BILLING_ENABLED } from "@/lib/billing/plans";
 import { createCheckoutSession, createPortalSession } from "@/lib/billing/stripe";
 import { db } from "@/lib/db";
+import { siteOrigin } from "@/lib/site-url";
 
 export interface AuthState {
   error?: string;
@@ -65,16 +66,11 @@ export async function signOut(): Promise<void> {
   redirect("/login");
 }
 
-function appUrl(h: Headers): string {
-  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
-  return `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
-}
-
 export async function startCheckout(): Promise<void> {
   const user = await currentUser();
   if (!user) redirect("/login?next=/account");
   if (!BILLING_ENABLED) redirect("/account?billing=unavailable");
-  const url = await createCheckoutSession({ userId: user.id, email: user.email, customerId: user.stripeCustomerId, appUrl: appUrl(await headers()) });
+  const url = await createCheckoutSession({ userId: user.id, email: user.email, customerId: user.stripeCustomerId, appUrl: await siteOrigin() });
   redirect(url);
 }
 
@@ -82,7 +78,7 @@ export async function openBillingPortal(): Promise<void> {
   const user = await currentUser();
   if (!user) redirect("/login?next=/account");
   if (!BILLING_ENABLED || !user.stripeCustomerId) redirect("/account?billing=unavailable");
-  redirect(await createPortalSession(user.stripeCustomerId, appUrl(await headers())));
+  redirect(await createPortalSession(user.stripeCustomerId, await siteOrigin()));
 }
 
 export interface FriendState {

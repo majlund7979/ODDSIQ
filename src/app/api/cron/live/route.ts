@@ -4,7 +4,7 @@
 // when the credits left fall below ODDS_LIVE_RESERVE; otherwise it returns at
 // once without spending anything.
 
-import { timingSafeEqual } from "node:crypto";
+import { cronAuthorized, lastLine } from "@/lib/auth/cron";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { closeAndSettle } from "@/lib/model/pipeline";
 import { configuredFeed, feedConfig, liveConfig, liveRunDecision } from "@/lib/providers/config";
@@ -12,15 +12,8 @@ import { inPlayCompetitions, ingest } from "@/lib/providers/ingest";
 
 export const maxDuration = 120;
 
-function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  const got = req.headers.get("authorization") ?? "";
-  const want = `Bearer ${secret}`;
-  return Boolean(secret) && got.length === want.length && timingSafeEqual(Buffer.from(got), Buffer.from(want));
-}
-
 export async function GET(req: Request): Promise<Response> {
-  if (!authorized(req)) return new Response("Unauthorized.", { status: 401 });
+  if (!cronAuthorized(req)) return new Response("Unauthorized.", { status: 401 });
   const feed = configuredFeed();
   if (!feed || !DATABASE_CONFIGURED) return Response.json({ ok: false, error: "Set ODDS_API_KEY and DATABASE_URL to ingest odds." }, { status: 503 });
   const now = Date.now();
@@ -35,7 +28,7 @@ export async function GET(req: Request): Promise<Response> {
   try {
     settled = await closeAndSettle(prisma, now);
   } catch (e) {
-    settled = { error: e instanceof Error ? e.message.trim().split("\n").at(-1)! : String(e) };
+    settled = { error: lastLine(e) };
   }
   const ok = !summary.error && !("error" in settled);
   return Response.json({ ok, ...summary, settled }, { status: ok ? 200 : 502 });

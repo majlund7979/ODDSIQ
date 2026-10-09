@@ -2,7 +2,7 @@
 // (GitHub Actions) with `Authorization: Bearer $CRON_SECRET`. Sends at most
 // once per Copenhagen day; `?force=1` sends again.
 
-import { timingSafeEqual } from "node:crypto";
+import { cronAuthorized } from "@/lib/auth/cron";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { MAIL_CONFIGURED, sendMails } from "@/lib/mail";
@@ -12,15 +12,8 @@ import { terminal } from "@/lib/terminal";
 
 export const maxDuration = 60;
 
-function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  const got = req.headers.get("authorization") ?? "";
-  const want = `Bearer ${secret}`;
-  return Boolean(secret) && got.length === want.length && timingSafeEqual(Buffer.from(got), Buffer.from(want));
-}
-
 export async function GET(req: Request): Promise<Response> {
-  if (!authorized(req)) return new Response("Unauthorized.", { status: 401 });
+  if (!cronAuthorized(req)) return new Response("Unauthorized.", { status: 401 });
   // Not set up yet is not a failure: the daily job just reports it.
   if (!MAIL_CONFIGURED) return Response.json({ ok: true, skipped: "Set RESEND_API_KEY to send the morning e-mail." });
   const t = await terminal({ fresh: true });

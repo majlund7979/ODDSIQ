@@ -1,5 +1,4 @@
-import { isInvited } from "@/lib/auth/friends";
-import { ACCOUNTS_ENABLED, currentUser } from "@/lib/auth/session";
+import { friendRequestAllowed } from "@/lib/auth/friends";
 import { DEMO_MODE } from "@/lib/data";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { demoLivePicks } from "@/lib/demo/picks";
@@ -7,10 +6,7 @@ import { livePicks } from "@/lib/live/scores";
 
 /** Live scores for the picks being played now; the picks page polls this every minute. */
 export async function GET(request: Request) {
-  if (ACCOUNTS_ENABLED) {
-    const user = await currentUser();
-    if (!user || !(await isInvited(user.email))) return Response.json({ items: [] }, { status: 401 });
-  }
+  if (!(await friendRequestAllowed())) return Response.json({ items: [] }, { status: 401 });
   const category = (new URL(request.url).searchParams.get("type") ?? "bedste").slice(0, 20);
   const now = Date.now();
   try {

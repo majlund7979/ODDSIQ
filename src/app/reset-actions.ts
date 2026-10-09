@@ -8,6 +8,7 @@ import { createReset, resetMail, consumeReset } from "@/lib/auth/reset";
 import { ACCOUNTS_ENABLED, createSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { MAIL_CONFIGURED, sendMails } from "@/lib/mail";
+import { siteOrigin } from "@/lib/site-url";
 
 export interface ResetState {
   error?: string;
@@ -16,12 +17,6 @@ export interface ResetState {
 }
 
 const TOO_MANY = "For mange forsøg. Prøv igen om 15 minutter.";
-
-async function origin(): Promise<string> {
-  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
-  const h = await headers();
-  return `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
-}
 
 /** Sends a link when the account exists. The answer is the same either way, so the form does not reveal who has an account. */
 export async function requestReset(_: ResetState, formData: FormData): Promise<ResetState> {
@@ -35,7 +30,7 @@ export async function requestReset(_: ResetState, formData: FormData): Promise<R
   if (user && (await isInvited(email))) {
     const token = await createReset(user.id);
     if (token) {
-      const { error } = await sendMails([resetMail({ to: email, link: `${await origin()}/login/ny-kode?token=${token}` })]);
+      const { error } = await sendMails([resetMail({ to: email, link: `${await siteOrigin()}/login/ny-kode?token=${token}` })]);
       if (error) console.error(`password reset mail failed: ${error}`);
     }
   }

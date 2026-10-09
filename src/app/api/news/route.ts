@@ -1,13 +1,9 @@
-import { isInvited } from "@/lib/auth/friends";
-import { ACCOUNTS_ENABLED, currentUser } from "@/lib/auth/session";
+import { friendRequestAllowed } from "@/lib/auth/friends";
 import { teamNews } from "@/lib/news/news";
 
 /** Team headlines for one match, fetched when a visitor opens a bet's analysis. */
 export async function GET(request: Request) {
-  if (ACCOUNTS_ENABLED) {
-    const user = await currentUser();
-    if (!user || !(await isInvited(user.email))) return Response.json({ items: [] }, { status: 401 });
-  }
+  if (!(await friendRequestAllowed())) return Response.json({ items: [] }, { status: 401 });
   const url = new URL(request.url);
   const home = (url.searchParams.get("home") ?? "").slice(0, 80);
   const away = (url.searchParams.get("away") ?? "").slice(0, 80);
