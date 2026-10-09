@@ -22,7 +22,8 @@ export interface ClosingLine {
   selections: { selectionId: string; medianOdds: number; fairProbability: number }[];
 }
 
-const median = (xs: number[]) => {
+/** The middle value, or the mean of the two middle values. */
+export const median = (xs: number[]) => {
   const s = [...xs].sort((a, b) => a - b);
   const m = s.length >> 1;
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;

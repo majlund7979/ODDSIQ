@@ -12,6 +12,17 @@ export interface Mail {
   text: string;
 }
 
+export const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+/** The frame every e-mail shares: the page, a centred column `maxWidth` pixels wide and the Oddsanalyse name above `inner`. */
+export function emailShell(inner: string, { maxWidth }: { maxWidth: number }): string {
+  return `<!doctype html><html lang="da"><body style="margin:0;background:#f6f6f3;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1a1a19">
+<div style="max-width:${maxWidth}px;margin:0 auto;padding:24px 20px">
+<div style="font-size:13px;font-weight:700;letter-spacing:1px">Oddsanalyse</div>
+${inner}
+</div></body></html>`;
+}
+
 /** Resend's default limit is 2 requests per second. */
 const GAP_MS = 550;
 
