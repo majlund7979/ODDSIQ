@@ -7,10 +7,10 @@ import { useBankroll } from "./bankroll";
 export function StakeHint({ share, note, reason }: { share: number; note: string; reason: string }) {
   const bankroll = useBankroll();
   return (
-    <span className="flex items-baseline gap-1.5 text-sm" title={reason}>
+    <span className="flex flex-wrap items-baseline gap-x-1.5 text-sm" title={reason}>
       <span className="text-ink-2">Forslag:</span>
       <span className="num font-semibold">{share > 0 ? `${roundStake(bankroll * share)} kr` : "spil ikke"}</span>
-      <span className="hidden text-xs text-muted sm:inline">({note})</span>
+      <span className="text-xs text-muted">({note})</span>
     </span>
   );
 }

@@ -18,7 +18,7 @@ const TONE: Record<LiveTone, { icon: string; label: string; dot: string }> = {
   unknown: { icon: "?", label: "Afgøres senere", dot: "bg-surface-3 text-ink-2" },
 };
 
-export function LiveNow({ type, initial }: { type: string; initial: LivePick[] }) {
+export function LiveNow({ type, initial, source }: { type: string; initial: LivePick[]; source: string }) {
   const [items, setItems] = useState(initial);
   useEffect(() => {
     let alive = true;
@@ -41,10 +41,10 @@ export function LiveNow({ type, initial }: { type: string; initial: LivePick[] }
   return (
     <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
       <div className="flex items-baseline justify-between border-b border-line px-5 py-3">
-        <span className="flex items-center gap-2 text-sm font-semibold">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
           <span className="h-2 w-2 rounded-full bg-critical" aria-hidden />I gang nu
-        </span>
-        <span className="text-xs text-muted">opdateres hvert minut · API-Football</span>
+        </h2>
+        <span className="text-xs text-muted">opdateres hvert minut · {source}</span>
       </div>
       <ul className="divide-y divide-line">
         {items.map((p) => {

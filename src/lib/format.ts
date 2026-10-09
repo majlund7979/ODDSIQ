@@ -1,58 +1,30 @@
-export const fmtOdds = (o: number | null | undefined) => (o == null || Number.isNaN(o) ? "—" : o.toFixed(2));
+// Danish numbers and dates in Copenhagen time. Pure, so client components can
+// use it too.
 
-export const fmtPct = (x: number | null | undefined, digits = 1) =>
-  x == null || Number.isNaN(x) ? "—" : `${(x * 100).toFixed(digits)}%`;
+export const TZ = "Europe/Copenhagen";
 
-export const fmtSignedPct = (x: number | null | undefined, digits = 1) =>
-  x == null || Number.isNaN(x) ? "—" : `${x >= 0 ? "+" : "−"}${Math.abs(x * 100).toFixed(digits)}%`;
+const DAY_KEY = new Intl.DateTimeFormat("en-CA", { timeZone: TZ });
 
-export const fmtPp = (x: number | null | undefined, digits = 1) =>
-  x == null || Number.isNaN(x) ? "—" : `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(digits)} pp`;
+/** The Copenhagen calendar day, e.g. "2026-10-08". */
+export const dayKey = (t: number) => DAY_KEY.format(t);
+/** "17.30" */
+export const clock = (t: number) => new Date(t).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit", timeZone: TZ, hour12: false });
+/** "8. okt." */
+export const shortDate = (t: number) => new Date(t).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: TZ });
+/** "8. okt. 2026" */
+export const dateDa = (t: number) => new Date(t).toLocaleDateString("da-DK", { day: "numeric", month: "short", year: "numeric", timeZone: TZ });
 
-export const fmtInt = (n: number) => n.toLocaleString("en-GB");
+/** "1,50" */
+export const dec = (x: number, d = 2) => x.toFixed(d).replace(".", ",");
+/** "57 %" */
+export const pct = (x: number) => `${Math.round(x * 100)} %`;
+/** "57 %", or "—" when there is nothing to divide by. */
+export const pctOrDash = (x: number) => (Number.isFinite(x) ? pct(x) : "—");
+/** "57%": big headline numbers read better without the space. */
+export const pctTight = (x: number) => `${Math.round(x * 100)}%`;
+/** "+3,4 %" or "−3,4 %" */
+export const signedPct = (x: number, d = 1) => `${x >= 0 ? "+" : "−"}${dec(Math.abs(x) * 100, d)} %`;
+/** Profit in units at 100 kr a bet: "+50 kr" or "−100 kr". */
+export const krFromUnits = (units: number) => `${units >= 0 ? "+" : "−"}${Math.round(Math.abs(units) * 100)} kr`;
 
-export function fmtDate(t: number | null | undefined): string {
-  if (t == null) return "—";
-  return new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-}
-
-export function fmtMonth(t: number | null | undefined): string {
-  if (t == null) return "—";
-  return new Date(t).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
-}
-
-export function fmtDateTime(t: number): string {
-  return new Date(t).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false }) + " UTC";
-}
-
-export function fmtTime(t: number, seconds = false): string {
-  return new Date(t).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: seconds ? "2-digit" : undefined, timeZone: "UTC", hour12: false });
-}
-
-export function fmtPeriod(from: number | null, to: number | null): string {
-  if (from == null || to == null) return "—";
-  return `${fmtMonth(from)} – ${fmtMonth(to)}`;
-}
-
-export function fmtAgo(ms: number): string {
-  const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return `${s}s ago`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 48) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
-}
-
-export function fmtCountdown(ms: number): string {
-  if (ms <= 0) return "started";
-  const m = Math.round(ms / 60000);
-  if (m < 60) return `in ${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 48) return `in ${h}h ${String(m % 60).padStart(2, "0")}m`;
-  return `in ${Math.floor(h / 24)}d ${h % 24}h`;
-}
-
-export function fmtShortDateTime(t: number): string {
-  return new Date(t).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false });
-}
+export const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

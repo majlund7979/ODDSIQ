@@ -111,3 +111,27 @@ body {
   letter-spacing: -0.03em;
   line-height: 0.95;
 }
+
+/* A fade at the right edge of a sideways scroller, showing there is more. It shrinks to nothing over the last part of
+   the scroll and is absent when nothing scrolls. Browsers without scroll-driven animations show no fade. */
+@property --scroll-fade {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes scroll-fade {
+  from,
+  80% {
+    --scroll-fade: 3rem;
+  }
+  to {
+    --scroll-fade: 0px;
+  }
+}
+@utility scroll-fade-x {
+  @supports (animation-timeline: scroll()) {
+    mask-image: linear-gradient(to right, #000 calc(100% - var(--scroll-fade)), transparent);
+    animation: scroll-fade linear both;
+    animation-timeline: scroll(self inline);
+  }
+}

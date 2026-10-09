@@ -9,10 +9,11 @@ import { readTips } from "@/lib/real/tips";
 import type { Terminal } from "@/lib/terminal";
 import { MODEL_ID, MODEL_NAME, modelTips, weekMatches, type Tip, type TipMatch } from "@/lib/tips";
 
-export async function loadTips(t: Terminal): Promise<{ all: TipMatch[]; tips: Tip[]; source: string }> {
+/** `settle: false` skips settling older tips, for a page that shows no standings (/tips). */
+export async function loadTips(t: Terminal, { settle = true }: { settle?: boolean } = {}): Promise<{ all: TipMatch[]; tips: Tip[]; source: string }> {
   const all = weekMatches(t.marketRows(), { start: -Infinity, end: Infinity });
   const known = new Map(all.map((m) => [m.eventId, m.result]));
-  const stored = ACCOUNTS_ENABLED ? await readTips(db(), t.now, known) : [];
+  const stored = ACCOUNTS_ENABLED ? await readTips(db(), t.now, known, { settle }) : [];
   const tips = DEMO_MODE ? [...demoTips(all), ...stored] : stored;
   const source = DEMO_MODE ? "DEMO DATA" : `vennernes egne tips, afgjort med kampresultater fra ${t.dataLabel}`;
   return { all, tips, source };

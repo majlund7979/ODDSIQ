@@ -5,9 +5,8 @@ import type { EventStatus, Prediction, PredictionOutcome, SportEvent, SportId } 
 import { appendPrediction, verifyChain, type ChainVerification } from "@/lib/ledger/hash";
 import { clv } from "@/lib/metrics/clv";
 import { modelConsensus } from "@/lib/metrics/consensus";
-import { marketPressure, volatility, velocityLevel, type PressureResult, type PricePoint } from "@/lib/metrics/movement";
 import { dataQuality, type DataQualityResult } from "@/lib/metrics/quality";
-import { edgePp, expectedValue } from "@/lib/metrics/value";
+import { expectedValue } from "@/lib/metrics/value";
 import { BOOKMAKERS, leagueById, SPORTS, teamById } from "./catalog";
 import {
   bestPrice,
@@ -60,15 +59,9 @@ function getUniverse(now: number): Universe {
   return universe;
 }
 
-/** Every scheduled event in the universe (not the in-play showcase), for analytics modules. */
+/** Every scheduled event in the universe (not the in-play showcase), for the demo picks. */
 export function universeEvents(now: number): EventSim[] {
   return getUniverse(now).events;
-}
-
-/** The ledgered prediction for a selection, if one exists and is visible at `now`. */
-export function ledgeredPrediction(selectionId: string, now: number): Prediction | undefined {
-  const p = getUniverse(now).predictionBySelection.get(selectionId);
-  return p && p.createdAt <= now ? p : undefined;
 }
 
 export function feedTime(now: number): number {
@@ -233,7 +226,7 @@ export function ledgerAudit(now: number): LedgerAudit {
 }
 
 // ---------------------------------------------------------------------------
-// Market terminal
+// Market rows
 
 export interface MarketRow {
   selectionId: string;
@@ -267,43 +260,19 @@ export interface MarketRow {
   }[];
   openingOdds: number;
   currentOdds: number;
-  /** True if this selection had the shortest consensus price in its market at opening. */
-  openingFavourite: boolean;
-  /** Standard deviation of hourly log price changes over the last 24h. */
-  volatility: number;
   marketProbability: number;
   modelProbability: number | null;
   ciLow: number | null;
   ciHigh: number | null;
   modelVersion: string | null;
-  inPlayModel: boolean;
-  edgePp: number | null;
   ev: number | null;
   movement: number;
-  velocityPerHour: number;
-  relativeVelocityPerHour: number;
-  velocityLevel: ReturnType<typeof velocityLevel>;
-  pressure: PressureResult;
   confidence: number | null;
-  modelDisagreement: ReturnType<typeof modelConsensus>["level"] | null;
   /** Standard deviation of the component models' probabilities, pp. */
   modelStdevPp: number | null;
   dataQuality: DataQualityResult;
   booksQuoting: number;
-  /** Books whose price moved >1% in the consensus direction over the last 6h. */
-  booksMoving: number;
-  /** Books whose price moved >1% in the consensus direction since opening. */
-  booksMovedSinceOpen: number;
   lastUpdate: number;
-}
-
-function consensusSeries(ev: EventSim, m: MarketSim, i: number, from: number, to: number, step: number): PricePoint[] {
-  const out: PricePoint[] = [];
-  for (let t = Math.max(from, ev.openAt); t <= to; t += step) {
-    const odds = consensusPrice(ev, m, i, t);
-    if (!Number.isNaN(odds)) out.push({ at: t, odds });
-  }
-  return out;
 }
 
 function booksMoving(ev: EventSim, m: MarketSim, i: number, from: number, to: number, direction: number) {
@@ -331,27 +300,10 @@ function preMatchRow(ev: EventSim, m: MarketSim, i: number, t: number, predictio
   const openingOdds = consensusPrice(ev, m, i, ev.openAt);
   const currentOdds = consensusPrice(ev, m, i, t);
   const marketProbability = fairProbabilities(ev, m, t)[i];
-  const recent = consensusSeries(ev, m, i, t - 3 * HOUR, t, 15 * MIN);
-  const first = recent[0]?.odds ?? currentOdds;
-  const hours = recent.length > 1 ? (t - recent[0].at) / HOUR : 0;
-  const velocityPerHour = hours > 0 ? (currentOdds - first) / hours : 0;
-  const relativeVelocityPerHour = hours > 0 ? (currentOdds / first - 1) / hours : 0;
   const movement = currentOdds / openingOdds - 1;
   const since = Math.max(ev.openAt, t - 6 * HOUR);
   const breadth = booksMoving(ev, m, i, since, t, Math.sign(currentOdds - consensusPrice(ev, m, i, since)) || 1);
-  const sinceOpen = booksMoving(ev, m, i, ev.openAt, t, Math.sign(currentOdds - openingOdds) || 1);
-  const dayVol = volatility(consensusSeries(ev, m, i, t - 24 * HOUR, t, HOUR));
   const hoursToKickoff = (ev.event.kickoff - t) / HOUR;
-  const pressure = marketPressure({
-    openOdds: openingOdds,
-    currentOdds,
-    relativeVelocityPerHour,
-    booksMovingWithConsensus: breadth.moving,
-    booksQuoting: breadth.quoting,
-    volatility: dayVol,
-    baselineVolatility: 0.012,
-    hoursToKickoff,
-  });
   const latestNews = ev.news.filter((n) => n.at <= t && n.kind !== "lineup").at(-1);
   const dq = dataQuality({
     now: t,
@@ -366,7 +318,6 @@ function preMatchRow(ev: EventSim, m: MarketSim, i: number, t: number, predictio
   });
   const cons = modelConsensus(model.components.map((c) => c.probability));
   const p = prediction?.probability ?? null;
-  const openings = m.selections.map((_, j) => (j === i ? openingOdds : consensusPrice(ev, m, j, ev.openAt)));
   return {
     selectionId: s.selection.id,
     eventId: ev.event.id,
@@ -390,28 +341,17 @@ function preMatchRow(ev: EventSim, m: MarketSim, i: number, t: number, predictio
       .sort((a, b) => b.odds - a.odds),
     openingOdds,
     currentOdds,
-    openingFavourite: openingOdds <= Math.min(...openings),
-    volatility: dayVol,
     marketProbability,
     modelProbability: p,
     ciLow: prediction?.ciLow ?? null,
     ciHigh: prediction?.ciHigh ?? null,
     modelVersion: prediction?.modelVersionId ?? null,
-    inPlayModel: false,
-    edgePp: p === null ? null : edgePp(p, marketProbability),
     ev: p === null ? null : expectedValue(p, best.odds),
     movement,
-    velocityPerHour,
-    relativeVelocityPerHour,
-    velocityLevel: velocityLevel(relativeVelocityPerHour),
-    pressure,
     confidence: prediction?.confidence ?? null,
-    modelDisagreement: prediction ? cons.level : null,
     modelStdevPp: prediction ? cons.stdevPp : null,
     dataQuality: dq,
     booksQuoting: breadth.quoting,
-    booksMoving: breadth.moving,
-    booksMovedSinceOpen: sinceOpen.moving,
     lastUpdate: t - (hashOffset(s.selection.id, t) % 20) * 1000,
   };
 }
@@ -428,25 +368,12 @@ function inPlayRows(ev: EventSim, t: number): MarketRow[] {
   if (!state) return [];
   const view = eventView(ev, t);
   const m = ev.markets[0];
-  const prevState = ev.match!.minutes[Math.max(0, state.minute - 10)];
   return m.selections.map((s, i) => {
     const marketProbability = state.market[i];
     const model = state.model[i];
     const currentOdds = inPlayOdds(marketProbability, 0.05);
     const best = inPlayOdds(marketProbability, 0.035);
     const openingOdds = consensusPrice(ev, m, i, ev.event.kickoff);
-    const tenAgo = inPlayOdds(prevState.market[i], 0.05);
-    const rel = (currentOdds / tenAgo - 1) * 6;
-    const pressure = marketPressure({
-      openOdds: openingOdds,
-      currentOdds,
-      relativeVelocityPerHour: rel,
-      booksMovingWithConsensus: Math.abs(currentOdds / tenAgo - 1) > 0.01 ? 7 : 1,
-      booksQuoting: 8,
-      volatility: 0.02,
-      baselineVolatility: 0.012,
-      hoursToKickoff: 0,
-    });
     return {
       selectionId: s.selection.id,
       eventId: ev.event.id,
@@ -469,23 +396,14 @@ function inPlayRows(ev: EventSim, t: number): MarketRow[] {
       bestBookId: null,
       openingOdds,
       currentOdds,
-      openingFavourite: m.selections.every((_, j) => openingOdds <= consensusPrice(ev, m, j, ev.event.kickoff)),
-      volatility: 0.02,
       marketProbability,
       modelProbability: model,
       ciLow: Math.max(0.005, model - 0.04),
       ciHigh: Math.min(0.995, model + 0.04),
       modelVersion: "football-inplay-v0.6",
-      inPlayModel: true,
-      edgePp: edgePp(model, marketProbability),
       ev: expectedValue(model, best),
       movement: currentOdds / openingOdds - 1,
-      velocityPerHour: (currentOdds - tenAgo) * 6,
-      relativeVelocityPerHour: rel,
-      velocityLevel: velocityLevel(rel),
-      pressure,
       confidence: 55,
-      modelDisagreement: null,
       modelStdevPp: null,
       dataQuality: dataQuality({
         now: t,
@@ -499,14 +417,14 @@ function inPlayRows(ev: EventSim, t: number): MarketRow[] {
         booksTracked: BOOKMAKERS.length,
       }),
       booksQuoting: 8,
-      booksMoving: 0,
-      booksMovedSinceOpen: 0,
       lastUpdate: t - 3000,
     };
   });
 }
 
+/** The last few feed times' rows: the live scores read the rows of three hours ago next to the current ones. */
 const rowCache = new Map<number, MarketRow[]>();
+const ROW_CACHE_SIZE = 3;
 
 /** Every open market: pre-match markets within a week of kickoff plus in-play match-winner markets. */
 export function marketRows(now: number): MarketRow[] {
@@ -530,86 +448,16 @@ export function marketRows(now: number): MarketRow[] {
     }
   }
   for (const ev of showcaseLiveEvents(t)) if (statusAt(ev, t) === "live") rows.push(...inPlayRows(ev, t));
-  rowCache.clear();
+  if (rowCache.size >= ROW_CACHE_SIZE) rowCache.delete(rowCache.keys().next().value!);
   rowCache.set(t, rows);
   return rows;
 }
 
 // ---------------------------------------------------------------------------
-// Market detail
+// Event lookup
 
 export function findEvent(eventId: string, now: number): EventSim | undefined {
   return getUniverse(now).byId.get(eventId) ?? showcaseLiveEvents(feedTime(now)).find((e) => e.event.id === eventId);
-}
-
-export interface MarketDetail {
-  row: MarketRow;
-  event: ReturnType<typeof eventView>;
-  analysis: SelectionModel;
-  prediction: Prediction | undefined;
-  news: EventSim["news"];
-  chart: { at: number; consensus: number; best: number }[];
-  books: { id: string; name: string; odds: number; open: number; oneHourAgo: number; lagMin: number }[];
-  siblings: { selectionId: string; name: string; marketProbability: number; modelProbability: number | null }[];
-  inPlay?: { minutes: MinuteState[]; timeline: import("@/lib/domain/types").LiveEvent[] };
-}
-
-export function marketDetail(selectionId: string, now: number): MarketDetail | undefined {
-  const t = feedTime(now);
-  const row = marketRows(now).find((r) => r.selectionId === selectionId);
-  const eventId = selectionId.split("-").slice(0, selectionId.startsWith("live-") ? 2 : 3).join("-");
-  const ev = findEvent(eventId, now);
-  if (!ev) return undefined;
-  const m = ev.markets.find((x) => selectionId.startsWith(`${x.market.id}-`));
-  if (!m) return undefined;
-  const i = m.selections.findIndex((s) => s.selection.id === selectionId);
-  if (i < 0) return undefined;
-  const u = getUniverse(now);
-  const pred = u.predictionBySelection.get(selectionId);
-  const prediction = pred && pred.createdAt <= t ? pred : undefined;
-  const resolvedRow = row ?? preMatchRow(ev, m, i, Math.min(t, ev.event.kickoff), prediction, ev.models.get(selectionId)!);
-
-  const end = Math.min(t, ev.event.kickoff);
-  const chart: MarketDetail["chart"] = [];
-  const add = (at: number) => {
-    const consensus = consensusPrice(ev, m, i, at);
-    const best = bestPrice(ev, m, i, at).odds;
-    if (!Number.isNaN(consensus)) chart.push({ at, consensus, best });
-  };
-  for (let at = ev.openAt; at < end - 24 * HOUR; at += HOUR) add(at);
-  for (let at = Math.max(ev.openAt, end - 24 * HOUR); at <= end; at += 5 * MIN) add(at);
-  if (chart.at(-1)?.at !== end) add(end);
-
-  const books = BOOKMAKERS.map((b, bi) => ({
-    id: b.id,
-    name: b.name,
-    odds: bookPrice(ev, m, i, bi, end),
-    open: bookPrice(ev, m, i, bi, ev.openAt),
-    oneHourAgo: bookPrice(ev, m, i, bi, end - HOUR),
-    lagMin: ev.bookLagMin[bi],
-  })).filter((b) => !Number.isNaN(b.odds));
-
-  const fair = fairProbabilities(ev, m, end);
-  const siblings = m.selections.map((s, k) => {
-    const p = u.predictionBySelection.get(s.selection.id);
-    return { selectionId: s.selection.id, name: s.selection.name, marketProbability: fair[k], modelProbability: p && p.createdAt <= t ? p.probability : null };
-  });
-
-  const status = statusAt(ev, t);
-  return {
-    row: resolvedRow,
-    event: eventView(ev, t),
-    analysis: ev.models.get(selectionId)!,
-    prediction,
-    news: ev.news.filter((n) => n.at <= t),
-    chart,
-    books,
-    siblings,
-    inPlay:
-      status !== "scheduled" && ev.match
-        ? { minutes: ev.match.minutes.filter((x) => x.minute <= (liveState(ev, t)?.minute ?? 999)), timeline: ev.match.timeline.filter((x) => x.minute <= (liveState(ev, t)?.minute ?? 999)) }
-        : undefined,
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -634,204 +482,4 @@ export function universeStats(now: number) {
     leagues: new Set(visible.map((e) => e.event.leagueId)).size,
     bookmakers: BOOKMAKERS.length,
   };
-}
-
-// ---------------------------------------------------------------------------
-// Settled market history (all finished markets, ledgered or not)
-
-/** Hours before kickoff at which market accuracy is sampled. */
-export const HORIZON_HOURS = [168, 72, 24, 6, 1, 0];
-
-export interface SettledSelection {
-  selectionId: string;
-  sportId: SportId;
-  leagueId: string;
-  /** Display names, when they do not come from the demo catalog. */
-  sportName?: string;
-  leagueName?: string;
-  marketType: MarketSim["market"]["type"];
-  marketName: string;
-  kickoff: number;
-  won: 0 | 1;
-  openingOdds: number;
-  closingOdds: number;
-  /** Margin-free consensus probability at each of HORIZON_HOURS before kickoff. */
-  horizons: number[];
-  /** Each quoting bookmaker's own de-vigged closing probability and margin. */
-  books: { bookmakerId: string; probability: number; margin: number }[];
-}
-
-let settledCache: { key: number; rows: SettledSelection[] } | null = null;
-
-export function settledSelections(now: number): SettledSelection[] {
-  const u = getUniverse(now);
-  const finished = u.events.filter((e) => statusAt(e, now) === "finished");
-  if (settledCache?.key === finished.length) return settledCache.rows;
-  const rows: SettledSelection[] = [];
-  for (const ev of finished) {
-    const k = ev.event.kickoff;
-    for (const m of ev.markets) {
-      const horizons = HORIZON_HOURS.map((h) => fairProbabilities(ev, m, k - h * HOUR));
-      const bookProbs = BOOKMAKERS.map((b, j) => {
-        const prices = m.selections.map((_, i) => bookPrice(ev, m, i, j, k));
-        if (prices.some((o) => Number.isNaN(o))) return null;
-        const implied = prices.map((o) => 1 / o);
-        const total = implied.reduce((a, c) => a + c, 0);
-        return { bookmakerId: b.id, probs: implied.map((x) => x / total), margin: total - 1 };
-      });
-      m.selections.forEach((s, i) => {
-        if (s.selection.result !== "won" && s.selection.result !== "lost") return;
-        rows.push({
-          selectionId: s.selection.id,
-          sportId: ev.event.sportId,
-          leagueId: ev.event.leagueId,
-          marketType: m.market.type,
-          marketName: m.market.name,
-          kickoff: k,
-          won: s.selection.result === "won" ? 1 : 0,
-          openingOdds: consensusPrice(ev, m, i, ev.openAt),
-          closingOdds: consensusPrice(ev, m, i, k),
-          horizons: horizons.map((p) => p[i]),
-          books: bookProbs.filter((b) => b !== null).map((b) => ({ bookmakerId: b.bookmakerId, probability: b.probs[i], margin: b.margin })),
-        });
-      });
-    }
-  }
-  settledCache = { key: finished.length, rows };
-  return rows;
-}
-
-// ---------------------------------------------------------------------------
-// Match view (live terminal) and market replay
-
-/** Wall-clock time of a match minute, allowing for the 15-minute half-time break. */
-export function minuteTime(ev: EventSim, minute: number): number {
-  return ev.event.kickoff + (minute <= 45 ? minute : minute + 15) * MIN;
-}
-
-export interface MatchView {
-  event: ReturnType<typeof eventView>;
-  showcase: boolean;
-  marketName: string;
-  selections: { id: string; name: string }[];
-  /** In-play minutes and events up to now (football only). */
-  minutes: MinuteState[];
-  timeline: import("@/lib/domain/types").LiveEvent[];
-  news: EventSim["news"];
-  openingOdds: number[];
-  closingOdds: number[];
-  /** Margin-free consensus at kickoff (or now, if not started). */
-  preMatchMarket: number[];
-  /** Ledgered pre-match model probability, if one exists. */
-  preMatchModel: (number | null)[];
-  modelVersion: string | null;
-  results: ("won" | "lost" | "void" | undefined)[];
-  lineupConfirmedAt?: number;
-  /** Match xG, when a statistics feed has it (live data only). */
-  xg?: { home: number; away: number } | null;
-}
-
-export function matchView(eventId: string, now: number): MatchView | undefined {
-  const t = feedTime(now);
-  const ev = findEvent(eventId, now);
-  if (!ev || ev.openAt > t) return undefined;
-  const view = eventView(ev, t);
-  const m = ev.markets[0];
-  const cut = Math.min(t, ev.event.kickoff);
-  const current = view.status === "scheduled" ? undefined : liveState(ev, t)?.minute;
-  const preds = m.selections.map((s) => ledgeredPrediction(s.selection.id, t));
-  return {
-    event: view,
-    showcase: ev.showcase,
-    marketName: m.market.name,
-    selections: m.selections.map((s) => ({ id: s.selection.id, name: s.selection.name })),
-    minutes: ev.match && current !== undefined ? ev.match.minutes.filter((x) => x.minute <= current) : [],
-    timeline: ev.match && current !== undefined ? ev.match.timeline.filter((x) => x.minute <= current) : [],
-    news: ev.news.filter((n) => n.at <= t),
-    openingOdds: m.selections.map((_, i) => consensusPrice(ev, m, i, ev.openAt)),
-    closingOdds: m.selections.map((_, i) => consensusPrice(ev, m, i, cut)),
-    preMatchMarket: fairProbabilities(ev, m, cut),
-    preMatchModel: preds.map((p) => p?.probability ?? null),
-    modelVersion: preds.find((p) => p)?.modelVersionId ?? null,
-    results: view.status === "finished" ? m.selections.map((s) => s.selection.result) : m.selections.map(() => undefined),
-    lineupConfirmedAt: ev.event.lineupConfirmedAt !== undefined && ev.event.lineupConfirmedAt <= t ? ev.event.lineupConfirmedAt : undefined,
-  };
-}
-
-export interface ReplayFrame {
-  at: number;
-  phase: "pre" | "live";
-  minute?: number;
-  score?: { home: number; away: number };
-  odds: number[];
-  market: number[];
-  /** Ledgered model probability once recorded; in-play model estimate during play. */
-  model: (number | null)[];
-}
-
-export interface ReplayData {
-  view: MatchView;
-  frames: ReplayFrame[];
-  kickoffIndex: number;
-  predictionAt: number | null;
-  events: { at: number; kind: string; text: string }[];
-  clv: (number | null)[];
-}
-
-/** Everything needed to replay a finished event's market from opening to full time. */
-export function replayData(eventId: string, now: number): ReplayData | undefined {
-  const view = matchView(eventId, now);
-  const ev = findEvent(eventId, now);
-  if (!view || !ev || view.event.status !== "finished") return undefined;
-  const m = ev.markets[0];
-  const preds = m.selections.map((s) => ledgeredPrediction(s.selection.id, now));
-  const frames: ReplayFrame[] = [];
-  for (let at = ev.openAt; at <= ev.event.kickoff; at += 30 * MIN) {
-    const market = fairProbabilities(ev, m, at);
-    frames.push({
-      at,
-      phase: "pre",
-      odds: m.selections.map((_, i) => consensusPrice(ev, m, i, at)),
-      market,
-      model: preds.map((p) => (p && p.createdAt <= at ? p.probability : null)),
-    });
-  }
-  const kickoffIndex = frames.length - 1;
-  if (ev.match) {
-    for (const s of ev.match.minutes) {
-      if (s.minute === 0) continue;
-      frames.push({
-        at: minuteTime(ev, s.minute),
-        phase: "live",
-        minute: s.minute,
-        score: s.score,
-        odds: s.market.map((p) => inPlayOdds(p, 0.05)),
-        market: [...s.market],
-        model: [...s.model],
-      });
-    }
-  }
-  const closingFair = fairProbabilities(ev, m, ev.event.kickoff);
-  return {
-    view,
-    frames,
-    kickoffIndex,
-    predictionAt: preds.find((p) => p)?.createdAt ?? null,
-    events: [
-      ...ev.news.map((n) => ({ at: n.at, kind: n.kind === "lineup" ? "lineup" : "news", text: n.text })),
-      ...(preds.find((p) => p) ? [{ at: preds.find((p) => p)!.createdAt, kind: "prediction", text: `Prediction ledgered (${preds.find((p) => p)!.modelVersionId})` }] : []),
-      { at: ev.event.kickoff, kind: "kickoff", text: "Kickoff: pre-match market closes" },
-      ...(ev.match?.timeline ?? []).filter((e) => e.kind !== "corner" && e.kind !== "shot").map((e) => ({ at: minuteTime(ev, e.minute), kind: e.kind, text: `${e.minute}′ ${e.description}` })),
-    ].sort((a, b) => a.at - b.at),
-    clv: preds.map((p, i) => (p ? clv(p.odds, closingFair[i]) : null)),
-  };
-}
-
-/** Finished, ledgered events for the replay picker, newest first. */
-export function replayableEvents(now: number): ReturnType<typeof eventView>[] {
-  const t = feedTime(now);
-  return getUniverse(now)
-    .events.filter((e) => statusAt(e, t) === "finished" && e.event.kickoff > t - 60 * DAY)
-    .map((e) => eventView(e, t))
-    .sort((a, b) => b.kickoff - a.kickoff);
 }

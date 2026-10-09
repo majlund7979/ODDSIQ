@@ -2,6 +2,8 @@
 // suggestion and a note when the odds have moved. All three are rules of
 // thumb on top of the pick's probability, not fitted parameters.
 
+import { median } from "@/lib/providers/closing";
+
 /** Probability at or above which a pick is green. */
 export const GREEN_FROM = 0.7;
 /** Probability at or above which a pick is yellow; below it is red. */
@@ -137,13 +139,11 @@ export function compareBooks(quotes: { book: string; odds: number; at?: number }
   }
   const list = [...byBook.values()].filter((q) => Number.isFinite(q.odds) && q.odds > 1).sort((a, b) => b.odds - a.odds);
   if (list.length < 2) return null;
-  const sorted = list.map((q) => q.odds).sort((a, b) => a - b);
-  const m = sorted.length >> 1;
-  const median = sorted.length % 2 ? sorted[m] : (sorted[m - 1] + sorted[m]) / 2;
+  const mid = median(list.map((q) => q.odds));
   return {
     rows: list.map((q, i) => ({ ...q, best: i === 0 || q.odds === list[0].odds, value: q.odds > fairOdds })),
-    median,
-    bestOverMedian: list[0].odds / median - 1,
+    median: mid,
+    bestOverMedian: list[0].odds / mid - 1,
   };
 }
 

@@ -24,9 +24,6 @@ export function modelConsensus(probabilities: number[]): ConsensusSummary {
   };
 }
 
-export const CONFIDENCE_DEFINITION =
-  "Confidence (0–100) starts at 100 and is reduced by the width of the ensemble's uncertainty interval, by disagreement between component models, and by gaps in data quality. It describes how settled the estimate is, not how likely the selection is to win.";
-
 export function predictionConfidence(input: { ciLow: number; ciHigh: number; modelStdevPp: number; dataQuality: number }): number {
   const ciWidthPp = (input.ciHigh - input.ciLow) * 100;
   const raw = 100 - 2 * ciWidthPp - 4 * input.modelStdevPp - 0.5 * (100 - input.dataQuality);

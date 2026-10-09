@@ -1,11 +1,13 @@
 // Runs one odds ingestion followed by the real model's scheduled work.
 //
 //   npm run ingest              live, from The Odds API (needs ODDS_API_KEY)
-//                               and openfootball results
+//                               and openfootball results; a manual run without
+//                               the odds credit plan that records no picks
+//                               (production runs GET /api/cron/ingest)
 //   npm run ingest:fixture      offline, from recorded responses and a
 //                               committed results snapshot; then checks
-//                               snapshots, closing lines, ledger predictions
-//                               and settlement
+//                               snapshots, closing lines, ledger predictions,
+//                               settlement and the team news the picks read
 //
 // Both need DATABASE_URL.
 
@@ -20,12 +22,7 @@ import { closingLine } from "../src/lib/providers/closing";
 import { configuredFeed, feedConfig } from "../src/lib/providers/config";
 import { FIXTURE_KICKOFF, FixtureFeed } from "../src/lib/providers/fixture-feed";
 import { DEFAULT_ODDS_PLAN, inPlayCompetitions, ingest } from "../src/lib/providers/ingest";
-import { realLiveBoard, realLiveView, realReplayData } from "../src/lib/real/live";
-import { findByNameOf, positionViewOf, teamRecordOf } from "../src/lib/demo/personal";
-import { realAlerts } from "../src/lib/real/alerts";
-import { realPersonal } from "../src/lib/real/personal";
-import { realSettledSelections } from "../src/lib/real/settled";
-import { realMarketDetail, realMatchView, realSnapshot } from "../src/lib/real/store";
+import { realSnapshot } from "../src/lib/real/store";
 import { configuredStatsFeed, statsConfig } from "../src/lib/stats/config";
 import { StatsFixtureFeed } from "../src/lib/stats/fixture-feed";
 import { ingestStats } from "../src/lib/stats/ingest";
@@ -59,19 +56,6 @@ async function fixture() {
       assert(keys.length === 1, "the league should count as in play during the match");
       liveRuns.push(await ingest(prisma, new FixtureFeed(factor, 0, score), { competitionKeys: keys, now: at, prefix, kind: "live" }));
       await closeAndSettle(prisma, at);
-      if (score.away === 1) {
-        // The read model while the match is still in play.
-        const arsenal = `${prefix}-fx0001arsche`;
-        const liveSnap = await realSnapshot(prisma, at + 5 * 60_000);
-        const board = realLiveBoard(liveSnap).find((r) => r.eventId === arsenal);
-        assert(board && board.minute === 75 && board.score?.home === 2 && board.score.away === 1, `live board should show Arsenal 2–1 at about 75′, got ${JSON.stringify(board)}`);
-        const lv = realLiveView(liveSnap, arsenal);
-        const frames = (lv?.minutes ?? []).map((f) => `${f.minute}:${f.score.home}-${f.score.away}`).join(" ");
-        assert(frames === "0:0-0 30:1-0 70:2-1", `unexpected in-play frames ${frames}`);
-        const home = lv!.minutes.map((f) => f.model[0]);
-        assert(home[1] > home[0] && home[2] > home[1], "the in-play model should favour the leading home side more as the match goes on");
-        assert(lv!.timeline.filter((t) => t.kind === "goal").length === 3 && lv!.timeline[0].team === "home", "three goals should be inferred from the score changes");
-      }
       continue;
     }
     runs.push(await ingest(prisma, new FixtureFeed(factor), { competitionKeys: ["soccer_epl"], now: at, prefix }));
@@ -143,37 +127,15 @@ async function fixture() {
   const ev = await prisma.event.findUnique({ where: { id: eventId } });
   assert(ev?.lineupConfirmedAt?.getTime() === FIXTURE_KICKOFF - HOUR, "lineup confirmation should be stamped at the run that found them");
 
-  // The terminal's live read model over the same data.
+  // The site's read model over the same data: the ledger behind the CSV export, and the team news behind the picks.
   const snap = await realSnapshot(prisma, FIXTURE_KICKOFF + HOUR);
   const mine = snap.ledger.filter((r) => r.event.id.startsWith(`${prefix}-`));
   assert(mine.length === 8, `read model should show the 8 ledger predictions, got ${mine.length}`);
   assert(snap.audit.verification.ok, "read model audit should verify the chain");
   const ledgerHome = mine.find((r) => r.prediction.selectionId === ids[0])!;
   assert(ledgerHome.status === "settled" && ledgerHome.result === "won" && ledgerHome.clv !== undefined, "settled row should carry result and CLV");
-  const mv = realMatchView(snap, eventId);
-  assert(mv && mv.results[0] === "won" && mv.preMatchModel[0] === home.probability, "match view should show result and ledgered model");
-  assert(Math.abs(mv.closingOdds[0] - 2.025) < 1e-9, `match view closing price should be 2.025, got ${mv?.closingOdds[0]}`);
-  const d = realMarketDetail(snap, ids[0]);
-  assert(d?.teamNews?.lineups.length === 2 && d.teamNews.injuries.length === 3 && d.teamNews.xg?.home === 1.84, "market detail should carry lineups, absences and xG");
-  assert(d && d.chart.length === 2 && d.prediction?.id === home.id && d.analysis.ensemble.probability === home.probability, "market detail should chart both runs and show the ledgered prediction");
-
-  // Alerts, efficiency data and the personal pages over the same snapshot.
-  const alerts = realAlerts(snap).filter((x) => x.eventId.startsWith(`${prefix}-`));
-  const alertCount = (type: string) => alerts.filter((x) => x.type === type).length;
-  assert(alertCount("LINEUP_CHANGE") === 1 && alertCount("INJURY_UPDATE") === 2, `expected one lineup and two injury alerts, got ${alertCount("LINEUP_CHANGE")} and ${alertCount("INJURY_UPDATE")}`);
-  const settledRows = (await realSettledSelections(prisma, FIXTURE_KICKOFF + 4 * HOUR)).rows.filter((x) => x.selectionId.startsWith(`${eventId}-`));
-  const settledHome = settledRows.find((x) => x.selectionId === ids[0]);
-  assert(settledHome && settledHome.won === 1 && Math.abs(settledHome.closingOdds - 2.025) < 1e-9 && settledHome.horizons.length === 6 && settledHome.books.length === 2, "settled Arsenal home win should carry the closing price, six horizons and two books");
-  const ctx = await realPersonal(prisma, snap);
-  const arsenal = findByNameOf("arsenal", ctx);
-  assert(arsenal?.kind === "team" && teamRecordOf(arsenal.id, ctx)?.n === 1, "Arsenal should resolve by name with one settled prediction on them winning");
-  const pos = positionViewOf({ selectionId: ids[0], odds: 2.1, at: FIXTURE_KICKOFF - 2 * HOUR }, ctx);
-  assert(pos?.status === "settled" && pos.result === "won" && Math.abs(pos.profit! - 1.1) < 1e-9, "a tracked Arsenal price should settle as won");
-
-  // Market Replay once the match is over.
-  const replay = await realReplayData(prisma, await realSnapshot(prisma, FIXTURE_KICKOFF + 4 * HOUR), eventId);
-  assert(replay && replay.kickoffIndex === 1 && replay.frames.length === 5 && replay.frames[4].score?.home === 2, `replay should have 2 pre-match and 3 in-play frames, got ${replay?.frames.length}`);
-  assert(replay.frames[2].model[0] !== null && replay.clv[0] !== null && replay.events.some((x) => x.kind === "goal"), "replay should carry the in-play model, CLV and goals");
+  const news = snap.events.find((e) => e.view.id === eventId)?.news;
+  assert(news?.lineups.length === 2 && news.injuries.length === 3 && news.xg?.home === 1.84, "the snapshot should carry lineups, absences and xG for Arsenal-Chelsea");
 
   console.log(`Fixture ingestion OK. ${preds.length} predictions, chain of ${v.checked} verified, backtest n = ${bt.n}.`);
 }

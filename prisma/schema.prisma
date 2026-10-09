@@ -237,8 +237,8 @@ model MissingPrediction {
   kickoff  DateTime
 }
 
-/// A terminal account. Personal lists use the same compact encodings as the
-/// signed-out cookies (src/lib/demo/personal.ts), so they move over on sign-in.
+/// A site account. watchlist, positions and thresholdPp belonged to the analytics
+/// terminal retired on 2026-10-02; nothing reads or writes them any more.
 model User {
   id               String         @id
   email            String         @unique

@@ -1,6 +1,5 @@
+import { shortDate } from "@/lib/format";
 import type { NewsItem } from "@/lib/news/news";
-
-const TZ = "Europe/Copenhagen";
 
 function ago(t: number, now: number): string {
   if (!t) return "";
@@ -8,7 +7,7 @@ function ago(t: number, now: number): string {
   if (h < 1) return "lige nu";
   if (h < 24) return `${h} t siden`;
   const d = Math.round(h / 24);
-  return d === 1 ? "i går" : new Date(t).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: TZ });
+  return d === 1 ? "i går" : shortDate(t);
 }
 
 export function NewsList({ items, now, compact = false }: { items: NewsItem[]; now: number; compact?: boolean }) {
@@ -17,7 +16,10 @@ export function NewsList({ items, now, compact = false }: { items: NewsItem[]; n
       {items.map((n) => (
         <li key={n.link + n.title} className={compact ? "" : "px-5 py-3.5"}>
           <a href={n.link} target="_blank" rel="noopener noreferrer" className="group block">
-            <span className={`block leading-snug group-hover:text-accent ${compact ? "text-sm" : "text-[15px] font-medium"}`}>{n.title}</span>
+            <span className={`block leading-snug group-hover:text-accent ${compact ? "text-sm" : "text-[15px] font-medium"}`}>
+              {n.title}
+              <span className="sr-only"> (åbner i nyt vindue)</span>
+            </span>
             <span className="mt-0.5 block text-xs text-muted">
               {n.publisher}
               {n.published ? ` · ${ago(n.published, now)}` : ""}

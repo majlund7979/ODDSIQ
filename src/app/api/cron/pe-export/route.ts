@@ -5,7 +5,7 @@
 // matches (?ids= embeds statistics, lineups and events); stores nothing.
 // Call with `Authorization: Bearer $CRON_SECRET`.
 
-import { timingSafeEqual } from "node:crypto";
+import { cronAuthorized } from "@/lib/auth/cron";
 import { apiFootballGet, type RawFixture } from "@/lib/stats/api-football";
 import { exportRow, isFinished, toCsv, type RawFixtureDetail } from "@/lib/stats/pe-export";
 
@@ -15,15 +15,8 @@ export const maxDuration = 60;
 const PAGE_SIZE = 200;
 const IDS_PER_CALL = 20;
 
-function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  const got = req.headers.get("authorization") ?? "";
-  const want = `Bearer ${secret}`;
-  return Boolean(secret) && got.length === want.length && timingSafeEqual(Buffer.from(got), Buffer.from(want));
-}
-
 export async function GET(req: Request): Promise<Response> {
-  if (!authorized(req)) return new Response("Unauthorized.", { status: 401 });
+  if (!cronAuthorized(req)) return new Response("Unauthorized.", { status: 401 });
   const apiKey = process.env.STATS_API_KEY;
   if (!apiKey) return Response.json({ error: "no STATS_API_KEY" }, { status: 500 });
   const url = new URL(req.url);

@@ -1,7 +1,6 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+import { TZ } from "@/lib/format";
 import type { Metric } from "@/lib/metrics/metric";
-import { fmtInt, fmtPeriod } from "@/lib/format";
 
 export function Panel({ title, right, children, className = "", id }: { title?: ReactNode; right?: ReactNode; children: ReactNode; className?: string; id?: string }) {
   return (
@@ -36,10 +35,17 @@ export function Badge({ children, tone = "neutral", className = "" }: { children
   );
 }
 
-export function levelTone(level: string): Tone {
-  if (level === "HIGH") return "serious";
-  if (level === "ELEVATED" || level === "MODERATE") return "warning";
-  return "neutral";
+const BASIS: Record<Metric["basis"], string> = { historical: "Historisk", simulated: "Simuleret", live: "Live", estimated: "Skøn" };
+const MONTH = (t: number | null) => (t == null ? "—" : new Date(t).toLocaleDateString("da-DK", { month: "short", year: "numeric", timeZone: TZ }));
+
+/** The context every aggregate statistic carries: basis, sample size, period, model version and source. */
+export function MetricContextLine({ m }: { m: Metric<unknown> }) {
+  return (
+    <p className="mt-1 text-[11px] leading-relaxed text-muted">
+      <span className="text-ink-2">{BASIS[m.basis]}</span> · n = {m.n.toLocaleString("da-DK")} · {MONTH(m.periodFrom)} – {MONTH(m.periodTo)} ·{" "}
+      {m.modelVersion} · {m.source}
+    </p>
+  );
 }
 
 /** Inline definition tooltip (hover or keyboard focus). */
@@ -52,65 +58,5 @@ export function Tip({ children, text }: { children: ReactNode; text: ReactNode }
         {text}
       </span>
     </span>
-  );
-}
-
-/** Signed value coloured by direction, with the sign always visible. */
-export function Signed({ value, children }: { value: number | null | undefined; children: ReactNode }) {
-  const cls = value == null || Number.isNaN(value) || Math.abs(value) < 1e-9 ? "text-ink-2" : value > 0 ? "text-good" : "text-critical";
-  return <span className={`num ${cls}`}>{children}</span>;
-}
-
-/** Context line that must accompany every aggregate statistic. */
-export function MetricContextLine({ m, className = "" }: { m: Metric<unknown>; className?: string }) {
-  const basis = m.basis === "simulated" ? "Simulated" : m.basis === "historical" ? "Historical" : m.basis === "estimated" ? "Estimated" : "Live";
-  return (
-    <p className={`text-[11px] leading-relaxed text-muted ${className}`}>
-      <span className="text-ink-2">{basis}</span> · n = {fmtInt(m.n)} · {fmtPeriod(m.periodFrom, m.periodTo)}
-      {m.modelVersion && <> · {m.modelVersion}</>}
-    </p>
-  );
-}
-
-export function StatTile({ label, value, m, hint }: { label: string; value: ReactNode; m?: Metric<unknown>; hint?: ReactNode }) {
-  return (
-    <div className="rounded-[20px] bg-surface-2 px-5 py-4">
-      <div className="text-[13px] font-semibold text-muted">
-        {m ? <Tip text={m.definition}>{label}</Tip> : label}
-      </div>
-      <div className="mt-1.5 text-[28px] font-extrabold tracking-[-0.02em] text-ink">{value}</div>
-      {m ? <MetricContextLine m={m} className="mt-1" /> : hint && <p className="mt-1 text-[11px] text-muted">{hint}</p>}
-    </div>
-  );
-}
-
-export function PageHeader({ title, subtitle, right }: { title: string; subtitle?: ReactNode; right?: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-end justify-between gap-4 pb-2">
-      <div>
-        <h1 className="display text-3xl text-ink sm:text-4xl">{title}</h1>
-        {subtitle && <p className="mt-3 max-w-3xl text-[16px] leading-relaxed text-ink-2">{subtitle}</p>}
-      </div>
-      {right}
-    </div>
-  );
-}
-
-/** Link-based segmented control; state lives in the URL so views are shareable. */
-export function LinkTabs({ items, active, label }: { items: { id: string; label: string; href: string }[]; active: string; label: string }) {
-  return (
-    <nav aria-label={label} className="flex flex-wrap gap-1">
-      {items.map((t) => (
-        <Link
-          key={t.id}
-          href={t.href}
-          scroll={false}
-          aria-current={t.id === active ? "page" : undefined}
-          className={`rounded-full px-3 py-1.5 text-sm font-medium ${t.id === active ? "bg-accent text-white" : "text-ink-2 hover:bg-surface-2 hover:text-accent"}`}
-        >
-          {t.label}
-        </Link>
-      ))}
-    </nav>
   );
 }

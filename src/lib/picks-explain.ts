@@ -3,12 +3,18 @@
 // the bookmakers' view and the price history). Facts only: a price move is
 // described, never explained.
 
-import type { Pick } from "./picks";
+import { capitalize, dec, pct } from "@/lib/format";
+import { isSharp, type Pick, type PickInsights } from "./picks";
 
-const pct = (p: number) => `${Math.round(p * 100)} %`;
-const dec = (x: number, d = 2) => x.toFixed(d).replace(".", ",");
 const wins = (g: { result: string }[]) => g.filter((x) => x.result === "V").length;
 const losses = (g: { result: string }[]) => g.filter((x) => x.result === "T").length;
+
+/** The only head-to-head meeting, e.g. "vandt Brøndby 2-1" or "endte det uafgjort 1-1", the winner's goals first. */
+function oneMeeting(home: string, away: string, h: NonNullable<PickInsights["h2h"]>): string {
+  const [a, b] = h.games[0].score.split("-").map(Number);
+  const score = Number.isFinite(a) && Number.isFinite(b) ? ` ${Math.max(a, b)}-${Math.min(a, b)}` : "";
+  return h.draw ? `endte det uafgjort${score}` : `vandt ${h.home ? home : away}${score}`;
+}
 
 /** A few short paragraphs explaining one pick. Pure. */
 export function explainPick(p: Pick): string[] {
@@ -16,12 +22,12 @@ export function explainPick(p: Pick): string[] {
   const i = p.insights;
   const out: string[] = [];
 
-  if (p.ev !== undefined) {
+  if (isSharp(p)) {
     out.push(
       `${p.reference}s odds uden deres margin giver "${p.outcome}" ${pct(p.probability)} chance, altså fair odds på ${dec(p.fairOdds)}. ` +
-        `${p.row.bestBook} giver ${dec(p.row.bestOdds)}, ${dec(p.ev * 100, 1)} % mere${p.minOdds !== undefined ? `, og bettet holder kun, så længe oddsen er mindst ${dec(p.minOdds)}` : ""}. ` +
+        `${p.row.bestBook} giver ${dec(p.row.bestOdds)}, ${dec(p.ev * 100, 1)} % mere, og bettet holder kun, så længe oddsen er mindst ${dec(p.minOdds)}. ` +
         `${p.reference} regnes for en af de mest præcise priser på markedet, så den bruges som fair pris. ` +
-        (/betfair/i.test(p.reference ?? "")
+        (/betfair/i.test(p.reference)
           ? "Med Betfair Exchange som fair pris gav den historiske test ingen fordel (156 bets, 2024/25–2025/26). "
           : "I den historiske test med Pinnacle gav bets valgt på den måde ingen sikker fordel, og fra januar 2025 slog de ikke lukkeprisen. ") +
         "Det er et forsøg, som vi følger live.",
@@ -96,24 +102,26 @@ export function explainPick(p: Pick): string[] {
 
   const h = i.h2h;
   if (h && h.games.length) {
-    const goals = h.games.map((g) => g.score.split("-").map(Number)).filter((s) => s.length === 2 && s.every(Number.isFinite));
-    const avg = goals.length ? goals.reduce((s, [a, b]) => s + a + b, 0) / goals.length : null;
-    out.push(
-      `I de seneste ${h.games.length} indbyrdes opgør vandt ${home} ${h.home}, ${away} ${h.away}, og ${h.draw} endte uafgjort` +
-        (avg !== null ? `, med ${dec(avg, 1)} mål i snit.` : "."),
-    );
+    if (h.games.length === 1) out.push(`I det seneste indbyrdes opgør ${oneMeeting(home, away, h)}.`);
+    else {
+      const goals = h.games.map((g) => g.score.split("-").map(Number)).filter((s) => s.length === 2 && s.every(Number.isFinite));
+      const avg = goals.length ? goals.reduce((s, [a, b]) => s + a + b, 0) / goals.length : null;
+      out.push(
+        `I de seneste ${h.games.length} indbyrdes opgør vandt ${home} ${h.home}, ${away} ${h.away}, og ${h.draw} endte uafgjort` + (avg !== null ? `, med ${dec(avg, 1)} mål i snit.` : "."),
+      );
+    }
   }
 
   const news = p.factors.filter((f) => f.label === "Skader og karantæner" || f.label === "xG-form");
   for (const f of news) {
     const moved = f.pp !== null && Math.abs(f.pp) >= 0.5 ? ` Det ${f.pp > 0 ? "hæver" : "sænker"} procenten med ${dec(Math.abs(f.pp), 1)} point.` : "";
-    out.push(f.label === "xG-form" ? `xG-formen: ${f.detail}.${moved}` : `Afbud: ${f.detail.charAt(0).toUpperCase() + f.detail.slice(1)}.${moved}`);
+    out.push(f.label === "xG-form" ? `xG-formen: ${f.detail}.${moved}` : `Afbud: ${capitalize(f.detail)}.${moved}`);
   }
 
   const model = p.row.modelProbability;
   const market = p.row.marketProbability;
   // A price-comparison pick's chance is the reference price alone; the model is not blended in.
-  if (model != null && !p.marketOnly && p.ev === undefined) {
+  if (model != null && !p.marketOnly && !isSharp(p)) {
     const gap = (market - model) * 100;
     out.push(
       Math.abs(gap) < 3

@@ -2,13 +2,15 @@
 // Stored format: scrypt$N$r$p$salt$hash, both base64url.
 
 import { randomBytes, scrypt as scryptCb, timingSafeEqual, type ScryptOptions } from "node:crypto";
+import { passwordProblem, validEmail } from "./rules";
+
+export { MIN_PASSWORD_LENGTH, passwordProblem, validEmail } from "./rules";
 
 const scrypt = (password: string, salt: Buffer, keylen: number, opts: ScryptOptions) =>
   new Promise<Buffer>((resolve, reject) => scryptCb(password, salt, keylen, opts, (err, key) => (err ? reject(err) : resolve(key))));
 
 const PARAMS = { N: 16384, r: 8, p: 1 };
 const KEYLEN = 64;
-export const MIN_PASSWORD_LENGTH = 10;
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);
@@ -25,10 +27,8 @@ export async function verifyPassword(password: string, stored: string): Promise<
 }
 
 export function validateCredentials(email: string, password: string): string | null {
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return "Skriv en gyldig email.";
-  if (password.length < MIN_PASSWORD_LENGTH) return `Adgangskoden skal være mindst ${MIN_PASSWORD_LENGTH} tegn.`;
-  if (password.length > 200) return "Adgangskoden er for lang.";
-  return null;
+  if (!validEmail(email)) return "Skriv en gyldig email.";
+  return passwordProblem(password);
 }
 
 /** Best-effort, per-process attempt limiter for sign-in and sign-up. */

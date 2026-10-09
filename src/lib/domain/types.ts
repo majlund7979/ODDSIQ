@@ -73,23 +73,6 @@ export interface Selection {
   result?: "won" | "lost" | "void";
 }
 
-/**
- * Price history for one selection. Time points are shared by all bookmakers;
- * a NaN price means that bookmaker had no quote at that time.
- */
-export interface OddsSeries {
-  selectionId: string;
-  times: number[];
-  prices: Record<string, number[]>; // bookmakerId -> decimal odds per time point
-}
-
-export interface ModelFamily {
-  id: string;
-  name: string;
-  kind: "poisson" | "gbm" | "elo" | "neural" | "ensemble";
-  description: string;
-}
-
 export interface ModelVersion {
   id: string; // e.g. football-ensemble-v1.4
   familyId: string;
@@ -116,13 +99,6 @@ export interface ModelEstimate {
   ciLow: number;
   ciHigh: number;
   computedAt: number;
-}
-
-export interface SelectionAnalysis {
-  selectionId: string;
-  ensemble: ModelEstimate;
-  components: ModelEstimate[];
-  factors: ExplanationFactor[];
 }
 
 /**
@@ -167,18 +143,4 @@ export interface LiveEvent {
   /** Home-win probability before and after, when the event moved it. */
   modelBefore?: number;
   modelAfter?: number;
-}
-
-export interface ProbabilityPoint {
-  minute: number;
-  model: number;
-  market: number;
-}
-
-export interface DataSource {
-  id: string;
-  name: string;
-  kind: "odds" | "stats" | "lineups" | "injuries";
-  status: "ok" | "degraded" | "down";
-  lastSyncAt: number;
 }

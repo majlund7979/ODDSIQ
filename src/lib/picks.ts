@@ -10,6 +10,7 @@
 // Steps 2 and 3 move the model's expected goals and re-price the outcome with
 // a Poisson goals model; their size is a heuristic, not a fitted parameter.
 
+import { dec, pct } from "@/lib/format";
 import { leagueForOddsKey } from "@/lib/model/openfootball";
 import type { MarketRow } from "@/lib/demo/store";
 import type { CountForecast, CountForecasts, CountStat } from "@/lib/model/match-stats";
@@ -20,6 +21,7 @@ import { AF_PREDICTION_MODEL, AF_PREDICTION_WEIGHT, flooredPercent, type AfPredi
 import { CLUBELO_MODEL, CLUBELO_WEIGHT, clubEloProbs, type ClubEloPair } from "@/lib/stats/clubelo";
 import type { TeamNews } from "@/lib/stats/news";
 import { sharpBets, type SharpBooks } from "@/lib/sharp";
+import { CATEGORY_LABEL } from "@/lib/pick-categories";
 
 export const PICK_WINDOW_MS = 24 * 3_600_000;
 export const PICK_COUNTS = [5, 10] as const;
@@ -61,6 +63,16 @@ export interface PickContext {
   afPrediction?: AfPrediction | null;
   /** Each team's top scorer: missing or not, and his recent form (moves over/under 1,5 and 2,5 mål). */
   scorers?: { home: TopScorer | null; away: TopScorer | null; source?: string };
+}
+
+/** A match's context, worked out once per match: for one request, or one replayed moment of the demo. */
+export function memoContext(context: (eventId: string) => PickContext | null): (eventId: string) => PickContext | null {
+  const memo = new Map<string, PickContext | null>();
+  return (eventId) => {
+    let c = memo.get(eventId);
+    if (c === undefined) memo.set(eventId, (c = context(eventId)));
+    return c;
+  };
 }
 
 export interface FormGame {
@@ -157,6 +169,11 @@ export interface Pick {
   pricedAt?: number;
 }
 
+/** A "Dagens bedste bets" pick, which always carries the price comparison. */
+export type SharpPick = Pick & { ev: number; reference: string; minOdds: number; pricedAt: number };
+
+export const isSharp = (p: Pick): p is SharpPick => p.ev !== undefined && p.reference !== undefined && p.minOdds !== undefined && p.pricedAt !== undefined;
+
 /** Begge hold scorer is only suggested when both teams scored in every one of this many recent matches. */
 export const BTTS_FORM_GAMES = 5;
 
@@ -209,7 +226,6 @@ export function outcomeLabel(r: MarketRow): string {
 }
 
 const clamp = (p: number) => Math.min(0.99, Math.max(0.01, p));
-const pct = (p: number) => `${Math.round(p * 100)} %`;
 
 function pmf(k: number, l: number) {
   let p = Math.exp(-l);
@@ -482,10 +498,9 @@ export function dailyPicks(
  * bet365 or bwin pays at least 1 % more, at odds 1,25–5 (sharp.ts). The bet is shown at that bookmaker's price. The
  * backtest found no documented edge, so the page shows it as an experiment.
  */
-export function sharpPicks(rows: MarketRow[], now: number, count: number, context: (eventId: string) => PickContext | null, books: SharpBooks): Pick[] {
+export function sharpPicks(rows: MarketRow[], now: number, count: number, context: (eventId: string) => PickContext | null, books: SharpBooks): SharpPick[] {
   const upcoming = rows.filter((r) => r.sportId === "football" && r.status === "scheduled" && r.kickoff > now && r.kickoff <= now + PICK_WINDOW_MS);
-  const pct = (x: number) => `${(x * 100).toFixed(1).replace(".", ",")} %`;
-  const odds = (x: number) => x.toFixed(2).replace(".", ",");
+  const pct1 = (x: number) => `${dec(x * 100, 1)} %`;
   return sharpBets(upcoming, books, now)
     .slice(0, count)
     .map((b) => {
@@ -494,9 +509,9 @@ export function sharpPicks(rows: MarketRow[], now: number, count: number, contex
       const a = analysePick(row, ctx);
       const insights = a?.insights ?? { expectedGoals: null, elo: null, clubElo: null, afPrediction: null, scorers: null, form: null, h2h: null, movement: row.movement, lineupsConfirmed: false };
       const factors: PickFactor[] = [
-        { label: `${b.reference}s fair pris`, pp: null, detail: `${pct(b.fair)} chance uden margin, fair odds ${odds(1 / b.fair)}` },
-        { label: `${b.book}s odds`, pp: null, detail: `${odds(b.price)}, ${b.ev >= 0 ? "+" : ""}${pct(b.ev)} over fair pris` },
-        { label: "Mindste odds", pp: null, detail: `Spil kun, hvis oddsen stadig er mindst ${odds(b.minOdds)}` },
+        { label: `${b.reference}s fair pris`, pp: null, detail: `${pct1(b.fair)} chance uden margin, fair odds ${dec(1 / b.fair)}` },
+        { label: `${b.book}s odds`, pp: null, detail: `${dec(b.price)}, ${b.ev >= 0 ? "+" : ""}${pct1(b.ev)} over fair pris` },
+        { label: "Mindste odds", pp: null, detail: `Spil kun, hvis oddsen stadig er mindst ${dec(b.minOdds)}` },
       ];
       return {
         row,
@@ -596,16 +611,16 @@ export { signedPp };
 // Bet types
 
 export const GOAL_CATEGORIES = [
-  { id: "vinder", label: "Hvem vinder", market: "1X2" },
-  { id: "maal15", label: "Over/under 1,5 mål", market: "OU15" },
-  { id: "maal", label: "Over/under 2,5 mål", market: "OU25" },
-  { id: "btts", label: "Begge hold scorer", market: "BTTS" },
+  { id: "vinder", label: CATEGORY_LABEL.vinder, market: "1X2" },
+  { id: "maal15", label: CATEGORY_LABEL.maal15, market: "OU15" },
+  { id: "maal", label: CATEGORY_LABEL.maal, market: "OU25" },
+  { id: "btts", label: CATEGORY_LABEL.btts, market: "BTTS" },
 ] as const;
 
 export const COUNT_CATEGORIES: { id: string; label: string; stat: CountStat; unit: string }[] = [
-  { id: "hjorne", label: "Hjørnespark", stat: "corners", unit: "hjørnespark" },
-  { id: "kort", label: "Kort", stat: "cards", unit: "kort" },
-  { id: "frispark", label: "Frispark", stat: "fouls", unit: "frispark" },
+  { id: "hjorne", label: CATEGORY_LABEL.hjorne, stat: "corners", unit: "hjørnespark" },
+  { id: "kort", label: CATEGORY_LABEL.kort, stat: "cards", unit: "kort" },
+  { id: "frispark", label: CATEGORY_LABEL.frispark, stat: "fouls", unit: "frispark" },
 ];
 
 /** The best pick per match within one goal market. */

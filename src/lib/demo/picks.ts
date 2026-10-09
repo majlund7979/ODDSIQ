@@ -4,11 +4,11 @@
 
 import { buildLeagueModel, type LeagueModel } from "@/lib/model/league-model";
 import { buildCountModels, forecastCounts, halfTimeShare, type CountModels, type StatMatch } from "@/lib/model/match-stats";
-import { allPickDrafts, settle, type MatchOutcome, type RecordedPick } from "@/lib/picks-extra";
+import { allPickDrafts, settle, type MatchOutcome, type PickDraft, type RecordedPick } from "@/lib/picks-extra";
 import { LIVE_WINDOW_MS, liveState, type LivePick } from "@/lib/live/scores";
 import { rating } from "@/lib/model/elo";
 import type { HistMatch } from "@/lib/model/openfootball";
-import type { PickContext } from "@/lib/picks";
+import { memoContext, type PickContext } from "@/lib/picks";
 import type { SharpBooks } from "@/lib/sharp";
 import { COMPARISON_KEYS, type AfPrediction } from "@/lib/stats/af-predictions";
 import type { PlayerMatch } from "@/lib/stats/api-football";
@@ -196,7 +196,7 @@ function computeRecorded(now: number, t: number, days: number): RecordedPick[] {
   const out: RecordedPick[] = [];
   for (let d = 1; d <= days; d++) {
     const at = Math.floor((t - d * 86_400_000) / 86_400_000) * 86_400_000 + 10 * 3_600_000;
-    const drafts = allPickDrafts(marketRows(at), at, 10, (id) => demoPickContext(id, at), DEMO_SHARP_BOOKS);
+    const drafts = allPickDrafts(marketRows(at), at, 10, memoContext((id) => demoPickContext(id, at)), DEMO_SHARP_BOOKS);
     for (const p of drafts) {
       if (p.row.kickoff > t - 2 * 3_600_000) continue;
       const o = demoLeague(p.row.leagueId, now).outcomes.get(p.row.eventId);
@@ -224,6 +224,18 @@ function computeRecorded(now: number, t: number, days: number): RecordedPick[] {
     });
 }
 
+const liveCache = new Map<number, PickDraft[]>();
+
+/** Every bet type's picks made at `at`, worked out once per feed time, so one replay serves every tab and poll of the live scores. */
+function liveDrafts(at: number): PickDraft[] {
+  const hit = liveCache.get(at);
+  if (hit) return hit;
+  if (liveCache.size > 5) liveCache.clear();
+  const drafts = allPickDrafts(marketRows(at), at, 10, memoContext((id) => demoPickContext(id, at)), DEMO_SHARP_BOOKS);
+  liveCache.set(at, drafts);
+  return drafts;
+}
+
 /**
  * DEMO DATA live scores: the picks made three hours ago whose matches are on
  * now, with a score drawn per match and minute (seeded, so stable on reload).
@@ -231,7 +243,7 @@ function computeRecorded(now: number, t: number, days: number): RecordedPick[] {
 export function demoLivePicks(category: string, now: number): LivePick[] {
   const t = feedTime(now);
   const at = t - 3 * 3_600_000;
-  const drafts = allPickDrafts(marketRows(at), at, 10, (id) => demoPickContext(id, at), DEMO_SHARP_BOOKS).filter((p) => p.category === category && p.row.kickoff <= t && p.row.kickoff > t - LIVE_WINDOW_MS);
+  const drafts = liveDrafts(at).filter((p) => p.category === category && p.row.kickoff <= t && p.row.kickoff > t - LIVE_WINDOW_MS);
   return drafts.map((p) => {
     const raw = Math.floor((t - p.row.kickoff) / 60_000);
     const minute = raw < 45 ? raw + 1 : raw < 60 ? 45 : Math.min(90, raw - 14);

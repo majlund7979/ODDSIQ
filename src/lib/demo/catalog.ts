@@ -80,5 +80,4 @@ export const BOOKMAKERS: Bookmaker[] = [
 
 export const teamById = new Map(TEAMS.map((t) => [t.id, t]));
 export const leagueById = new Map(LEAGUES.map((l) => [l.id, l]));
-export const bookmakerById = new Map(BOOKMAKERS.map((b) => [b.id, b]));
 export const teamsByLeague = new Map(LEAGUES.map((l) => [l.id, TEAMS.filter((t) => t.leagueId === l.id)]));

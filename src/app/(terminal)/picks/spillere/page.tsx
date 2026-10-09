@@ -3,21 +3,20 @@ import { requireFriend } from "@/lib/auth/friends";
 import { DEMO_MODE } from "@/lib/data";
 import { db } from "@/lib/db";
 import { demoTeams, demoTeamSquad } from "@/lib/demo/team-search";
+import { dec, shortDate, TZ } from "@/lib/format";
 import { POSITION_LABEL } from "@/lib/player-shots";
 import { searchTeams, teamSquad, type TeamSquad } from "@/lib/real/team-search";
 import { API_FOOTBALL, seasonFor, type TeamHit } from "@/lib/stats/api-football";
 import { configuredStatsFeed } from "@/lib/stats/config";
 import { cleanQuery, LEADER_CATEGORIES, PER90_MIN_MINUTES, playerCard, RECENT_MATCHES, teamLeaders, type Leader, type PlayerCard } from "@/lib/team-leaders";
 import { terminal } from "@/lib/terminal";
+import { one, type SearchParams } from "@/lib/url";
 
 export const metadata = { title: "Holdsøgning · Oddsanalyse" };
 // A team that has not been opened today is fetched from API-Football on the spot (up to about 10 requests).
 export const maxDuration = 60;
 
-const TZ = "Europe/Copenhagen";
-const dec = (x: number) => x.toFixed(2).replace(".", ",");
-const day = (t: number) => new Date(t).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: TZ });
-const clock = (t: number) => new Date(t).toLocaleString("da-DK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: TZ, hour12: false });
+const kickoffStamp = (t: number) => new Date(t).toLocaleString("da-DK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: TZ, hour12: false });
 const seasonLabel = (s: number) => `${s}/${String((s + 1) % 100).padStart(2, "0")}`;
 const min = (m: number) => `${m.toLocaleString("da-DK")} min`;
 
@@ -53,14 +52,14 @@ function CategoryCard({ label, short, leaders, link }: { label: string; short: s
           <li className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-1.5 text-[10px] text-muted">
             <span>Spiller · spilletid</span>
             <span className="w-[4.5rem] text-right">Sæson</span>
-            <span className="w-24 text-right">Sidste {RECENT_MATCHES}</span>
+            <span className="w-20 text-right">Sidste {RECENT_MATCHES}</span>
           </li>
           {leaders.map((l, i) => (
             <li key={l.playerId} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-2.5">
               <span className="min-w-0">
                 <span className="flex items-center gap-2">
                   <span className="num w-4 shrink-0 text-xs text-muted">{i + 1}</span>
-                  <Link href={link(l.playerId)} scroll={false} className="truncate text-sm font-semibold hover:text-accent hover:underline">
+                  <Link href={link(l.playerId)} scroll={false} className="line-clamp-2 break-words text-sm font-semibold hover:text-accent hover:underline">
                     {l.name}
                   </Link>
                 </span>
@@ -73,7 +72,7 @@ function CategoryCard({ label, short, leaders, link }: { label: string; short: s
                 <span className="num block text-lg font-bold leading-tight">{l.value}</span>
                 <span className="num block whitespace-nowrap text-[10px] text-muted">{l.per90 === null ? "få min." : `${dec(l.per90)} pr. 90`}</span>
               </span>
-              <span className="w-24 text-right">
+              <span className="w-20 text-right">
                 {l.recent ? (
                   <>
                     <span className="num flex items-center justify-end gap-1 text-sm font-semibold leading-tight">
@@ -143,17 +142,17 @@ function PlayerCardView({ card, back }: { card: PlayerCard; back: string }) {
               <tr className="text-left text-[11px] text-muted">
                 <th className="px-5 py-2 font-normal">Kamp</th>
                 <th className="px-2 py-2 text-right font-normal">Min</th>
-                <th className="px-2 py-2 text-right font-normal">SOT</th>
+                <th className="px-2 py-2 text-right font-normal"><abbr title="Skud på mål">SOT</abbr></th>
                 <th className="px-2 py-2 text-right font-normal">Mål</th>
                 <th className="px-2 py-2 text-right font-normal">Assist</th>
-                <th className="px-2 py-2 text-right font-normal">FC</th>
-                <th className="px-5 py-2 text-right font-normal">FW</th>
+                <th className="px-2 py-2 text-right font-normal"><abbr title="Frispark begået">FC</abbr></th>
+                <th className="px-5 py-2 text-right font-normal"><abbr title="Frispark vundet">FW</abbr></th>
               </tr>
             </thead>
             <tbody className="num">
               {card.matches.map((m, i) => (
                 <tr key={i} className="border-t border-line">
-                  <td className="px-5 py-2 font-sans text-ink-2">{m.kickoff ? day(m.kickoff) : "—"}</td>
+                  <td className="px-5 py-2 font-sans text-ink-2">{m.kickoff ? shortDate(m.kickoff) : "—"}</td>
                   <td className="px-2 py-2 text-right">{m.minutes}</td>
                   <td className="px-2 py-2 text-right">{m.shotsOn}</td>
                   <td className="px-2 py-2 text-right">{m.goals}</td>
@@ -179,9 +178,10 @@ interface TeamLink {
   sub?: string;
 }
 
-export default async function TeamSearchPage({ searchParams }: { searchParams: Promise<{ q?: string; hold?: string; navn?: string; spiller?: string }> }) {
+export default async function TeamSearchPage({ searchParams }: { searchParams: SearchParams }) {
   await requireFriend("/picks/spillere");
-  const q = await searchParams;
+  const raw = await searchParams;
+  const q = { q: one(raw.q), hold: one(raw.hold), navn: one(raw.navn), spiller: one(raw.spiller) };
   const query = cleanQuery(q.q);
   const t = await terminal();
   const feed = DEMO_MODE ? null : configuredStatsFeed();
@@ -202,7 +202,7 @@ export default async function TeamSearchPage({ searchParams }: { searchParams: P
     });
     const seen = new Map<string, TeamLink>();
     for (const f of soon)
-      for (const [id, name] of [[f.homeTeamId, f.home], [f.awayTeamId, f.away]] as const) if (id && !seen.has(String(id))) seen.set(String(id), { key: String(id), name, sub: `spiller ${clock(f.kickoff.getTime())}` });
+      for (const [id, name] of [[f.homeTeamId, f.home], [f.awayTeamId, f.away]] as const) if (id && !seen.has(String(id))) seen.set(String(id), { key: String(id), name, sub: `spiller ${kickoffStamp(f.kickoff.getTime())}` });
     links = [...seen.values()].slice(0, 16);
   }
 
@@ -275,8 +275,8 @@ export default async function TeamSearchPage({ searchParams }: { searchParams: P
             <h2 className="display text-3xl">{teamName || "Holdet"}</h2>
             <span className="text-xs text-muted">
               Historisk · sæson {seasonLabel(season)} · {new Set(squad.players.map((p) => p.playerId)).size} spillere · {squad.competitions ?? 1} {squad.competitions === 1 ? "turnering" : "turneringer"}
-              {squad.recentKickoffs.length > 0 && ` · sidste ${squad.recentKickoffs.length} kampe ${day(squad.recentKickoffs.at(-1)!)}–${day(squad.recentKickoffs[0])}`} · {source}
-              {squad.fetchedAt ? ` · hentet ${clock(squad.fetchedAt)}` : ""}
+              {squad.recentKickoffs.length > 0 && ` · sidste ${squad.recentKickoffs.length} kampe ${shortDate(squad.recentKickoffs.at(-1)!)}–${shortDate(squad.recentKickoffs[0])}`} · {source}
+              {squad.fetchedAt ? ` · hentet ${kickoffStamp(squad.fetchedAt)}` : ""}
             </span>
           </div>
           {card && <PlayerCardView card={card} back={teamHref} />}

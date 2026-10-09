@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { leagueTable, monthStart, parseNumber, displayName, type FriendBet } from "./friends";
-import { morningHtml, recipients } from "./morning";
+import type { MarketRow } from "./demo/store";
+import { morningHtml, morningSubject, morningText, recipients } from "./morning";
+import type { Pick } from "./picks";
 import { compareBooks, kelly, oddsMove, riskOf, roundStake, stakeAdvice } from "./picks-advice";
 
 describe("risk level", () => {
@@ -111,6 +113,95 @@ describe("morning e-mail", () => {
   it("tells no matches apart from no bets", () => {
     expect(morningHtml([], 0, "https://x", "src", 0)).toContain("ingen kampe de næste 24 timer");
     expect(morningHtml([], 0, "https://x", "src", 4)).toContain("eller vi mangler deres odds fra samme opdatering");
+  });
+  it("keeps the mail's wording and markup", () => {
+    // 07.00 in Copenhagen; the second match is tomorrow.
+    const now = Date.UTC(2026, 9, 8, 5);
+    const pick = (row: Partial<MarketRow>, outcome: string, probability: number, extra: Partial<Pick> = {}) =>
+      ({ row: { movement: 0, openingOdds: row.bestOdds, currentOdds: row.bestOdds, ...row }, outcome, probability, ...extra }) as Pick;
+    const picks = [
+      pick({ league: "Premier League", match: "Arsenal vs Chelsea", kickoff: Date.UTC(2026, 9, 8, 18, 45), bestOdds: 1.9, bestBook: "bet365", movement: -0.1, openingOdds: 2.1, currentOdds: 1.9 }, "Arsenal vinder", 0.72, { pricedAt: Date.UTC(2026, 9, 8, 4, 15), minOdds: 1.75 }),
+      pick({ league: "Serie A & co", match: "Inter vs <Milan>", kickoff: Date.UTC(2026, 9, 9, 11, 30), bestOdds: 1.8, bestBook: "bwin", movement: 0.05, openingOdds: 1.71, currentOdds: 1.8 }, "Uafgjort", 0.5),
+      pick({ league: "La Liga", match: "Betis vs Sevilla", kickoff: Date.UTC(2026, 9, 8, 19), bestOdds: 2, bestBook: "bet365" }, "Betis vinder", 0.6),
+    ];
+    expect(morningSubject(picks, now)).toMatchInlineSnapshot(`"Dagens top 3, torsdag 8. oktober"`);
+    expect(morningText([], now, "https://oddsanalyse.dk", "DEMO DATA", 4)).toMatchInlineSnapshot(`
+      "Ingen bets i dag: i kampene de næste 24 timer betaler hverken bet365 eller bwin mindst 1 % over Pinnacles (ellers Betfair Exchanges) fair pris ved odds 1,25–5,00, eller vi mangler deres odds fra samme opdatering.
+
+      https://oddsanalyse.dk/picks"
+    `);
+    expect(morningText(picks, now, "https://oddsanalyse.dk", "DEMO DATA")).toMatchInlineSnapshot(`
+      "Forsøg: bets, hvor bet365 eller bwin betaler mindst 1 % mere end Pinnacles odds uden margin. Vi henter odds hver 5.–6. time, så tjek prisen, før du spiller. Den historiske test viste ingen sikker fordel.
+
+      1. Arsenal vinder (72 %, lav risiko)
+         Arsenal – Chelsea · Premier League · kl. 20.45
+         Odds 1,90 hos bet365 (hentet kl. 06.15) · spil kun til mindst 1,75 · forslag: 5 % af puljen · odds faldet 10 %
+
+      2. Uafgjort (50 %, høj risiko)
+         Inter – <Milan> · Serie A & co · i morgen kl. 13.30
+         Odds 1,80 hos bwin · forslag: 1 % af puljen (ingen værdi) · odds steget 5 %
+
+      3. Betis vinder (60 %, middel risiko)
+         Betis – Sevilla · La Liga · kl. 21.00
+         Odds 2,00 hos bet365 · forslag: 5 % af puljen
+
+      Se hele analysen: https://oddsanalyse.dk/picks
+
+      Procenterne er skøn, ikke garantier. Spil kun for penge, du har råd til at tabe. 18+.
+      Kilde: DEMO DATA.
+      Slå mailen fra under Vennerligaen: https://oddsanalyse.dk/picks/liga"
+    `);
+    expect(morningHtml(picks, now, "https://oddsanalyse.dk", "DEMO DATA")).toMatchInlineSnapshot(`
+      "<!doctype html><html lang="da"><body style="margin:0;background:#f6f6f3;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1a1a19">
+      <div style="max-width:560px;margin:0 auto;padding:24px 20px">
+      <div style="font-size:13px;font-weight:700;letter-spacing:1px">Oddsanalyse</div>
+      <h1 style="font-size:22px;margin:8px 0 4px">Dagens top 3</h1>
+      <p style="margin:0 0 12px;color:#3d3c38;font-size:14px">Forsøg: bets, hvor bet365 eller bwin betaler mindst 1 % mere end Pinnacles odds uden margin. Vi henter odds hver 5.–6. time, så tjek prisen, før du spiller. Den historiske test viste ingen sikker fordel.</p>
+      <table style="width:100%;border-collapse:collapse"><tr><td style="padding:14px 0;border-top:1px solid #e5e5e0">
+      <div style="font-size:12px;color:#77756f">1 · Premier League · kl. 20.45</div>
+      <div style="font-size:16px;font-weight:600;margin:4px 0">Arsenal – Chelsea</div>
+      <div style="font-size:15px;color:#1f6fd1;font-weight:600">Arsenal vinder</div>
+      <div style="font-size:13px;color:#3d3c38;margin-top:6px">
+      <b>72 %</b> chance ·
+      <span style="color:#0ca30c;font-weight:600">● Lav risiko</span> ·
+      odds 1,90 (bet365) (hentet kl. 06.15) · spil kun til mindst 1,75 ·
+      forslag 5 % af puljen · odds ↓ faldet 10 %
+      </div></td></tr><tr><td style="padding:14px 0;border-top:1px solid #e5e5e0">
+      <div style="font-size:12px;color:#77756f">2 · Serie A &amp; co · i morgen kl. 13.30</div>
+      <div style="font-size:16px;font-weight:600;margin:4px 0">Inter – &lt;Milan&gt;</div>
+      <div style="font-size:15px;color:#1f6fd1;font-weight:600">Uafgjort</div>
+      <div style="font-size:13px;color:#3d3c38;margin-top:6px">
+      <b>50 %</b> chance ·
+      <span style="color:#d03b3b;font-weight:600">● Høj risiko</span> ·
+      odds 1,80 (bwin) ·
+      forslag 1 % af puljen (ingen værdi) · odds ↑ steget 5 %
+      </div></td></tr><tr><td style="padding:14px 0;border-top:1px solid #e5e5e0">
+      <div style="font-size:12px;color:#77756f">3 · La Liga · kl. 21.00</div>
+      <div style="font-size:16px;font-weight:600;margin:4px 0">Betis – Sevilla</div>
+      <div style="font-size:15px;color:#1f6fd1;font-weight:600">Betis vinder</div>
+      <div style="font-size:13px;color:#3d3c38;margin-top:6px">
+      <b>60 %</b> chance ·
+      <span style="color:#c98a00;font-weight:600">● Middel risiko</span> ·
+      odds 2,00 (bet365) ·
+      forslag 5 % af puljen
+      </div></td></tr></table>
+      <p style="margin:20px 0"><a href="https://oddsanalyse.dk/picks" style="background:#1f6fd1;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">Se hele analysen</a></p>
+      <p style="font-size:12px;color:#77756f;line-height:1.5">Procenterne er skøn, ikke garantier. Spil kun for penge, du har råd til at tabe. 18+. Kilde: DEMO DATA.<br>
+      <a href="https://oddsanalyse.dk/picks/liga" style="color:#77756f">Slå morgenmailen fra</a></p>
+      </div></body></html>"
+    `);
+    expect(morningHtml([], now, "https://oddsanalyse.dk", "DEMO DATA", 0)).toMatchInlineSnapshot(`
+      "<!doctype html><html lang="da"><body style="margin:0;background:#f6f6f3;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1a1a19">
+      <div style="max-width:560px;margin:0 auto;padding:24px 20px">
+      <div style="font-size:13px;font-weight:700;letter-spacing:1px">Oddsanalyse</div>
+      <h1 style="font-size:22px;margin:8px 0 4px">Dagens top </h1>
+      <p style="margin:0 0 12px;color:#3d3c38;font-size:14px">Forsøg: bets, hvor bet365 eller bwin betaler mindst 1 % mere end Pinnacles odds uden margin. Vi henter odds hver 5.–6. time, så tjek prisen, før du spiller. Den historiske test viste ingen sikker fordel.</p>
+      <p>Ingen bets i dag: der er ingen kampe de næste 24 timer.</p>
+      <p style="margin:20px 0"><a href="https://oddsanalyse.dk/picks" style="background:#1f6fd1;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">Se hele analysen</a></p>
+      <p style="font-size:12px;color:#77756f;line-height:1.5">Procenterne er skøn, ikke garantier. Spil kun for penge, du har råd til at tabe. 18+. Kilde: DEMO DATA.<br>
+      <a href="https://oddsanalyse.dk/picks/liga" style="color:#77756f">Slå morgenmailen fra</a></p>
+      </div></body></html>"
+    `);
   });
 });
 

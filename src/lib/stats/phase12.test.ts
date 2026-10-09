@@ -6,6 +6,7 @@ import data from "./fixtures/api-football.json";
 import { StatsFixtureFeed } from "./fixture-feed";
 import { teamNews, xgForm, type StoredFixture } from "./news";
 import { dataQuality } from "@/lib/metrics/quality";
+import { teamKey } from "@/lib/model/teams";
 
 const [ars, liv] = normalizeFixtures(data.fixtures as RawFixture[]);
 const KO = ars.kickoff;
@@ -93,6 +94,37 @@ describe("team news", () => {
   it("averages xG for and against over past matches only", () => {
     expect(xgForm("Arsenal", history, KO)).toEqual({ n: 2, xgFor: 1.75, xgAgainst: 0.75 });
     expect(xgForm("Chelsea", history, KO)).toBeNull();
+  });
+
+  it("reads the same form from its team index as from a scan of the whole history", () => {
+    // The form as a scan: every past fixture with both xG values that names the team, newest first.
+    const scan = (team: string, list: StoredFixture[], before: number, n = 5) => {
+      const key = teamKey(team);
+      const rows = list
+        .filter((f) => f.homeXg !== null && f.awayXg !== null && f.kickoff.getTime() < before && (teamKey(f.home) === key || teamKey(f.away) === key))
+        .sort((a, b) => b.kickoff.getTime() - a.kickoff.getTime())
+        .slice(0, n);
+      if (!rows.length) return null;
+      const home = (f: StoredFixture) => teamKey(f.home) === key;
+      const sum = (g: (f: StoredFixture) => number) => rows.reduce((s, f) => s + g(f), 0) / rows.length;
+      return { n: rows.length, xgFor: sum((f) => (home(f) ? f.homeXg! : f.awayXg!)), xgAgainst: sum((f) => (home(f) ? f.awayXg! : f.homeXg!)) };
+    };
+    const mixed = [
+      ...history,
+      // Two spellings of one club, the same club on both sides, kickoffs on the same day and in the future, a missing xG.
+      fx("Manchester United", "Arsenal", 3, 1.1, 1.3),
+      fx("Man United", "Leeds United", 3, 2.2, 0.4),
+      fx("Arsenal FC", "Arsenal", 5, 0.9, 0.8),
+      fx("Leeds", "Man Utd", 10, 1.4, 1.6),
+      fx("Arsenal", "Leeds United", 28, 2.5, 0.2),
+      fx("Arsenal", "Man United", 35, 1.9, null),
+      fx("Fulham", "Arsenal", 2, 0.7, 2.1),
+      fx("Arsenal", "Brentford", -1, 1.5, 1.5),
+      fx("Brentford", "Manchester United", 42, 1.2, 0.6),
+    ];
+    for (const team of ["Arsenal", "Arsenal FC", "Manchester United", "Man United", "Leeds United", "Fulham", "Brentford", "Chelsea"])
+      for (const before of [KO, KO - 4 * 24 * H, KO + 2 * 24 * H, KO - 60 * 24 * H])
+        for (const n of [1, 3, 5]) expect(xgForm(team, mixed, before, n)).toEqual(scan(team, mixed, before, n));
   });
 
   it("orders absences by side and exposes match xG", () => {

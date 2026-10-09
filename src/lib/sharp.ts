@@ -113,7 +113,8 @@ function triples(rows: MarketRow[]): Triple[] {
     .map(([bookId, b]) => ({ bookId, book: b.book, odds: b.odds, at: Math.min(...b.at) }));
 }
 
-const overround = (odds: number[]) => odds.reduce((s, o) => s + 1 / o, 0);
+/** Σ 1/odds, e.g. 1.05 for a 5 % margin (metrics/probability.ts `overround` is this minus 1). */
+const bookSum = (odds: number[]) => odds.reduce((s, o) => s + 1 / o, 0);
 
 export interface SharpBet {
   row: MarketRow;
@@ -151,12 +152,12 @@ export function sharpBets(rows: MarketRow[], books: SharpBooks, now: number): Sh
     const all = triples(rs).filter((t) => now - t.at <= SHARP_MAX_AGE_MS && sane(t));
     const refs = all.filter((t) => {
       const key = bookKey(t.bookId);
-      const o = overround(t.odds);
+      const o = bookSum(t.odds);
       return books.reference.includes(key) && o >= 1 && o <= 1 + (REFERENCE_MAX_MARGIN[key] ?? DEFAULT_MAX_MARGIN);
     });
     let best: SharpBet | null = null;
     for (const key of books.price) {
-      for (const t of all.filter((x) => bookKey(x.bookId) === key && overround(x.odds) >= 1)) {
+      for (const t of all.filter((x) => bookKey(x.bookId) === key && bookSum(x.odds) >= 1)) {
         const ref = books.reference
           .map((k) => refs.filter((r) => bookKey(r.bookId) === k && Math.abs(r.at - t.at) <= SHARP_MAX_GAP_MS).sort((a, b) => Math.abs(a.at - t.at) - Math.abs(b.at - t.at))[0])
           .find(Boolean);

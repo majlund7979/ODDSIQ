@@ -1,8 +1,6 @@
 // English Premier League results 2021/22 to 20 Sep 2026, from openfootball/football.json
-// (CC0 1.0, public domain). A committed snapshot, used by tests, the CI check and
-// the Real Model page when no database is connected.
-
-export const EPL_SNAPSHOT_THROUGH = "2026-09-20";
+// (CC0 1.0, public domain). A committed snapshot, used by tests and the CI fixture
+// check (npm run ingest:fixture).
 
 export const EPL_RESULTS_CSV = `season,date,home,away,hg,ag
 2021-22,2021-08-13,Brentford FC,Arsenal FC,2,0

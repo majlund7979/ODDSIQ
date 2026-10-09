@@ -45,6 +45,11 @@ export async function signedInFriend(): Promise<CurrentUser | null> {
   return user && (await isInvited(user.email)) ? user : null;
 }
 
+/** For the API routes the pages call: true when accounts are off, or the caller is signed in and invited. */
+export async function friendRequestAllowed(): Promise<boolean> {
+  return !ACCOUNTS_ENABLED || Boolean(await signedInFriend());
+}
+
 export async function requireOwner(next = "/venner"): Promise<CurrentUser> {
   const user = await requireFriend(next);
   if (!user || !isOwner(user.email)) redirect("/picks");

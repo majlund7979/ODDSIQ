@@ -42,22 +42,45 @@ export interface StoredFixture {
   injuries: { side: string; team: string; player: string; status: string; reason: string }[];
 }
 
+/** What the xG form reads from a stored fixture. */
+export type XgFixture = Pick<StoredFixture, "kickoff" | "home" | "away" | "homeXg" | "awayXg">;
+
+const xgIndex = new WeakMap<readonly XgFixture[], Map<string, XgFixture[]>>();
+
+/** Each team's fixtures with xG, newest first, built once per history. */
+function xgByTeam(history: readonly XgFixture[]): Map<string, XgFixture[]> {
+  const hit = xgIndex.get(history);
+  if (hit) return hit;
+  const index = new Map<string, XgFixture[]>();
+  const add = (key: string, f: XgFixture) => {
+    if (!index.has(key)) index.set(key, []);
+    index.get(key)!.push(f);
+  };
+  for (const f of history) {
+    if (f.homeXg === null || f.awayXg === null) continue;
+    const home = teamKey(f.home);
+    const away = teamKey(f.away);
+    add(home, f);
+    if (away !== home) add(away, f);
+  }
+  for (const list of index.values()) list.sort((a, b) => b.kickoff.getTime() - a.kickoff.getTime());
+  xgIndex.set(history, index);
+  return index;
+}
+
 /** Average xG for and against over a team's last few matches with xG, before `before`. */
-export function xgForm(team: string, history: StoredFixture[], before: number, n = XG_FORM_MATCHES): XgForm | null {
+export function xgForm(team: string, history: readonly XgFixture[], before: number, n = XG_FORM_MATCHES): XgForm | null {
   const key = teamKey(team);
-  const rows = history
-    .filter((f) => f.homeXg !== null && f.awayXg !== null && f.kickoff.getTime() < before && (teamKey(f.home) === key || teamKey(f.away) === key))
-    .sort((a, b) => b.kickoff.getTime() - a.kickoff.getTime())
-    .slice(0, n);
+  const rows = (xgByTeam(history).get(key) ?? []).filter((f) => f.kickoff.getTime() < before).slice(0, n);
   if (!rows.length) return null;
-  const home = (f: StoredFixture) => teamKey(f.home) === key;
-  const sum = (g: (f: StoredFixture) => number) => rows.reduce((s, f) => s + g(f), 0) / rows.length;
+  const home = (f: XgFixture) => teamKey(f.home) === key;
+  const sum = (g: (f: XgFixture) => number) => rows.reduce((s, f) => s + g(f), 0) / rows.length;
   return { n: rows.length, xgFor: sum((f) => (home(f) ? f.homeXg! : f.awayXg!)), xgAgainst: sum((f) => (home(f) ? f.awayXg! : f.homeXg!)) };
 }
 
 const side = (s: string): Side => (s === "away" ? "away" : "home");
 
-export function teamNews(f: StoredFixture, history: StoredFixture[]): TeamNews {
+export function teamNews(f: StoredFixture, history: readonly XgFixture[]): TeamNews {
   const order = (s: string) => (s === "home" ? 0 : 1);
   return {
     provider: f.provider,

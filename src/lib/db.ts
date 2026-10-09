@@ -1,4 +1,4 @@
-// Postgres access. The terminal runs without a database in DEMO_MODE; accounts,
+// Postgres access. The site runs without a database in DEMO_MODE; accounts,
 // billing and live-feed ingestion need DATABASE_URL.
 
 import { PrismaPg } from "@prisma/adapter-pg";

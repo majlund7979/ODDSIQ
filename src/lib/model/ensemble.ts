@@ -16,9 +16,6 @@ export const REAL_MODEL = {
     "Equal-weight blend of Dixon-Coles and Elo for 1X2; Dixon-Coles alone for over/under 1.5 and 2.5 and both teams to score. Refitted on the last three seasons of results before every prediction. Uses no lineups, injuries, xG or market prices.",
 };
 
-export const UNCERTAINTY_NOTE =
-  "Approximate 95% range: combines the spread between the two component models with a term that shrinks as more recent matches of both teams are available. It is not a formal confidence interval.";
-
 export type Outcome1x2 = "home" | "draw" | "away";
 
 export interface SelectionForecast {

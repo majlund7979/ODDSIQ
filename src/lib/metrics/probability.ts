@@ -5,11 +5,6 @@ export function impliedProbability(decimalOdds: number): number {
   return 1 / decimalOdds;
 }
 
-export function fairOdds(probability: number): number {
-  if (!(probability > 0 && probability < 1)) throw new RangeError(`Invalid probability: ${probability}`);
-  return 1 / probability;
-}
-
 /** Sum of implied probabilities minus one, e.g. 0.052 for a 5.2% margin. */
 export function overround(oddsForAllOutcomes: number[]): number {
   return oddsForAllOutcomes.reduce((s, o) => s + impliedProbability(o), 0) - 1;

@@ -5,8 +5,8 @@
 // Every run stores one OddsSnapshot per bookmaker price for events that have
 // not kicked off, so the last snapshot at or before kickoff is the closing
 // line (see closing.ts). Prices for events already in play go to InPlayOdds,
-// and every score the feed reports goes to ScoreUpdate, so the Live and
-// Market Replay pages can show them without touching pre-match analytics.
+// and every score the feed reports goes to ScoreUpdate, so they are kept
+// without touching the closing line or pre-match analytics.
 
 import type { PrismaClient } from "@/generated/prisma/client";
 import { overround } from "@/lib/metrics/probability";

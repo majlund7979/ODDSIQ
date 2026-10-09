@@ -7,7 +7,9 @@
 // rate and the average predicted probability, shrunk towards zero while the
 // sample is small, and capped so one bad weekend cannot swing the page.
 
+import { dec, pct, shortDate } from "@/lib/format";
 import { metric, periodOf, type Metric } from "@/lib/metrics/metric";
+import { SHARP_VERSION } from "@/lib/sharp";
 import type { RecordedPick } from "./picks-extra";
 import { strengthOf, type Pick } from "./picks";
 
@@ -20,6 +22,11 @@ export const LEARN_MAX_SHIFT = 0.5;
 /** How far back the learning looks. */
 export const LEARN_DAYS = 90;
 export const LEARNING_VERSION = "picks-calibration-v1";
+
+/** The version behind a bet type's record: Bedste bets follow the price comparison, which the learning never adjusts. */
+export const recordVersion = (category: string) => (category === "bedste" ? SHARP_VERSION : LEARNING_VERSION);
+/** Both versions, for the line under the hit rates of several bet types. */
+export const RECORD_VERSIONS = [LEARNING_VERSION, `Bedste bets: ${SHARP_VERSION}`] as const;
 
 const logit = (p: number) => Math.log(p / (1 - p));
 const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));
@@ -59,7 +66,7 @@ export function learn(records: RecordedPick[], source: string): Learning {
       hitRate: metric(won / n, {
         n,
         ...periodOf(rs.map((r) => r.kickoff)),
-        modelVersion: LEARNING_VERSION,
+        modelVersion: recordVersion(category),
         source,
         definition: "Share of settled picks of this bet type that won",
         basis: "historical",
@@ -101,8 +108,16 @@ export function applyLearningToPicks(picks: Pick[], l: CategoryLearning | undefi
   });
 }
 
+/** The period hit rates cover, from the earliest to the latest settled kickoff, e.g. "1. okt.–7. okt."; the look-back window when none has settled. */
+export function hitRatePeriod(rates: Metric[]): string {
+  const { periodFrom, periodTo } = periodOf(rates.flatMap((m) => (m.periodFrom !== null && m.periodTo !== null ? [m.periodFrom, m.periodTo] : [])));
+  return periodFrom !== null && periodTo !== null ? `${shortDate(periodFrom)}–${shortDate(periodTo)}` : `sidste ${LEARN_DAYS} dage`;
+}
+
+/** The adjustment in percentage points, e.g. "+1,2" or "−0,4". */
+export const adjustmentLabel = (pp: number) => `${pp >= 0 ? "+" : "−"}${dec(Math.abs(pp), 1)}`;
+
 /** One plain sentence on what the learning saw. */
 export function learningDetail(l: CategoryLearning): string {
-  const pct = (x: number) => `${Math.round(x * 100)} %`;
   return `${l.hitRate.n} afgjorte bets af denne type ramte ${pct(l.hitRate.value)}, mod forventet ${pct(l.expected)}, så procenten ${l.shift > 0 ? "hæves" : "sænkes"} lidt`;
 }

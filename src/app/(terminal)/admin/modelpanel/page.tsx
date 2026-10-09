@@ -2,8 +2,8 @@ import Link from "next/link";
 import { requireOwner } from "@/lib/auth/friends";
 import { wallClock } from "@/lib/data";
 import { DATABASE_CONFIGURED } from "@/lib/db";
-import { Badge, Panel, Tip } from "@/components/ui";
-import type { Metric } from "@/lib/metrics/metric";
+import { Badge, MetricContextLine, Panel, Tip } from "@/components/ui";
+import { TZ } from "@/lib/format";
 import {
   BACKTEST,
   loadPanel,
@@ -19,27 +19,15 @@ import {
 export const metadata = { title: "Modelpanel · Oddsanalyse" };
 export const dynamic = "force-dynamic";
 
-const TZ = "Europe/Copenhagen";
 const when = (d: Date | null | undefined) =>
   d ? d.toLocaleString("da-DK", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: TZ, hour12: false }) : "—";
 const pct = (p: number | null | undefined, digits = 0) => (p == null ? "—" : `${(p * 100).toFixed(digits).replace(".", ",")} %`);
 const signedPct = (p: number | null | undefined) => (p == null ? "—" : `${p > 0 ? "+" : p < 0 ? "−" : ""}${Math.abs(p * 100).toFixed(1).replace(".", ",")} %`);
 const dec = (x: number | null | undefined, digits = 2) => (x == null ? "—" : x.toFixed(digits).replace(".", ","));
-const BASIS: Record<Metric["basis"], string> = { historical: "Historisk", simulated: "Simuleret", live: "Live", estimated: "Skøn" };
-const MONTH = (t: number | null) => (t == null ? "—" : new Date(t).toLocaleDateString("da-DK", { month: "short", year: "numeric", timeZone: TZ }));
 const STAGE: Record<string, string> = { early: "tidlig", pre_lineup: "før opstilling", post_lineup: "efter opstilling", live: "live" };
 const FAMILY: Record<string, string> = {
   elo: "Elo", logreg: "Logistisk regression", rf: "Random forest", lgbm: "LightGBM", dixon_coles: "Dixon-Coles", feature_poisson: "Feature-Poisson",
 };
-
-function Context({ m }: { m: Metric<unknown> }) {
-  return (
-    <p className="mt-1 text-[11px] leading-relaxed text-muted">
-      <span className="text-ink-2">{BASIS[m.basis]}</span> · n = {m.n.toLocaleString("da-DK")} · {MONTH(m.periodFrom)} – {MONTH(m.periodTo)} ·{" "}
-      {m.modelVersion} · {m.source}
-    </p>
-  );
-}
 
 function Tile({ label, value, hint }: { label: string; value: React.ReactNode; hint: React.ReactNode }) {
   return (
@@ -424,7 +412,7 @@ export default async function ModelPanelPage() {
                 <Tip text={b.m.definition}>{b.label}</Tip>
               </div>
               <div className="num mt-1.5 text-2xl font-extrabold tracking-[-0.02em] text-ink">{b.m.value}</div>
-              <Context m={b.m} />
+              <MetricContextLine m={b.m} />
             </div>
           ))}
         </div>

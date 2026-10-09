@@ -1,5 +1,5 @@
 // Read model over live feed data (DEMO_MODE=false). Produces the same row
-// shapes as the demo store so the terminal pages render either. Prices are
+// shapes as the demo store so the site's pages render either. Prices are
 // the snapshots stored by each ingestion run; model probabilities are the
 // real model's current estimate, or the recorded ledger prediction once one
 // exists. Nothing here is simulated.
@@ -11,39 +11,28 @@ import type { EventStatus, Prediction, SportEvent, SportId } from "@/lib/domain/
 import { verifyChain } from "@/lib/ledger/hash";
 import { clv } from "@/lib/metrics/clv";
 import { modelConsensus } from "@/lib/metrics/consensus";
-import { marketPressure, velocityLevel, volatility as seriesVolatility } from "@/lib/metrics/movement";
 import { dataQuality } from "@/lib/metrics/quality";
-import { edgePp, expectedValue } from "@/lib/metrics/value";
+import { expectedValue } from "@/lib/metrics/value";
 import { REAL_MODEL, type MatchForecast } from "@/lib/model/ensemble";
-import { explainSelection } from "@/lib/model/explain";
 import { buildLeagueModel, forecastFor, type LeagueModel } from "@/lib/model/league-model";
-import { leagueForOddsKey, OPENFOOTBALL_SOURCE } from "@/lib/model/openfootball";
+import { leagueForOddsKey } from "@/lib/model/openfootball";
 import { buildCountModels, forecastCounts, halfTimeShare, type CountForecasts, type CountModels } from "@/lib/model/match-stats";
 import { loadMatchStats, loadResults } from "@/lib/model/pipeline";
-import { closingLine, type PricePoint as BookPoint } from "@/lib/providers/closing";
-import type { LedgerAudit, LedgerRow, MarketDetail, MarketRow, MatchView } from "@/lib/demo/store";
-import { teamNews, type StoredFixture, type TeamNews } from "@/lib/stats/news";
+import { closingLine, type ClosingLine, type PricePoint as BookPoint } from "@/lib/providers/closing";
+import type { LedgerAudit, LedgerRow, MarketRow } from "@/lib/demo/store";
+import { teamNews, type TeamNews, type XgFixture } from "@/lib/stats/news";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 /** A bookmaker's price counts as current for this long after it was observed (runs are six hours apart). */
 const PRICE_WINDOW_MS = 12 * HOUR;
-/** Finished matches stay visible for a week (Matches → Results). */
+/** The full snapshot (ledger export, fixture checks) also reads the past week's matches; the pages only read matches still to be played. */
 const LOOKBACK_MS = 7 * DAY;
 const LOOKAHEAD_MS = 10 * DAY;
 /** Odds arrive every few hours, so a view may reuse the snapshot for a few minutes. */
 const CACHE_MS = 5 * 60_000;
 
 export type EventView = SportEvent & { homeName: string; awayName: string; leagueName: string; sportName: string };
-
-export interface SourceView {
-  id: string;
-  name: string;
-  kind: "odds" | "stats" | "lineups" | "injuries";
-  status: "ok" | "degraded" | "down";
-  lastSyncAt: number;
-  provider: string;
-}
 
 export interface MarketData {
   id: string;
@@ -52,9 +41,6 @@ export interface MarketData {
   selections: { id: string; name: string; side: string; result: string | null }[];
   points: BookPoint[];
   runs: number[];
-  /** Prices observed after kickoff (InPlayOdds) and the times they were observed. */
-  livePoints: BookPoint[];
-  liveRuns: number[];
 }
 
 export interface EventData {
@@ -68,8 +54,6 @@ export interface EventData {
   counts: CountForecasts;
   /** Share of goals before half-time in this league. */
   htShare: { home: number; away: number; n: number } | null;
-  /** Scores as the odds feed reported them after kickoff, oldest first. */
-  scores: { at: number; home: number; away: number; completed: boolean }[];
   /** API-Football's fixture id, for its /predictions (src/lib/stats/af-predictions.ts). */
   fixtureId: number | null;
 }
@@ -81,8 +65,6 @@ export interface RealSnapshot {
   /** Empty, with an empty audit, in a snapshot built with `ledger: false`. */
   ledger: LedgerRow[];
   audit: LedgerAudit;
-  ledgerIncluded: boolean;
-  sources: SourceView[];
   books: Map<string, string>;
   predictionsBySelection: Map<string, Prediction>;
   models: Map<string, LeagueModel>;
@@ -105,13 +87,14 @@ export function latestPointsByBook(points: BookPoint[], at: number, window = PRI
   return out;
 }
 
-/** Each book's latest price per selection observed in (at − window, at]. */
-export function latestByBook(points: BookPoint[], at: number, window = PRICE_WINDOW_MS): Map<string, Map<string, number>> {
-  return new Map([...latestPointsByBook(points, at, window)].map(([sel, books]) => [sel, new Map([...books].map(([b, p]) => [b, p.odds]))]));
-}
+const consensusMemo = new WeakMap<MarketData, Map<number, ClosingLine | null>>();
 
-export function consensusAt(m: MarketData, at: number) {
-  const line = closingLine(m.points, m.selections.map((s) => s.id), at, PRICE_WINDOW_MS);
+/** The market's consensus at `at`; the same for every selection of the market, so it is worked out once per market and time. */
+export function consensusAt(m: MarketData, at: number): ClosingLine | null {
+  let byTime = consensusMemo.get(m);
+  if (!byTime) consensusMemo.set(m, (byTime = new Map()));
+  let line = byTime.get(at);
+  if (line === undefined) byTime.set(at, (line = closingLine(m.points, m.selections.map((s) => s.id), at, PRICE_WINDOW_MS)));
   return line;
 }
 
@@ -160,22 +143,6 @@ function buildRow(e: EventData, m: MarketData, i: number, now: number, books: Ma
   for (const [b, o] of quotes) if (o > bestOdds) [bestOdds, bestBookId] = [o, b];
   const openingOdds = opening.selections[i].medianOdds;
   const currentOdds = mine.medianOdds;
-  const series = runs.map((r) => ({ at: r, odds: consensusAt(m, r)?.selections[i].medianOdds ?? NaN })).filter((p) => !Number.isNaN(p.odds));
-  const prev = [...series].reverse().find((p) => p.at <= last - 5 * HOUR) ?? series[0];
-  const hours = (last - prev.at) / HOUR;
-  const velocityPerHour = hours > 0 ? (currentOdds - prev.odds) / hours : 0;
-  const relativeVelocityPerHour = hours > 0 ? (currentOdds / prev.odds - 1) / hours : 0;
-  const booksMovedSince = (from: number) => {
-    const dir = Math.sign(currentOdds - (consensusAt(m, from)?.selections[i].medianOdds ?? currentOdds)) || 1;
-    const then = latestByBook(m.points, from, Infinity).get(sel.id) ?? new Map<string, number>();
-    let moving = 0;
-    for (const [b, o] of quotes) {
-      const t = then.get(b);
-      if (t !== undefined && Math.sign(o - t) === dir && Math.abs(o / t - 1) > 0.01) moving++;
-    }
-    return moving;
-  };
-  const vol = seriesVolatility(series);
   const hoursToKickoff = (e.view.kickoff - ref) / HOUR;
   const tracked = new Set(m.points.map((p) => p.bookmakerId)).size;
 
@@ -203,33 +170,15 @@ function buildRow(e: EventData, m: MarketData, i: number, now: number, books: Ma
     quotes: [...latest].map(([b, p]) => ({ book: books.get(b) ?? b, bookId: b, odds: p.odds, at: p.observedAt })).sort((a, b) => b.odds - a.odds),
     openingOdds,
     currentOdds,
-    openingFavourite: openingOdds <= Math.min(...opening.selections.map((s) => s.medianOdds)),
-    volatility: vol,
     // Double chance outcomes each cover two of three results, so their margin-free probabilities add up to two.
     marketProbability: m.type === "DC" ? Math.min(0.99, mine.fairProbability * 2) : mine.fairProbability,
     modelProbability: p,
     ciLow: prediction?.ciLow ?? fc?.ciLow ?? null,
     ciHigh: prediction?.ciHigh ?? fc?.ciHigh ?? null,
     modelVersion: p === null ? null : REAL_MODEL.ensemble.id,
-    inPlayModel: false,
-    edgePp: p === null ? null : edgePp(p, mine.fairProbability),
     ev: p === null || !bestOdds ? null : expectedValue(p, bestOdds),
     movement: currentOdds / openingOdds - 1,
-    velocityPerHour,
-    relativeVelocityPerHour,
-    velocityLevel: velocityLevel(relativeVelocityPerHour),
-    pressure: marketPressure({
-      openOdds: openingOdds,
-      currentOdds,
-      relativeVelocityPerHour,
-      booksMovingWithConsensus: booksMovedSince(Math.max(runs[0], last - 6 * HOUR)),
-      booksQuoting,
-      volatility: vol,
-      baselineVolatility: 0.012,
-      hoursToKickoff,
-    }),
     confidence: prediction?.confidence ?? fc?.confidence ?? null,
-    modelDisagreement: spread?.level ?? null,
     modelStdevPp: spread?.stdevPp ?? (fc ? 0 : null),
     dataQuality: dataQuality({
       now: ref,
@@ -243,8 +192,6 @@ function buildRow(e: EventData, m: MarketData, i: number, now: number, books: Ma
       booksTracked: tracked,
     }),
     booksQuoting,
-    booksMoving: booksMovedSince(Math.max(runs[0], last - 6 * HOUR)),
-    booksMovedSinceOpen: booksMovedSince(runs[0]),
     lastUpdate: last,
   };
 }
@@ -255,9 +202,9 @@ const EMPTY_AUDIT: LedgerAudit = { verification: { ok: true, checked: 0, brokenA
 
 /**
  * Everything the pages read, built from Postgres. With `ledger: false` (what
- * the site's pages use) it skips the full prediction ledger and its audit,
- * which only the CSV export and the old terminal views need and which grows
- * with every run.
+ * the site's pages use) it reads only matches still to be played and skips
+ * the full prediction ledger and its audit, which only the CSV export and the
+ * fixture checks need and which grows with every run.
  */
 export async function realSnapshot(prisma: PrismaClient, now: number, opts: { ledger?: boolean; fresh?: boolean } = {}): Promise<RealSnapshot> {
   const full = opts.ledger !== false;
@@ -266,7 +213,7 @@ export async function realSnapshot(prisma: PrismaClient, now: number, opts: { le
   if (!opts.fresh && caches[mode]?.key === key) return caches[mode]!.snap;
 
   const events = await prisma.event.findMany({
-    where: { externalId: { not: null }, kickoff: { gte: new Date(now - LOOKBACK_MS), lte: new Date(now + LOOKAHEAD_MS) } },
+    where: { externalId: { not: null }, kickoff: { ...(full ? { gte: new Date(now - LOOKBACK_MS) } : { gt: new Date(now) }), lte: new Date(now + LOOKAHEAD_MS) } },
     orderBy: { kickoff: "asc" },
     include: {
       league: true,
@@ -274,34 +221,24 @@ export async function realSnapshot(prisma: PrismaClient, now: number, opts: { le
       awayTeam: true,
       markets: { include: { selections: { orderBy: { id: "asc" } } } },
       statsFixtures: { include: { lineups: true, injuries: true }, orderBy: { syncedAt: "desc" }, take: 1 },
-      scoreUpdates: { orderBy: { observedAt: "asc" } },
     },
   });
   // Recent xG for form lines; small, since only fixtures near feed events are stored.
-  const xgHistory: StoredFixture[] = await prisma.statsFixture.findMany({
+  const xgHistory: XgFixture[] = await prisma.statsFixture.findMany({
     where: { homeXg: { not: null }, kickoff: { gte: new Date(now - 120 * DAY), lt: new Date(now + LOOKAHEAD_MS) } },
-    include: { lineups: true, injuries: true },
+    select: { kickoff: true, home: true, away: true, homeXg: true, awayXg: true },
   });
   const selectionIds = events.flatMap((e) => e.markets.flatMap((m) => m.selections.map((s) => s.id)));
   const snaps = selectionIds.length
     ? await prisma.oddsSnapshot.findMany({ where: { selectionId: { in: selectionIds } }, select: { selectionId: true, bookmakerId: true, observedAt: true, odds: true } })
     : [];
-  const startedIds = events.filter((e) => e.kickoff.getTime() <= now).flatMap((e) => e.markets.flatMap((m) => m.selections.map((s) => s.id)));
-  const inPlay = startedIds.length
-    ? await prisma.inPlayOdds.findMany({ where: { selectionId: { in: startedIds } }, select: { selectionId: true, bookmakerId: true, observedAt: true, odds: true } })
-    : [];
-  const group = (rows: typeof snaps) => {
-    const out = new Map<string, BookPoint[]>();
-    for (const s of rows) {
-      const p = { selectionId: s.selectionId, bookmakerId: s.bookmakerId, observedAt: s.observedAt.getTime(), odds: Number(s.odds) };
-      if (!out.has(p.selectionId)) out.set(p.selectionId, []);
-      out.get(p.selectionId)!.push(p);
-    }
-    return out;
-  };
-  const bySelection = group(snaps);
-  const liveBySelection = group(inPlay);
-  const bookRows = await prisma.bookmaker.findMany({ where: { id: { in: [...new Set([...snaps, ...inPlay].map((s) => s.bookmakerId))] } } });
+  const bySelection = new Map<string, BookPoint[]>();
+  for (const s of snaps) {
+    const p = { selectionId: s.selectionId, bookmakerId: s.bookmakerId, observedAt: s.observedAt.getTime(), odds: Number(s.odds) };
+    if (!bySelection.has(p.selectionId)) bySelection.set(p.selectionId, []);
+    bySelection.get(p.selectionId)!.push(p);
+  }
+  const bookRows = await prisma.bookmaker.findMany({ where: { id: { in: [...new Set(snaps.map((s) => s.bookmakerId))] } } });
   const books = new Map(bookRows.map((b) => [b.id, b.name]));
 
   const models = new Map<string, LeagueModel>();
@@ -345,12 +282,10 @@ export async function realSnapshot(prisma: PrismaClient, now: number, opts: { le
       counts: league && status === "scheduled" ? forecastCounts(countModels.get(league.code) ?? {}, e.homeTeam.name, e.awayTeam.name, e.statsFixtures[0]?.referee) : {},
       htShare: league ? (htShares.get(league.code) ?? null) : null,
       forecast: r ? (r.ok ? { f: r.forecast, home: r.home, away: r.away } : { reason: r.reason }) : null,
-      scores: e.scoreUpdates.map((u) => ({ at: u.observedAt.getTime(), home: u.homeScore, away: u.awayScore, completed: u.completed })),
       fixtureId: fixtureIdOf(e.id, e.statsFixtures[0]?.provider === API_FOOTBALL ? e.statsFixtures[0].id : null),
       markets: e.markets.map((m) => {
         const sels = [...m.selections].sort((a, b) => order(side(a.id)) - order(side(b.id)));
         const points = sels.flatMap((s) => bySelection.get(s.id) ?? []);
-        const livePoints = sels.flatMap((s) => liveBySelection.get(s.id) ?? []);
         return {
           id: m.id,
           type: m.type,
@@ -358,8 +293,6 @@ export async function realSnapshot(prisma: PrismaClient, now: number, opts: { le
           selections: sels.map((s) => ({ id: s.id, name: s.name, side: side(s.id), result: s.result })),
           points,
           runs: [...new Set(points.map((p) => p.observedAt))].sort((a, b) => a - b),
-          livePoints,
-          liveRuns: [...new Set(livePoints.map((p) => p.observedAt))].sort((a, b) => a - b),
         };
       }),
     };
@@ -387,14 +320,7 @@ export async function realSnapshot(prisma: PrismaClient, now: number, opts: { le
 
   const { ledger, audit } = full ? await ledgerAndAudit(prisma, chain, real, books) : { ledger: [], audit: EMPTY_AUDIT };
 
-  const feeds = await prisma.dataSource.findMany();
-  const through = Math.max(0, ...[...models.values()].map((m) => m.dataThrough ?? 0));
-  const sources: SourceView[] = [
-    ...feeds.map((s) => ({ id: s.id, name: s.name, kind: s.kind as SourceView["kind"], status: s.status as SourceView["status"], lastSyncAt: s.lastSyncAt.getTime(), provider: s.provider })),
-    ...(through ? [{ id: "openfootball", name: "Match results", kind: "stats" as const, status: "ok" as const, lastSyncAt: through, provider: OPENFOOTBALL_SOURCE }] : []),
-  ];
-
-  const snap: RealSnapshot = { now, events: data, rows, ledger, audit, ledgerIncluded: full, sources, books, predictionsBySelection, models };
+  const snap: RealSnapshot = { now, events: data, rows, ledger, audit, books, predictionsBySelection, models };
   caches[mode] = { key, snap };
   return snap;
 }
@@ -483,92 +409,4 @@ async function ledgerRows(prisma: PrismaClient, preds: Prediction[], books: Map<
       },
     ];
   });
-}
-
-/** Market detail for one selection, in the demo detail shape. */
-export function realMarketDetail(snap: RealSnapshot, selectionId: string): (MarketDetail & { unavailableReason: string | null; teamNews: TeamNews | null }) | undefined {
-  const now = snap.now;
-  for (const e of snap.events) {
-    const m = e.markets.find((x) => x.selections.some((s) => s.id === selectionId));
-    if (!m) continue;
-    const i = m.selections.findIndex((s) => s.id === selectionId);
-    const prediction = snap.predictionsBySelection.get(selectionId);
-    const row = snap.rows.find((r) => r.selectionId === selectionId) ?? buildRow(e, m, i, now, snap.books, prediction);
-    if (!row) return undefined;
-    const ref = Math.min(now, e.view.kickoff);
-    const runs = m.runs.filter((r) => r <= ref);
-    const chart = runs.flatMap((r) => {
-      const line = consensusAt(m, r);
-      const quotes = [...(latestByBook(m.points, r).get(selectionId)?.values() ?? [])];
-      return line ? [{ at: r, consensus: line.selections[i].medianOdds, best: Math.max(...quotes) }] : [];
-    });
-    const nowQ = latestByBook(m.points, runs.at(-1) ?? ref).get(selectionId) ?? new Map<string, number>();
-    const openQ = latestByBook(m.points, runs[0] ?? ref, Infinity).get(selectionId) ?? new Map<string, number>();
-    const prevRun = runs.at(-2);
-    const prevQ = prevRun !== undefined ? (latestByBook(m.points, prevRun).get(selectionId) ?? new Map<string, number>()) : nowQ;
-    const books = [...nowQ].map(([id, odds]) => ({ id, name: snap.books.get(id) ?? id, odds, open: openQ.get(id) ?? NaN, oneHourAgo: prevQ.get(id) ?? NaN, lagMin: 0 }));
-
-    const fc = e.forecast && "f" in e.forecast ? e.forecast : null;
-    const sf = fc?.f.selections.find((s) => s.market === m.type && s.selection === m.selections[i].side);
-    const line = consensusAt(m, runs.at(-1) ?? ref);
-    const estimate = (id: string, p: number, lo: number, hi: number) => ({ selectionId: selectionId, modelVersionId: id, probability: p, ciLow: lo, ciHigh: hi, computedAt: now });
-    const components = sf
-      ? [
-          estimate(REAL_MODEL.poisson.id, sf.components.poisson, sf.components.poisson, sf.components.poisson),
-          ...(sf.components.elo !== null ? [estimate(REAL_MODEL.elo.id, sf.components.elo, sf.components.elo, sf.components.elo)] : []),
-        ]
-      : [];
-    const ensemble = prediction ? estimate(prediction.modelVersionId, prediction.probability, prediction.ciLow, prediction.ciHigh) : sf ? estimate(REAL_MODEL.ensemble.id, sf.probability, sf.ciLow, sf.ciHigh) : estimate(REAL_MODEL.ensemble.id, NaN, NaN, NaN);
-    const factors = fc && e.model && sf ? explainSelection(e.model, fc.home, fc.away, fc.f, m.type, m.selections[i].side) : [];
-    return {
-      row,
-      event: e.view,
-      analysis: { selectionId, ensemble, components, factors, confidence: prediction?.confidence ?? sf?.confidence ?? 0 },
-      prediction,
-      news: [],
-      chart,
-      books,
-      siblings: m.selections.map((s, k) => {
-        const p = snap.predictionsBySelection.get(s.id)?.probability ?? fc?.f.selections.find((x) => x.market === m.type && x.selection === s.side)?.probability ?? null;
-        return { selectionId: s.id, name: s.name, marketProbability: line?.selections[k].fairProbability ?? NaN, modelProbability: p };
-      }),
-      teamNews: e.news,
-      unavailableReason: e.forecast && "reason" in e.forecast ? e.forecast.reason : !e.model ? "The real model does not cover this competition yet." : null,
-    };
-  }
-  return undefined;
-}
-
-/** One match in the Matches list: main market from opening to the latest pre-kickoff run. */
-export function realMatchView(snap: RealSnapshot, eventId: string): MatchView | undefined {
-  const e = snap.events.find((x) => x.view.id === eventId);
-  const m = e?.markets.find((x) => x.type === "1X2" || x.type === "ML") ?? e?.markets[0];
-  if (!e || !m) return undefined;
-  const runs = m.runs.filter((r) => r <= Math.min(snap.now, e.view.kickoff));
-  const open = runs.length ? consensusAt(m, runs[0]) : null;
-  const close = runs.length ? consensusAt(m, runs.at(-1)!) : null;
-  if (!open || !close) return undefined;
-  const preds = m.selections.map((s) => snap.predictionsBySelection.get(s.id));
-  return {
-    event: e.view,
-    showcase: false,
-    marketName: m.name,
-    selections: m.selections.map((s) => ({ id: s.id, name: s.name })),
-    minutes: [],
-    timeline: [],
-    news: [],
-    openingOdds: open.selections.map((x) => x.medianOdds),
-    closingOdds: close.selections.map((x) => x.medianOdds),
-    preMatchMarket: close.selections.map((x) => x.fairProbability),
-    preMatchModel: preds.map((p) => p?.probability ?? null),
-    modelVersion: preds.find((p) => p)?.modelVersionId ?? null,
-    lineupConfirmedAt: e.view.lineupConfirmedAt,
-    xg: e.news?.xg ?? null,
-    results: m.selections.map((s) => (s.result === "won" || s.result === "lost" || s.result === "void" ? s.result : undefined)),
-  };
-}
-
-/** Finished feed matches, newest first. */
-export function realFinishedEvents(snap: RealSnapshot): EventView[] {
-  return snap.events.filter((e) => e.view.status === "finished").map((e) => e.view).sort((a, b) => b.kickoff - a.kickoff);
 }

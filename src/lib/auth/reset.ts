@@ -5,13 +5,11 @@
 import { randomBytes } from "node:crypto";
 import { hashToken } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import type { Mail } from "@/lib/mail";
+import { emailShell, escapeHtml, type Mail } from "@/lib/mail";
 
 export const RESET_MINUTES = 30;
 /** At most this many links per account per hour, so the form cannot flood an inbox. */
 export const RESET_PER_HOUR = 3;
-
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 /** Creates a link for the user, or null when the hourly limit is reached. Returns the raw token for the e-mail. */
 export async function createReset(userId: string, now = Date.now()): Promise<string | null> {
@@ -70,13 +68,12 @@ export function resetMail({ to, link }: { to: string; link: string }): Mail {
     "",
     `Linket virker én gang og udløber om ${RESET_MINUTES} minutter. Har du ikke bedt om det, kan du se bort fra mailen; din kode er uændret.`,
   ].join("\n");
-  const html = `<!doctype html><html lang="da"><body style="margin:0;background:#f6f6f3;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1a1a19">
-<div style="max-width:520px;margin:0 auto;padding:24px 20px">
-<div style="font-size:13px;font-weight:700;letter-spacing:1px">Oddsanalyse</div>
-<h1 style="font-size:22px;margin:8px 0 12px">Ny adgangskode</h1>
+  const html = emailShell(
+    `<h1 style="font-size:22px;margin:8px 0 12px">Ny adgangskode</h1>
 <p style="font-size:15px;line-height:1.5;margin:0 0 16px">Nogen (forhåbentlig dig) bad om at nulstille adgangskoden til din konto på Oddsanalyse.</p>
-<p style="margin:20px 0"><a href="${esc(link)}" style="background:#1f6fd1;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">Vælg ny adgangskode</a></p>
-<p style="font-size:12px;color:#77756f;line-height:1.5">Linket virker én gang og udløber om ${RESET_MINUTES} minutter. Har du ikke bedt om det, kan du se bort fra mailen; din kode er uændret.</p>
-</div></body></html>`;
+<p style="margin:20px 0"><a href="${escapeHtml(link)}" style="background:#1f6fd1;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">Vælg ny adgangskode</a></p>
+<p style="font-size:12px;color:#77756f;line-height:1.5">Linket virker én gang og udløber om ${RESET_MINUTES} minutter. Har du ikke bedt om det, kan du se bort fra mailen; din kode er uændret.</p>`,
+    { maxWidth: 520 },
+  );
   return { to, subject, html, text };
 }

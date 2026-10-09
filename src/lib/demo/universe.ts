@@ -17,7 +17,7 @@ import type {
   SportId,
 } from "@/lib/domain/types";
 import { predictionConfidence, modelConsensus } from "@/lib/metrics/consensus";
-import { BOOKMAKERS, leagueById, LEAGUES, teamById, teamsByLeague } from "./catalog";
+import { BOOKMAKERS, LEAGUES, teamById, teamsByLeague } from "./catalog";
 import { expectedGoals, footballProbabilities } from "./football";
 import { COMPONENT_MODELS, ensembleVersionId, releaseAt } from "./models";
 import { hashString, logit, Rng, sigmoid, valueNoise } from "./rng";
@@ -442,7 +442,7 @@ export function buildEvent(spec: EventSpec): EventSim {
   for (const m of markets) {
     const shared = m.selections.map((s) => {
       let bias = rng.normal(0, release.noise * 0.85);
-      // Deliberate weakness for the Model Lab to find: football draws are
+      // Deliberate weakness in the demo models: football draws are
       // overestimated. v1.4's recalibration shrinks the error but does not remove it.
       if (spec.sportId === "football" && m.market.type === "1X2" && s.selection.id.endsWith("-draw")) bias += release.version === "1.4" ? 0.2 : 0.4;
       return bias;
@@ -594,7 +594,7 @@ export function eventsForDay(dayStart: number): EventSim[] {
 
 /**
  * In-play showcase: one football match kicks off every 40 minutes around the
- * clock, so the Live Markets view always has matches in progress. These are
+ * clock, so the demo data always has matches in progress. These are
  * not part of the ledgered schedule; in-play estimates are never ledgered.
  */
 export function showcaseLiveEvents(now: number): EventSim[] {
@@ -610,8 +610,4 @@ export function showcaseLiveEvents(now: number): EventSim[] {
     out.push(buildEvent({ id: `live-${k}`, sportId: "football", leagueId: league.id, kickoff, homeTeamId: home.id, awayTeamId: away.id, showcase: true }));
   }
   return out;
-}
-
-export function leagueName(id: string): string {
-  return leagueById.get(id)?.name ?? id;
 }

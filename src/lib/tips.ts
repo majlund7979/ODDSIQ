@@ -4,12 +4,13 @@
 // Weeks run Monday to Sunday in Danish time.
 // Pure functions; reading and writing tips lives in src/lib/real/tips.ts.
 
+import { dayKey, dec, TZ } from "@/lib/format";
+
 export type Side = "home" | "draw" | "away";
 export const SIDES: Side[] = ["home", "draw", "away"];
 export const SIDE_LABEL: Record<Side, string> = { home: "1", draw: "X", away: "2" };
 export const isSide = (v: unknown): v is Side => v === "home" || v === "draw" || v === "away";
 
-const TZ = "Europe/Copenhagen";
 const DAY = 86_400_000;
 
 /** Minutes Copenhagen is ahead of UTC at this instant. */
@@ -49,7 +50,7 @@ function isoWeekOfDate(y: number, m: number, d: number): { year: number; number:
 
 /** The Monday-to-Sunday week (Copenhagen) holding this instant. */
 export function weekOf(ms: number): Week {
-  const [y, m, d] = new Date(ms).toLocaleDateString("en-CA", { timeZone: TZ }).split("-").map(Number);
+  const [y, m, d] = dayKey(ms).split("-").map(Number);
   const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay() || 7;
   const monday = new Date(Date.UTC(y, m - 1, d - (dow - 1)));
   const next = new Date(monday.getTime() + 7 * DAY);
@@ -83,7 +84,7 @@ export interface Day {
 }
 
 export function dayOf(ms: number): Day {
-  const id = new Date(ms).toLocaleDateString("en-CA", { timeZone: TZ });
+  const id = dayKey(ms);
   const [y, m, d] = id.split("-").map(Number);
   const next = new Date(Date.UTC(y, m - 1, d + 1));
   return { id, start: cphMidnight(y, m, d), end: cphMidnight(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate()) };
@@ -252,7 +253,6 @@ export interface FunStat {
   detail: string;
 }
 
-const dec = (x: number) => x.toFixed(2).replace(".", ",");
 const MIN_RATE_SAMPLE = 5;
 
 /** Fun facts from settled tips (friends only). Each stat is left out until someone qualifies. */

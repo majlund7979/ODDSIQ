@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { performanceSummary } from "./performance";
 import { ledgerAudit, ledgerRows, marketRows, universeStats, visibleLedger } from "./store";
 import { DAY, eventsForDay, fairProbabilities, HOUR } from "./universe";
 
@@ -64,19 +63,5 @@ describe("ledger over time", () => {
   it("verifies end to end and never records a prediction after kickoff", () => {
     expect(ledgerAudit(NOW).verification.ok).toBe(true);
     for (const r of ledgerRows(NOW)) expect(r.prediction.createdAt).toBeLessThan(r.event.kickoff);
-  });
-});
-
-describe("performance", () => {
-  it("attaches sample size, period and basis to every headline metric", () => {
-    const p = performanceSummary(NOW);
-    for (const m of [p.brier, p.logLoss, p.calibrationError, p.avgClv, p.staking]) {
-      expect(m.n).toBeGreaterThan(0);
-      expect(m.periodFrom).not.toBeNull();
-      expect(m.definition.length).toBeGreaterThan(20);
-    }
-    expect(p.staking.basis).toBe("simulated");
-    expect(p.brier.value).toBeGreaterThan(0.15);
-    expect(p.brier.value).toBeLessThan(0.25);
   });
 });

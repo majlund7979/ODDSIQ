@@ -4,6 +4,8 @@
 // today's coupon, and how recorded picks are settled.
 
 import type { MarketRow } from "@/lib/demo/store";
+import { shortDate } from "@/lib/format";
+import { periodOf } from "@/lib/metrics/metric";
 import { DEFAULT_HT_SHARE } from "@/lib/model/match-stats";
 import { analysePick, COUNT_CATEGORIES, countPicks, GOAL_CATEGORIES, marketPicks, PICK_WINDOW_MS, sharpPicks, strengthOf, type Pick, type PickContext } from "@/lib/picks";
 import type { SharpBooks } from "@/lib/sharp";
@@ -373,6 +375,38 @@ export function summarise(picks: RecordedPick[]): ResultsSummary {
     beatClose: closed.filter((p) => p.close!.clv > 0).length,
     clv: closed.length ? closed.reduce((s, p) => s + p.close!.clv, 0) / closed.length : NaN,
   };
+}
+
+export interface DayStat {
+  day: string;
+  won: number;
+  settled: number;
+  expected: number;
+  profit: number;
+  withOdds: number;
+}
+
+/** Settled picks per day, oldest first. Pure. */
+export function byDay(picks: RecordedPick[]): DayStat[] {
+  const days = new Map<string, RecordedPick[]>();
+  for (const p of picks) if (p.result) days.set(p.day, [...(days.get(p.day) ?? []), p]);
+  return [...days.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([day, ps]) => {
+      const s = summarise(ps);
+      return { day, won: s.won, settled: s.settled, expected: s.expectedRate, profit: s.profit, withOdds: s.withOdds };
+    });
+}
+
+/** "3. okt.–8. okt.", from the first to the last settled kickoff, or "sidste 7 dage" before anything is settled. */
+export function settledPeriod(picks: RecordedPick[]): string {
+  const { periodFrom, periodTo } = periodOf(picks.filter((p) => p.result).map((p) => p.kickoff));
+  return periodFrom !== null && periodTo !== null ? `${shortDate(periodFrom)}–${shortDate(periodTo)}` : "sidste 7 dage";
+}
+
+/** The context line for results: basis, sample size, period, source and version. */
+export function resultsContext(picks: RecordedPick[], source: string, version: string): string {
+  return `Historisk · n = ${summarise(picks).settled} · ${settledPeriod(picks)} · ${source} · ${version}`;
 }
 
 // ---------------------------------------------------------------------------

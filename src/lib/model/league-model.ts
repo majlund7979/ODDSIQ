@@ -1,6 +1,6 @@
 // Everything the real model needs for one league as of a moment: the
 // Dixon-Coles fit, Elo ratings, the Elo outcome mapping and the team names it
-// knows. Shared by the ledger pipeline and the live terminal.
+// knows. Shared by the ledger pipeline and the live snapshot behind the picks.
 
 import { eloDiff, fitOrderedLogit, newElo, updateElo, type EloState, type OrderedLogit } from "./elo";
 import { forecastMatch, type MatchForecast } from "./ensemble";

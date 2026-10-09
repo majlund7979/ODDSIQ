@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FOOTER_LINE } from "@/components/footer-line";
 import { Logo } from "@/components/Logo";
 import { BottomNav, TopNav } from "@/components/MainNav";
 import { ACCOUNT_NAV, ADMIN_NAV, FRIENDS_NAV, SIMPLE_NAV } from "@/components/nav";
@@ -29,18 +30,16 @@ export default async function TerminalLayout({ children }: Readonly<{ children: 
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-page">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 xl:gap-5">
-          <Logo />
-          {DEMO_MODE && <Badge tone="warning" className="whitespace-nowrap xl:hidden">
-              Demo<span className="hidden sm:inline"> data</span>
-            </Badge>}
-          <div className="ml-auto flex items-center gap-2 xl:gap-3">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
+          <Logo badge={DEMO_MODE ? <Badge tone="warning" className="whitespace-nowrap">DEMO DATA</Badge> : null} />
+          <div className="ml-auto flex min-w-0 items-center gap-2 xl:gap-3">
             <TopNav items={items.filter((i) => i !== ACCOUNT_NAV)} />
             {user && <InviteBar count={count} />}
             {user && (
               <Link
                 href="/account"
                 title={user.email}
+                aria-label={`Min konto (${user.email})`}
                 className="hidden h-10 w-10 items-center justify-center rounded-full border border-line-strong bg-surface-2 text-sm font-bold text-ink hover:border-accent xl:flex"
               >
                 {initial}
@@ -49,9 +48,9 @@ export default async function TerminalLayout({ children }: Readonly<{ children: 
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-28 md:pt-8 xl:pb-16">{children}</main>
-      <footer className="mx-auto hidden w-full max-w-6xl border-t border-line px-4 py-8 text-sm text-muted xl:block">
-        Kun analyse, vi formidler ikke spil. 18+. Spil indebærer risiko for tab. Brug for hjælp? Kontakt StopSpillet.dk.
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-8 md:pt-8 xl:pb-16">{children}</main>
+      <footer className="mx-auto w-full max-w-6xl border-t border-line px-4 pt-6 pb-28 text-xs text-muted xl:py-8 xl:text-sm">
+        {FOOTER_LINE}
       </footer>
       <BottomNav items={items} />
     </div>

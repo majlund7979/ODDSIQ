@@ -5,22 +5,22 @@ import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { DEMO_MODE } from "@/lib/data";
 import { db } from "@/lib/db";
 import { demoFriendBets } from "@/lib/demo/friends";
+import { capitalize, dec, TZ } from "@/lib/format";
 import { betProfit, displayName, LEAGUE_PERIODS, leagueTable, monthStart, type FriendBet } from "@/lib/friends";
 import { CATEGORY_LABEL } from "@/lib/pick-categories";
 import { readFriendBets } from "@/lib/real/friend-bets";
 import { readFriendCoupons } from "@/lib/real/friend-coupons";
 import { terminal } from "@/lib/terminal";
-import { Tile } from "@/components/picks/Overview";
+import { Tile } from "@/components/picks/charts";
+import { PendingButton } from "@/components/forms";
 import { TipsStandings } from "@/components/tips/TipsStandings";
 import { loadTips, modelWeekTips } from "@/lib/tips-data";
 import { previousWeek, weekOf } from "@/lib/tips";
 
 export const metadata = { title: "Vennerligaen · Oddsanalyse" };
 
-const TZ = "Europe/Copenhagen";
 const pct = (x: number) => (Number.isFinite(x) && x >= 0 ? `${Math.round(x * 100)} %` : "—");
-const kr = (x: number) => `${x >= 0 ? "+" : "−"}${Math.round(Math.abs(x)).toLocaleString("da-DK")} kr`;
-const dec = (x: number) => x.toFixed(2).replace(".", ",");
+const kroner = (x: number) => `${x >= 0 ? "+" : "−"}${Math.round(Math.abs(x)).toLocaleString("da-DK")} kr`;
 const when = (t: number) => new Date(t).toLocaleString("da-DK", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: TZ, hour12: false });
 const RECENT = 40;
 const HIT_MIN = 10;
@@ -37,10 +37,13 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
   const q = await searchParams;
   const period = LEAGUE_PERIODS.find((p) => p.id === q.periode)?.id ?? "maaned";
   const since = period === "maaned" ? monthStart(t.now) : null;
-  const profile = user ? await db().user.findUnique({ where: { id: user.id }, select: { displayName: true, morningEmail: true, email: true } }) : null;
-  const singles = DEMO_MODE ? demoFriendBets(t.now).filter((b) => since === null || b.kickoff >= since) : ACCOUNTS_ENABLED ? await readFriendBets(db(), t.now, since) : [];
-  // Played coupons are real account data, so they show in demo mode too.
-  const coupons = ACCOUNTS_ENABLED ? await readFriendCoupons(db(), t.now, since) : [];
+  const [profile, singles, coupons, tipData] = await Promise.all([
+    user ? db().user.findUnique({ where: { id: user.id }, select: { displayName: true, morningEmail: true, email: true } }) : null,
+    DEMO_MODE ? demoFriendBets(t.now).filter((b) => since === null || b.kickoff >= since) : ACCOUNTS_ENABLED ? readFriendBets(db(), t.now, since) : [],
+    // Played coupons are real account data, so they show in demo mode too.
+    ACCOUNTS_ENABLED ? readFriendCoupons(db(), t.now, since) : [],
+    loadTips(t),
+  ]);
   const bets = [...singles, ...coupons].sort((a, b) => b.kickoff - a.kickoff);
   const table = leagueTable(bets);
   const recent = bets.slice(0, RECENT);
@@ -51,7 +54,6 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
   const settledAll = table.reduce((n, r) => n + r.settled, 0);
   const wonAll = table.reduce((n, r) => n + r.won, 0);
   const teamProfit = table.reduce((n, r) => n + r.profit, 0);
-  const tipData = await loadTips(t);
   const week = weekOf(t.now);
 
   return (
@@ -76,7 +78,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
                 aria-current={p.id === period ? "page" : undefined}
                 className={`rounded-full px-4 py-1.5 text-sm font-medium ${p.id === period ? "bg-accent text-page" : "text-ink-2 hover:text-ink"}`}
               >
-                {p.id === "maaned" ? month.charAt(0).toUpperCase() + month.slice(1) : p.label}
+                {p.id === "maaned" ? capitalize(month) : p.label}
               </Link>
             ))}
           </nav>
@@ -86,7 +88,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
             {leader ? (
               <>
                 <div className="truncate text-2xl font-extrabold tracking-[-0.02em]">{leader.name}</div>
-                <div className={`num text-sm font-semibold ${leader.profit >= 0 ? "text-good" : "text-serious"}`}>{kr(leader.profit)}</div>
+                <div className={`num text-sm font-semibold ${leader.profit >= 0 ? "text-good" : "text-serious"}`}>{kroner(leader.profit)}</div>
               </>
             ) : (
               <div className="text-sm text-ink-2">Ingen bets endnu.</div>
@@ -109,7 +111,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
             <div className="text-sm text-ink-2">af {table.length} {table.length === 1 ? "spiller" : "spillere"}</div>
           </Tile>
           <Tile label="Holdet samlet" foot="Gevinst tæller bets med odds, ramte tæller alle afgjorte bets.">
-            <div className={`num text-2xl font-extrabold tracking-[-0.02em] sm:text-3xl ${teamProfit >= 0 ? "text-good" : "text-serious"}`}>{kr(teamProfit)}</div>
+            <div className={`num text-2xl font-extrabold tracking-[-0.02em] sm:text-3xl ${teamProfit >= 0 ? "text-good" : "text-serious"}`}>{kroner(teamProfit)}</div>
             <div className="num text-sm text-ink-2">{settledAll ? `${pct(wonAll / settledAll)} ramte` : "—"}</div>
           </Tile>
         </div>
@@ -134,7 +136,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
       )}
 
       <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
-        <div className="border-b border-line px-5 py-3 text-sm font-semibold">Stillingen</div>
+        <h2 className="border-b border-line px-5 py-3 text-sm font-semibold">Stillingen</h2>
         {table.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-ink-2">Ingen har gemt et bet i perioden endnu.</p>
         ) : (
@@ -171,7 +173,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
                     )}
                   </td>
                   <td className="hidden px-3 py-2.5 text-right text-ink-2 sm:table-cell">{Number.isFinite(r.roi) ? `${r.roi >= 0 ? "+" : "−"}${Math.round(Math.abs(r.roi) * 100)} %` : "—"}</td>
-                  <td className={`px-3 py-2.5 text-right font-semibold sm:px-5 ${r.staked ? (r.profit >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{r.staked ? kr(r.profit) : "—"}</td>
+                  <td className={`px-3 py-2.5 text-right font-semibold sm:px-5 ${r.staked ? (r.profit >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{r.staked ? kroner(r.profit) : "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -195,7 +197,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
 
       <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
         <div className="flex items-baseline justify-between border-b border-line px-5 py-3">
-          <span className="text-sm font-semibold">Vennernes bets</span>
+          <h2 className="text-sm font-semibold">Vennernes bets</h2>
           <span className="text-xs text-muted">de seneste {Math.min(RECENT, recent.length)}</span>
         </div>
         {recent.length === 0 ? (
@@ -217,7 +219,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
                   </span>
                 ) : (
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">
+                    <span className="line-clamp-2 text-sm font-medium">
                       {b.name} · {b.outcome}
                     </span>
                     <span className="block truncate text-xs text-muted">
@@ -227,15 +229,15 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
                 )}
                 <span className="num shrink-0 text-right text-sm">
                   {b.stake} kr{b.odds ? ` · ${dec(b.odds)}` : ""}
-                  {b.result && b.odds ? <span className={`block text-xs ${b.result === "won" ? "text-good" : "text-serious"}`}>{kr(betProfit(b))}</span> : null}
+                  {b.result && b.odds ? <span className={`block text-xs ${b.result === "won" ? "text-good" : "text-serious"}`}>{kroner(betProfit(b))}</span> : null}
                 </span>
                 {user && b.userId === user.id && (b.legs ? b.legs.every((l) => l.kickoff > t.now) : b.kickoff > t.now) && (
                   <form action={deleteBet}>
                     <input type="hidden" name="id" value={b.id} />
                     <input type="hidden" name="back" value={back} />
-                    <button type="submit" className="text-xs text-muted hover:text-critical" aria-label={b.legs ? "Slet kupon" : "Slet bet"}>
+                    <PendingButton className="text-xs text-muted hover:text-critical" aria-label={b.legs ? "Slet kupon" : "Slet bet"} confirm={b.legs ? "Slet kuponen?" : "Slet bettet?"}>
                       Slet
-                    </button>
+                    </PendingButton>
                   </form>
                 )}
                 {b.legs && (
@@ -275,9 +277,9 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
               <input type="checkbox" name="morningEmail" defaultChecked={profile.morningEmail} className="h-4 w-4 accent-[var(--accent)]" />
               Send mig dagens top 5 på mail hver morgen
             </label>
-            <button type="submit" className="rounded-full bg-lime px-4 py-1.5 text-sm font-semibold text-accent hover:brightness-125">
+            <PendingButton className="rounded-full bg-lime px-4 py-1.5 text-sm font-semibold text-accent hover:brightness-125">
               Gem
-            </button>
+            </PendingButton>
           </form>
         </section>
       )}

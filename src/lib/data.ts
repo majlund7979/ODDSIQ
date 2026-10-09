@@ -22,14 +22,7 @@ export class DataSourceNotConfiguredError extends Error {
   }
 }
 
-/** Request time. Awaiting connection() keeps these pages out of static prerendering. */
-export async function requestNow(): Promise<number> {
-  await connection();
-  if (!DEMO_MODE) throw new DataSourceNotConfiguredError();
-  return Date.now();
-}
-
-/** Request time for pages that work in any mode (e.g. the live Data Feed page). */
+/** Request time for pages that work in any mode (/admin, /admin/modelpanel, /nyheder). Awaiting connection() keeps them out of static prerendering. */
 export async function wallClock(): Promise<number> {
   await connection();
   return Date.now();

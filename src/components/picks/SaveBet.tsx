@@ -1,10 +1,10 @@
 "use client";
 
 import { saveBet } from "@/app/friends-actions";
+import { PendingButton } from "@/components/forms";
+import { dec } from "@/lib/format";
 import { roundStake } from "@/lib/picks-advice";
 import { useBankroll } from "./bankroll";
-
-const dec = (x: number) => x.toFixed(2).replace(".", ",");
 
 /** "Gem bet": saves the pick to the friends' league with the friend's own stake and odds. */
 export function SaveBet({ eventId, category, odds, share, back, saved }: { eventId: string; category: string; odds: number | null; share: number; back: string; saved: boolean }) {
@@ -28,9 +28,9 @@ export function SaveBet({ eventId, category, odds, share, back, saved }: { event
           Odds du fik
           <input name="odds" inputMode="decimal" defaultValue={odds ? dec(odds) : ""} placeholder="fx 1,85" className="num block w-full rounded-[10px] border border-line-strong bg-surface px-2 py-1.5 text-sm text-ink" />
         </label>
-        <button type="submit" className="rounded-full bg-lime px-4 py-1.5 text-sm font-semibold text-accent hover:brightness-125">
+        <PendingButton className="rounded-full bg-lime px-4 py-1.5 text-sm font-semibold text-accent hover:brightness-125">
           {saved ? "Opdater" : "Gem i vennerligaen"}
-        </button>
+        </PendingButton>
         <p className="basis-full text-[11px] text-muted">Dine venner kan se det. Uden odds tæller det kun i træfprocenten.</p>
       </form>
     </details>

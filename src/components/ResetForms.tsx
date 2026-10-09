@@ -1,40 +1,27 @@
 "use client";
 
 import { useActionState } from "react";
-import { requestReset, resetPassword, type ResetState } from "@/app/reset-actions";
+import { requestReset, resetPassword } from "@/app/reset-actions";
+import { fieldClass, FormError, SubmitButton } from "@/components/forms";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth/rules";
 
-const input =
-  "mt-1.5 w-full rounded-[10px] border border-line-strong bg-surface px-3.5 py-3 text-[15px] outline-none transition-colors placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-lime";
-const button =
-  "w-full rounded-full bg-lime px-3 py-3 text-[16px] font-semibold text-accent transition-colors hover:brightness-125 disabled:opacity-60";
-
-function FormError({ state }: { state: ResetState }) {
-  return state.error ? (
-    <p role="alert" className="rounded-lg bg-critical/10 px-3 py-2 text-sm text-serious">
-      {state.error}
-    </p>
-  ) : null;
-}
-
-/** Step 1: the e-mail to send the link to. */
-export function RequestResetForm() {
+/** Step 1: the e-mail to send the link to. The page passes RESET_MINUTES in, because reset.ts is server-only. */
+export function RequestResetForm({ minutes }: { minutes: number }) {
   const [state, action, pending] = useActionState(requestReset, {});
   if (state.sent)
     return (
       <p className="rounded-lg border border-line bg-surface-2 px-3 py-3 text-sm leading-relaxed text-ink">
-        Hvis der findes en konto med <b>{state.email}</b>, har vi sendt en mail med et link. Linket virker i 30 minutter. Kig også i spam.
+        Hvis der findes en konto med <b>{state.email}</b>, har vi sendt en mail med et link. Linket virker i {minutes} minutter. Kig også i spam.
       </p>
     );
   return (
     <form action={action} className="space-y-4">
       <label className="block text-sm font-medium text-ink-2">
         Email
-        <input name="email" type="email" autoComplete="email" required defaultValue={state.email} placeholder="dig@eksempel.dk" className={input} />
+        <input name="email" type="email" autoComplete="email" required defaultValue={state.email} placeholder="dig@eksempel.dk" className={fieldClass} />
       </label>
-      <FormError state={state} />
-      <button type="submit" disabled={pending} className={button}>
-        {pending ? "Et øjeblik…" : "Send link"}
-      </button>
+      <FormError error={state.error} />
+      <SubmitButton pending={pending}>Send link</SubmitButton>
     </form>
   );
 }
@@ -48,17 +35,15 @@ export function NewPasswordForm({ token, email }: { token: string; email: string
       <input type="email" name="username" autoComplete="username" value={email} readOnly hidden />
       <label className="block text-sm font-medium text-ink-2">
         Ny adgangskode
-        <input name="password" type="password" autoComplete="new-password" required minLength={10} className={input} />
-        <span className="mt-1.5 block text-xs font-normal text-muted">Mindst 10 tegn.</span>
+        <input name="password" type="password" autoComplete="new-password" required minLength={MIN_PASSWORD_LENGTH} className={fieldClass} />
+        <span className="mt-1.5 block text-xs font-normal text-muted">{`Mindst ${MIN_PASSWORD_LENGTH} tegn.`}</span>
       </label>
       <label className="block text-sm font-medium text-ink-2">
         Gentag adgangskoden
-        <input name="repeat" type="password" autoComplete="new-password" required minLength={10} className={input} />
+        <input name="repeat" type="password" autoComplete="new-password" required minLength={MIN_PASSWORD_LENGTH} className={fieldClass} />
       </label>
-      <FormError state={state} />
-      <button type="submit" disabled={pending} className={button}>
-        {pending ? "Et øjeblik…" : "Gem og log ind"}
-      </button>
+      <FormError error={state.error} />
+      <SubmitButton pending={pending}>Gem og log ind</SubmitButton>
     </form>
   );
 }

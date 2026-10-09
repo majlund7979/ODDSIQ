@@ -1,9 +1,10 @@
-import { headers } from "next/headers";
 import { connection } from "next/server";
 import { removeFriend } from "@/app/auth-actions";
 import { FriendForm } from "@/components/FriendForm";
+import { PendingButton } from "@/components/forms";
 import { inviteOnly, parseEmails, requireOwner } from "@/lib/auth/friends";
 import { db } from "@/lib/db";
+import { siteOrigin } from "@/lib/site-url";
 
 export const metadata = { title: "Venner · Oddsanalyse" };
 
@@ -13,8 +14,7 @@ export default async function FriendsPage() {
   const [friends, users] = await Promise.all([db().friend.findMany({ orderBy: { addedAt: "desc" } }), db().user.findMany({ select: { email: true } })]);
   const hasAccount = new Set(users.map((u) => u.email));
   const fromEnv = parseEmails(process.env.ALLOWED_EMAILS).filter((e) => !friends.some((f) => f.email === e));
-  const h = await headers();
-  const site = (process.env.APP_URL ?? `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`).replace(/\/$/, "");
+  const site = await siteOrigin();
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
@@ -54,9 +54,9 @@ export default async function FriendsPage() {
                 </div>
                 <form action={removeFriend}>
                   <input type="hidden" name="email" value={f.email} />
-                  <button type="submit" className="rounded-lg border border-line-strong px-3 py-1.5 text-xs text-ink-2 hover:border-critical/60 hover:text-serious">
+                  <PendingButton className="rounded-lg border border-line-strong px-3 py-1.5 text-xs text-ink-2 hover:border-critical/60 hover:text-serious" confirm={`Fjern adgangen for ${f.email}?`}>
                     Fjern
-                  </button>
+                  </PendingButton>
                 </form>
               </li>
             ))}

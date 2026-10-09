@@ -3,21 +3,15 @@
 // Each call sets a new random password, so a login is only good until the next run.
 // Call with POST and `Authorization: Bearer $CRON_SECRET`.
 
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes } from "node:crypto";
+import { cronAuthorized } from "@/lib/auth/cron";
 import { db } from "@/lib/db";
 import { engineConnectionString, grantStatements } from "@/lib/prediction-engine/credentials";
 
 export const dynamic = "force-dynamic";
 
-function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  const got = req.headers.get("authorization") ?? "";
-  const want = `Bearer ${secret}`;
-  return Boolean(secret) && got.length === want.length && timingSafeEqual(Buffer.from(got), Buffer.from(want));
-}
-
 export async function POST(req: Request): Promise<Response> {
-  if (!authorized(req)) return new Response("Unauthorized.", { status: 401 });
+  if (!cronAuthorized(req)) return new Response("Unauthorized.", { status: 401 });
   const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
   if (!url) return Response.json({ error: "no DATABASE_URL" }, { status: 500 });
   const password = randomBytes(24).toString("hex");

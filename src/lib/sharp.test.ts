@@ -3,7 +3,7 @@ import type { MarketRow } from "@/lib/demo/store";
 import { DEMO_SHARP_BOOKS } from "@/lib/demo/picks";
 import { recordedCategory, shownCategory } from "@/lib/pick-categories";
 import { marketRows } from "@/lib/demo/store";
-import { sharpPicks } from "./picks";
+import { isSharp, sharpPicks } from "./picks";
 import { bookKey, LIVE_SHARP_BOOKS, powerDevig, SHARP_BACKTEST, SHARP_MAX_AGE_MS, SHARP_MAX_GAP_MS, SHARP_MIN_EV, SHARP_MIN_ODDS, sharpBets as sharpBetsAt } from "./sharp";
 
 const now = Date.UTC(2026, 9, 10, 12);
@@ -170,6 +170,7 @@ describe("sharpPicks", () => {
     expect(p.fairOdds).toBeCloseTo(1 / fairPin[2], 9);
     expect(p.value).toBe(false);
     expect(p.minOdds).toBeCloseTo((1 + SHARP_MIN_EV) / fairPin[2], 9);
+    expect(isSharp(p)).toBe(true);
   });
 
   it("is deterministic on DEMO DATA", () => {

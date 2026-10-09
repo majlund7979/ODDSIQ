@@ -6,19 +6,12 @@
 // stores nothing. Run from GitHub Actions ("API probe" workflow).
 // Call with `Authorization: Bearer $CRON_SECRET`.
 
-import { timingSafeEqual } from "node:crypto";
+import { cronAuthorized } from "@/lib/auth/cron";
 import { AF_COMPETITIONS } from "@/lib/providers/api-football-odds";
 import { apiFootballGet } from "@/lib/stats/api-football";
 import { describeShape } from "@/lib/stats/api-shape";
 
 export const maxDuration = 60;
-
-function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  const got = req.headers.get("authorization") ?? "";
-  const want = `Bearer ${secret}`;
-  return Boolean(secret) && got.length === want.length && timingSafeEqual(Buffer.from(got), Buffer.from(want));
-}
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -33,7 +26,7 @@ interface RawFixtureRef {
 }
 
 export async function GET(req: Request): Promise<Response> {
-  if (!authorized(req)) return new Response("Unauthorized.", { status: 401 });
+  if (!cronAuthorized(req)) return new Response("Unauthorized.", { status: 401 });
   const apiKey = process.env.STATS_API_KEY;
   if (!apiKey) return Response.json({ error: "no STATS_API_KEY" });
   const url = new URL(req.url);
