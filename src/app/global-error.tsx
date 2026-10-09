@@ -3,10 +3,13 @@
 // Replaces the root layout when it fails, so it brings its own document and
 // the dark colours from globals.css inline.
 
+import { FOOTER_LINE } from "@/components/footer-line";
+
 const page = "#0b1016";
 const surface = "#121921";
 const text = "#f1f4f8";
 const text2 = "#b9c3ce";
+const muted = "#7f8b98";
 const accent = "#3b8cf0";
 
 export default function GlobalError({ retry }: { retry: () => void }) {
@@ -30,6 +33,7 @@ export default function GlobalError({ retry }: { retry: () => void }) {
               Til dagens bedste bets
             </a>
           </div>
+          <footer style={{ marginTop: 24, textAlign: "center", fontSize: 12, lineHeight: 1.6, color: muted }}>{FOOTER_LINE}</footer>
         </main>
       </body>
     </html>

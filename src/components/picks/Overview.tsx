@@ -139,7 +139,7 @@ export function GoodSingles({ rows, subtitle = "Højest chance først" }: { rows
       <ol className="divide-y divide-line">
         {rows.map((r, i) => (
           <li key={r.key}>
-            <a href={`#bet-${i + 1}`} className="flex items-center gap-3 px-5 py-3 hover:bg-surface-2">
+            <a href={`#bet-${i + 1}`} className="flex items-center gap-3 px-5 py-3 hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:-outline-offset-2">
               <span className="num flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-3 text-xs font-semibold text-ink">{i + 1}</span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">

@@ -112,7 +112,7 @@ export function CountCard({ p, rank, now, save }: { p: CountPick; rank: number; 
             <p className="mt-2 text-xs text-ink-2">
               Den fremhævede række er linjen, hvor over og under er tættest på 50/50. Spil kun, hvis bookmakeren giver en højere odds end fair odds for samme
               linje.
-              {p.probability !== f.suggestion.probability && " Tabellen er før justeringen ud fra bet-typens resultater; procenten og fair odds øverst er efter."}
+              {p.probability !== f.suggestion.probability && " Tabellen viser tallene før justeringen for bet-typens resultater; procenten og fair odds øverst er efter justeringen."}
             </p>
           </Fact>
           <NewsBlock home={home} away={away} />

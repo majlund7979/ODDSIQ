@@ -172,7 +172,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
           {tab === "bedste" && picks.length > 0 && (
             <div className="flex flex-wrap items-baseline justify-between gap-2 pt-2">
               <h2 className="text-2xl font-extrabold tracking-[-0.02em]">
-                Alle {picks.length} {picks.length === 1 ? "enkeltbet" : "enkeltbets"} med analyse
+                {picks.length === 1 ? "1 enkeltbet med analyse" : `Alle ${picks.length} enkeltbets med analyse`}
               </h2>
               <span className="text-sm text-muted">Tryk &quot;Hvorfor?&quot; for begrundelsen</span>
             </div>
@@ -212,7 +212,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
             <p className="text-xs text-muted md:col-span-3">
               Kilde: {t.dataLabel}. Bookmakernes odds vejer halvdelen, fordi de rummer nyheder og rygter. Skader og xG-form flytter de forventede mål efter en fast
               tommelfingerregel. Form og indbyrdes opgør indgår allerede i resultatmodellen og vises som baggrund. Hjørnespark, kort og frispark: holdenes seneste 20 kampe fra
-              football-data.co.uk sammenlignet med ligasnittet; tippet går i retning af, om kampen ventes over eller under snittet, én linje i retning af snittet.
+              football-data.co.uk sammenlignet med ligasnittet; vi tipper over, når kampen ventes over snittet, ellers under, og vælger linjen ét trin fra 50/50-linjen, så tippet oftere går hjem.
             </p>
           </section>
         </div>

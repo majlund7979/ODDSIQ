@@ -39,10 +39,15 @@ describe("explainPick", () => {
     expect(text).toContain("hver 2. gang");
   });
 
-  it("says the head-to-head in the singular when there is one meeting", () => {
-    const text = explainPick(pick({ insights: { ...pick().insights, h2h: { home: 1, draw: 0, away: 0, games: [{ date: 0, score: "2-1" }] } } })).join(" ");
-    expect(text).toContain("I det seneste indbyrdes opgør vandt Arsenal 1, Chelsea 0, og 0 endte uafgjort, med 3,0 mål i snit.");
+  it("gives the score of a single head-to-head meeting, the winner's goals first", () => {
+    const one = (h: { home: number; draw: number; away: number; score: string }) =>
+      explainPick(pick({ insights: { ...pick().insights, h2h: { home: h.home, draw: h.draw, away: h.away, games: [{ date: 0, score: h.score }] } } })).join(" ");
+    const text = one({ home: 1, draw: 0, away: 0, score: "2-1" });
+    expect(text).toContain("I det seneste indbyrdes opgør vandt Arsenal 2-1.");
     expect(text).not.toContain("I de seneste 1 ");
+    expect(text).not.toContain("i snit");
+    expect(one({ home: 0, draw: 0, away: 1, score: "0-3" })).toContain("I det seneste indbyrdes opgør vandt Chelsea 3-0.");
+    expect(one({ home: 0, draw: 1, away: 0, score: "1-1" })).toContain("I det seneste indbyrdes opgør endte det uafgjort 1-1.");
   });
 
   it("never gives a cause for a price move", () => {

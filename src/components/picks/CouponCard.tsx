@@ -5,7 +5,7 @@ import { COUPON_MIN_ODDS, ROCKET_MIN_CHANCE, type Coupon } from "@/lib/picks-ext
 import { dec } from "@/lib/format";
 
 const COUPON_TITLE: Record<Coupon["kind"], (n: number) => string> = {
-  odds: (n) => `Samlet odds over ${dec(COUPON_MIN_ODDS, 1)} · ${n} bets`,
+  odds: (n) => `Samlet odds mindst ${dec(COUPON_MIN_ODDS, 1)} · ${n} bets`,
   chance: (n) => `Sandsynligste kampe · ${n} bets`,
   rocket: (n) => `Raketten · ${n} bets`,
   goals: (n) => `Dagens over 1,5 mål · ${n} bets`,

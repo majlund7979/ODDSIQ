@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FOOTER_LINE } from "@/components/footer-line";
 import { Logo } from "@/components/Logo";
 
 export const metadata = { title: "Siden findes ikke · Oddsanalyse" };
@@ -14,6 +15,7 @@ export default function NotFound() {
           Til dagens bedste bets
         </Link>
       </div>
+      <footer className="text-center text-xs leading-relaxed text-muted">{FOOTER_LINE}</footer>
     </main>
   );
 }

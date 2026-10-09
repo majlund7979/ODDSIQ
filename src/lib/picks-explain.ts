@@ -4,10 +4,17 @@
 // described, never explained.
 
 import { capitalize, dec, pct } from "@/lib/format";
-import { isSharp, type Pick } from "./picks";
+import { isSharp, type Pick, type PickInsights } from "./picks";
 
 const wins = (g: { result: string }[]) => g.filter((x) => x.result === "V").length;
 const losses = (g: { result: string }[]) => g.filter((x) => x.result === "T").length;
+
+/** The only head-to-head meeting, e.g. "vandt Brøndby 2-1" or "endte det uafgjort 1-1", the winner's goals first. */
+function oneMeeting(home: string, away: string, h: NonNullable<PickInsights["h2h"]>): string {
+  const [a, b] = h.games[0].score.split("-").map(Number);
+  const score = Number.isFinite(a) && Number.isFinite(b) ? ` ${Math.max(a, b)}-${Math.min(a, b)}` : "";
+  return h.draw ? `endte det uafgjort${score}` : `vandt ${h.home ? home : away}${score}`;
+}
 
 /** A few short paragraphs explaining one pick. Pure. */
 export function explainPick(p: Pick): string[] {
@@ -95,12 +102,14 @@ export function explainPick(p: Pick): string[] {
 
   const h = i.h2h;
   if (h && h.games.length) {
-    const goals = h.games.map((g) => g.score.split("-").map(Number)).filter((s) => s.length === 2 && s.every(Number.isFinite));
-    const avg = goals.length ? goals.reduce((s, [a, b]) => s + a + b, 0) / goals.length : null;
-    out.push(
-      `${h.games.length === 1 ? "I det seneste indbyrdes opgør" : `I de seneste ${h.games.length} indbyrdes opgør`} vandt ${home} ${h.home}, ${away} ${h.away}, og ${h.draw} endte uafgjort` +
-        (avg !== null ? `, med ${dec(avg, 1)} mål i snit.` : "."),
-    );
+    if (h.games.length === 1) out.push(`I det seneste indbyrdes opgør ${oneMeeting(home, away, h)}.`);
+    else {
+      const goals = h.games.map((g) => g.score.split("-").map(Number)).filter((s) => s.length === 2 && s.every(Number.isFinite));
+      const avg = goals.length ? goals.reduce((s, [a, b]) => s + a + b, 0) / goals.length : null;
+      out.push(
+        `I de seneste ${h.games.length} indbyrdes opgør vandt ${home} ${h.home}, ${away} ${h.away}, og ${h.draw} endte uafgjort` + (avg !== null ? `, med ${dec(avg, 1)} mål i snit.` : "."),
+      );
+    }
   }
 
   const news = p.factors.filter((f) => f.label === "Skader og karantæner" || f.label === "xG-form");

@@ -51,7 +51,7 @@ function GoalBets({ p, home, away }: { p: Pick; home: string; away: string }) {
               <th className="py-1 font-normal">Bet</th>
               <th className="py-1 pl-3 text-right font-normal">Chance</th>
               <th className="py-1 pl-3 text-right font-normal">Odds</th>
-              <th className="py-1 pl-3 text-right font-normal" title="Chance gange odds: hvad 100 kr giver tilbage i snit (skøn)">Pr. 100 kr</th>
+              <th className="py-1 pl-3 text-right font-normal" title="Chance gange odds: hvad 100 kr giver tilbage i snit (skøn)">Snit pr. 100 kr</th>
             </tr>
           </thead>
           <tbody className="num">
@@ -74,7 +74,7 @@ function GoalBets({ p, home, away }: { p: Pick; home: string; away: string }) {
         {isNationalTeams(p.row.leagueId) && ` I landskampe foreslås over 1,5 og 2,5 mål kun, når begge hold har scoret i mindst ${NATIONAL_OVER_MIN_SCORED} af de seneste ${BTTS_FORM_GAMES} kampe.`}
       </div>
       <div className="mt-1 text-xs text-muted">
-        Tilbage pr. 100 kr er chance gange odds, et skøn.{" "}
+        Snit pr. 100 kr er det, 100 kr giver tilbage i snit: chance gange odds, et skøn.{" "}
         {isSharp(p) ? "Dagens bedste bets sammenligner kun vinder-oddsene med Pinnacles fair pris; mål-bets er ikke med i sammenligningen." : "Vi foreslår altid det bet, der oftest går hjem."}
       </div>
     </Fact>

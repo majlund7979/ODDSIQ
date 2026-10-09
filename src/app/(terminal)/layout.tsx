@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FOOTER_LINE } from "@/components/footer-line";
 import { Logo } from "@/components/Logo";
 import { BottomNav, TopNav } from "@/components/MainNav";
 import { ACCOUNT_NAV, ADMIN_NAV, FRIENDS_NAV, SIMPLE_NAV } from "@/components/nav";
@@ -49,7 +50,7 @@ export default async function TerminalLayout({ children }: Readonly<{ children: 
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-8 md:pt-8 xl:pb-16">{children}</main>
       <footer className="mx-auto w-full max-w-6xl border-t border-line px-4 pt-6 pb-28 text-xs text-muted xl:py-8 xl:text-sm">
-        Kun analyse, vi formidler ikke spil. 18+. Spil indebærer risiko for tab. Brug for hjælp? Kontakt StopSpillet.dk.
+        {FOOTER_LINE}
       </footer>
       <BottomNav items={items} />
     </div>
