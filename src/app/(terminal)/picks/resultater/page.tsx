@@ -211,75 +211,79 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
             </p>
           </section>
 
-          <section className="overflow-x-auto">
+          <section>
             <h3 className="mb-2 text-sm font-semibold">Pr. bet-type</h3>
-            <table className="w-full min-w-[420px] text-sm">
-              <thead>
-                <tr className="text-left text-xs text-muted">
-                  <th className="py-2 pr-3 font-normal">Type</th>
-                  <th className="px-3 py-2 text-right font-normal">Forventet</th>
-                  <th className="px-3 py-2 text-right font-normal" title="Gevinst i procent af det, der er satset">Afkast</th>
-                  <th className="px-3 py-2 text-right font-normal" title="Gennemsnitlig CLV mod lukkeoddsen">CLV</th>
-                  <th className="py-2 pl-3 text-right font-normal" title="Hvor meget modellen har justeret procenterne ud fra resultaterne">Justering</th>
-                </tr>
-              </thead>
-              <tbody className="num">
-                {byCat.map(({ id, s }) => (
-                  <tr key={id} className={`border-t border-line ${id === type ? "bg-surface-2" : ""}`}>
-                    <td className="py-2 pr-3 font-sans">{CATEGORY_LABEL[id]}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-right text-ink-2">{pctOrDash(s.expectedRate)}</td>
-                    <td className={`whitespace-nowrap px-3 py-2 text-right ${!s.withOdds || s.withOdds < ROI_MIN ? "text-muted" : s.roi >= 0 ? "text-good" : "text-serious"}`}>
-                      {!s.withOdds ? "—" : s.withOdds < ROI_MIN ? "for få" : roiLabel(s)}
-                    </td>
-                    <td className={`whitespace-nowrap px-3 py-2 text-right ${s.withClose ? (s.clv >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{s.withClose ? signedPct(s.clv) : "—"}</td>
-                    <td className="whitespace-nowrap py-2 pl-3 text-right text-ink-2">{adjustment(learning.get(id))}</td>
+            <div className="scroll-fade-x overflow-x-auto">
+              <table className="w-full min-w-[420px] text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted">
+                    <th className="py-2 pr-3 font-normal">Type</th>
+                    <th className="px-3 py-2 text-right font-normal">Forventet</th>
+                    <th className="px-3 py-2 text-right font-normal" title="Gevinst i procent af det, der er satset">Afkast</th>
+                    <th className="px-3 py-2 text-right font-normal" title="Gennemsnitlig CLV mod lukkeoddsen">CLV</th>
+                    <th className="py-2 pl-3 text-right font-normal" title="Hvor meget modellen har justeret procenterne ud fra resultaterne">Justering</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="num">
+                  {byCat.map(({ id, s }) => (
+                    <tr key={id} className={`border-t border-line ${id === type ? "bg-surface-2" : ""}`}>
+                      <td className="py-2 pr-3 font-sans">{CATEGORY_LABEL[id]}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right text-ink-2">{pctOrDash(s.expectedRate)}</td>
+                      <td className={`whitespace-nowrap px-3 py-2 text-right ${!s.withOdds || s.withOdds < ROI_MIN ? "text-muted" : s.roi >= 0 ? "text-good" : "text-serious"}`}>
+                        {!s.withOdds ? "—" : s.withOdds < ROI_MIN ? "for få" : roiLabel(s)}
+                      </td>
+                      <td className={`whitespace-nowrap px-3 py-2 text-right ${s.withClose ? (s.clv >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{s.withClose ? signedPct(s.clv) : "—"}</td>
+                      <td className="whitespace-nowrap py-2 pl-3 text-right text-ink-2">{adjustment(learning.get(id))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <p className="mt-2 text-xs text-muted">
               Justering: modellen sammenligner, hvor ofte hver bet-type har ramt, med hvad den regnede med, og retter procenterne lidt til. Den lærer først, når en type
               har {LEARN_MIN} afgjorte bets, og jo flere bets, jo mere stoler den på dem. Bygger på de sidste {LEARN_DAYS} dage (historisk, {t.dataLabel}, {LEARNING_VERSION}).
             </p>
           </section>
 
-          <section className="overflow-x-auto">
+          <section>
             <h3 className="text-sm font-semibold">Holder procenterne?</h3>
             <p className="mt-1 text-xs text-ink-2">Går vores 70 %-bets hjem 70 % af gangene? Alle bet-typer, sidste {LEARN_DAYS} dage.</p>
             {cal.length === 0 ? (
               <p className="py-6 text-center text-sm text-ink-2">Ingen afgjorte bets endnu.</p>
             ) : (
-              <table className="mt-2 w-full min-w-[360px] text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-muted">
-                    <th className="py-2 pr-3 font-normal">Vi sagde</th>
-                    <th className="px-3 py-2 text-right font-normal">Bets</th>
-                    <th className="px-3 py-2 text-right font-normal">Snit</th>
-                    <th className="px-3 py-2 text-right font-normal">Gik hjem</th>
-                    <th className="py-2 pl-3 text-right font-normal" title="1 / bedste odds, et skøn der stadig rummer lidt bookmakeravance">Bookmakerne</th>
-                  </tr>
-                </thead>
-                <tbody className="num whitespace-nowrap">
-                  {cal.map((r) => {
-                    const gap = r.hitRate - r.stated;
-                    const few = r.n < CALIBRATION_MIN;
-                    return (
-                      <tr key={r.from} className="border-t border-line">
-                        <td className="py-2 pr-3 font-sans">
-                          {Math.round(r.from * 100)}–{Math.round(r.to * 100)} %
-                        </td>
-                        <td className="px-3 py-2 text-right text-ink-2">{r.n}</td>
-                        <td className="px-3 py-2 text-right">{pctOrDash(r.stated)}</td>
-                        <td className={`px-3 py-2 text-right font-semibold ${few ? "text-muted" : Math.abs(gap) <= 0.05 ? "text-good" : "text-serious"}`}>
-                          {pctOrDash(r.hitRate)}
-                          {few && <span className="block text-[10px] font-normal">for få bets</span>}
-                        </td>
-                        <td className="py-2 pl-3 text-right text-ink-2">{r.withOdds ? pctOrDash(r.market) : "—"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="scroll-fade-x mt-2 overflow-x-auto">
+                <table className="w-full min-w-[360px] text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-muted">
+                      <th className="py-2 pr-3 font-normal">Vi sagde</th>
+                      <th className="px-3 py-2 text-right font-normal">Bets</th>
+                      <th className="px-3 py-2 text-right font-normal">Snit</th>
+                      <th className="px-3 py-2 text-right font-normal">Gik hjem</th>
+                      <th className="py-2 pl-3 text-right font-normal" title="1 / bedste odds, et skøn der stadig rummer lidt bookmakeravance">Bookmakerne</th>
+                    </tr>
+                  </thead>
+                  <tbody className="num whitespace-nowrap">
+                    {cal.map((r) => {
+                      const gap = r.hitRate - r.stated;
+                      const few = r.n < CALIBRATION_MIN;
+                      return (
+                        <tr key={r.from} className="border-t border-line">
+                          <td className="py-2 pr-3 font-sans">
+                            {Math.round(r.from * 100)}–{Math.round(r.to * 100)} %
+                          </td>
+                          <td className="px-3 py-2 text-right text-ink-2">{r.n}</td>
+                          <td className="px-3 py-2 text-right">{pctOrDash(r.stated)}</td>
+                          <td className={`px-3 py-2 text-right font-semibold ${few ? "text-muted" : Math.abs(gap) <= 0.05 ? "text-good" : "text-serious"}`}>
+                            {pctOrDash(r.hitRate)}
+                            {few && <span className="block text-[10px] font-normal">for få bets</span>}
+                          </td>
+                          <td className="py-2 pl-3 text-right text-ink-2">{r.withOdds ? pctOrDash(r.market) : "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
             <p className="mt-2 text-xs text-muted">
               Grønt: højst 5 point fra det, vi sagde. Bookmakerne er 1 / bedste odds, et skøn med lidt avance i. Grupper under {CALIBRATION_MIN} bets er for små til at sige noget sikkert.

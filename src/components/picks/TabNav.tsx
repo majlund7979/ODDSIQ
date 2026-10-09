@@ -16,7 +16,7 @@ export function TabNav({ tab, count, hit, hitPeriod, source }: { tab: TabId; cou
     <aside className="min-w-0 space-y-4 lg:sticky lg:top-24 lg:space-y-6 lg:self-start">
       <nav
         aria-label="Bet-type"
-        className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] after:w-4 after:shrink-0 after:content-[''] lg:mx-0 lg:block lg:space-y-5 lg:overflow-visible lg:px-0 lg:[mask-image:none] lg:after:hidden"
+        className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scroll-fade-x [scrollbar-width:none] after:w-4 after:shrink-0 after:content-[''] lg:mx-0 lg:block lg:space-y-5 lg:overflow-visible lg:px-0 lg:[mask-image:none] lg:after:hidden"
       >
         {TAB_GROUPS.map((g) => (
           <div key={g.title} className="contents lg:block">
