@@ -1,6 +1,7 @@
-# One-off, read-only check (Mads, 2026-10-07: "tjek"): which bookmakers' match-winner odds the site has stored,
-# and whether upcoming matches have Pinnacle (or Betfair Exchange) next to bet365 or bwin from the same run.
-# Runs only on pushes to this branch; prints counts and bookmaker ids, nothing else.
+# One-off, read-only check (Mads: "tjek" on 2026-10-07, "fredag" on 2026-10-09): which bookmakers' match-winner odds the
+# site has stored, and whether upcoming matches have Pinnacle (or Betfair Exchange) next to bet365 or bwin from the same
+# run. Runs only on pushes to this branch. The session is read-only; it prints counts, bookmaker ids and odds, nothing else.
+# Annotations carry the output because job logs cannot be downloaded from the sandbox; newlines are sent as %0A.
 
 name: Tjek bookmakere
 
@@ -30,45 +31,85 @@ jobs:
           if [ -z "$url" ]; then echo "::error title=Tjek bookmakere::No database login"; exit 1; fi
           echo "::add-mask::$url"
           pw=$(printf '%s' "$url" | sed -E 's#^[^:]+://[^:]+:([^@]+)@.*#\1#'); [ -n "$pw" ] && echo "::add-mask::$pw"
-          export PGCONNECT_TIMEOUT=30
-          q() { psql "$url" -v ON_ERROR_STOP=1 -At -c "BEGIN READ ONLY; $1; COMMIT;" | sed -n 2p; }
-          books=$(q "WITH s AS (
-              SELECT o.\"bookmakerId\" b, o.\"observedAt\" t, sel.\"eventId\" e
+          # Prisma stores times as UTC without a zone, so the session runs in UTC and converts to Danish time explicitly.
+          export PGCONNECT_TIMEOUT=30 PGTZ=UTC PGOPTIONS='-c default_transaction_read_only=on'
+          q() { psql "$url" -v ON_ERROR_STOP=1 -At -F ' ' -c "$1"; }
+          mkdir -p out
+          q "SELECT to_char(now() AT TIME ZONE 'Europe/Copenhagen', 'YYYY-MM-DD HH24:MI'), current_setting('transaction_read_only')" > out/0-now.txt
+          q "SELECT o.\"bookmakerId\", count(DISTINCT sel.\"eventId\"), count(*), to_char(max(o.\"observedAt\") AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Copenhagen', 'MM-DD_HH24:MI')
               FROM \"OddsSnapshot\" o
               JOIN \"Selection\" sel ON sel.id = o.\"selectionId\"
               JOIN \"Market\" m ON m.id = sel.\"marketId\" AND m.type = '1X2'
-              WHERE o.\"observedAt\" > now() - interval '14 days')
-            SELECT coalesce(json_agg(x ORDER BY x.events DESC), '[]') FROM (
-              SELECT b AS book, count(DISTINCT e) AS events, count(*) AS snapshots,
-                     to_char(max(t) AT TIME ZONE 'Europe/Copenhagen', 'MM-DD HH24:MI') AS latest
-              FROM s GROUP BY b) x")
-          echo "::notice title=1X2 books, last 14 days (CEST)::$books"
-          ever=$(q "SELECT coalesce(json_agg(x), '[]') FROM (
-              SELECT \"bookmakerId\" AS book, count(*) AS snapshots,
-                     to_char(max(\"observedAt\") AT TIME ZONE 'Europe/Copenhagen', 'YYYY-MM-DD HH24:MI') AS latest
+              WHERE o.\"observedAt\" > now() - interval '14 days'
+              GROUP BY 1 ORDER BY 2 DESC" > out/1-books-14d.txt
+          q "SELECT \"bookmakerId\", count(*), to_char(max(\"observedAt\") AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Copenhagen', 'YYYY-MM-DD_HH24:MI')
               FROM \"OddsSnapshot\"
               WHERE \"bookmakerId\" ~ '(pinnacle|betfair|bet365|bwin)'
-              GROUP BY 1) x")
-          echo "::notice title=Key books, all time (CEST)::$ever"
-          upcoming=$(q "WITH up AS (
-              SELECT id, \"leagueId\" FROM \"Event\"
-              WHERE status = 'scheduled' AND kickoff > now() AND kickoff <= now() + interval '48 hours'),
-            p AS (
-              SELECT sel.\"eventId\" e, regexp_replace(o.\"bookmakerId\", '^(toa|apf)-', '') k, o.\"bookmakerId\" b, max(o.\"observedAt\") t
+              GROUP BY 1 ORDER BY 1" > out/2-key-books-all-time.txt
+          q "SELECT to_char(date_trunc('hour', o.\"observedAt\" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Copenhagen'), 'MM-DD_HH24'), split_part(o.\"bookmakerId\", '-', 1), count(DISTINCT o.\"bookmakerId\"), count(*)
               FROM \"OddsSnapshot\" o
               JOIN \"Selection\" sel ON sel.id = o.\"selectionId\"
               JOIN \"Market\" m ON m.id = sel.\"marketId\" AND m.type = '1X2'
-              WHERE sel.\"eventId\" IN (SELECT id FROM up) AND o.\"observedAt\" > now() - interval '6 hours'
-              GROUP BY 1, 2, 3)
-            SELECT json_build_object(
-              'upcoming48h', (SELECT count(*) FROM up),
-              'upcomingByFeed', (SELECT json_object_agg(f, n) FROM (SELECT split_part(\"leagueId\", '-', 1) f, count(*) n FROM up GROUP BY 1) z),
-              'with1x2Last6h', (SELECT count(DISTINCT e) FROM p),
-              'pinnacle', (SELECT count(DISTINCT e) FROM p WHERE k = 'pinnacle'),
-              'betfairExchange', (SELECT count(DISTINCT e) FROM p WHERE k = 'betfair_ex_eu'),
-              'bet365', (SELECT count(DISTINCT e) FROM p WHERE k = 'bet365'),
-              'bwin', (SELECT count(DISTINCT e) FROM p WHERE k = 'bwin'),
-              'referenceAndPriceSameRun', (SELECT count(DISTINCT a.e) FROM p a JOIN p c ON a.e = c.e
-                AND a.k IN ('pinnacle', 'betfair_ex_eu') AND c.k IN ('bet365', 'bwin')
-                AND abs(extract(epoch FROM a.t - c.t)) <= 600))")
-          echo "::notice title=Upcoming 48 h, prices from the last 6 h::$upcoming"
+              WHERE o.\"observedAt\" > now() - interval '48 hours'
+              GROUP BY 1, 2 ORDER BY 1, 2" > out/3-runs-48h.txt
+          # Latest 1X2 price per match, outcome and bookmaker for scheduled matches in the next 72 hours, priced in the last 24 hours,
+          # folded to one line per match and bookmaker (pinnacle, betfair, bet365, bwin) plus a "median" line over every bookmaker
+          # priced in the last 6 hours. Columns: event, kickoff, bookmaker, home, draw, away odds, first and last observed (epoch s).
+          q "WITH up AS (
+              SELECT id, kickoff FROM \"Event\" WHERE status = 'scheduled' AND kickoff > now() AND kickoff <= now() + interval '72 hours'),
+            latest AS (
+              SELECT DISTINCT ON (o.\"selectionId\", o.\"bookmakerId\")
+                sel.\"eventId\" e, up.kickoff k, regexp_replace(sel.id, '^.*-', '') side, o.\"bookmakerId\" b, o.odds::float8 x, o.\"observedAt\" t
+              FROM \"OddsSnapshot\" o
+              JOIN \"Selection\" sel ON sel.id = o.\"selectionId\"
+              JOIN \"Market\" m ON m.id = sel.\"marketId\" AND m.type = '1X2'
+              JOIN up ON up.id = sel.\"eventId\"
+              WHERE o.\"observedAt\" > now() - interval '24 hours'
+              ORDER BY o.\"selectionId\", o.\"bookmakerId\", o.\"observedAt\" DESC),
+            folded AS (
+              SELECT e, k, b,
+                max(x) FILTER (WHERE side = 'home') h, max(x) FILTER (WHERE side = 'draw') d, max(x) FILTER (WHERE side = 'away') a,
+                min(t) t0, max(t) t1
+              FROM latest WHERE b ~ '^(toa|apf)-(pinnacle|betfair_ex_eu|betfair|bet365|bwin)$' GROUP BY 1, 2, 3
+              UNION ALL
+              SELECT e, k, 'median',
+                percentile_cont(0.5) WITHIN GROUP (ORDER BY x) FILTER (WHERE side = 'home'),
+                percentile_cont(0.5) WITHIN GROUP (ORDER BY x) FILTER (WHERE side = 'draw'),
+                percentile_cont(0.5) WITHIN GROUP (ORDER BY x) FILTER (WHERE side = 'away'),
+                min(t), max(t)
+              FROM latest WHERE t > now() - interval '6 hours' GROUP BY 1, 2)
+            SELECT e, extract(epoch FROM k)::bigint, b, round(h::numeric, 3), round(d::numeric, 3), round(a::numeric, 3),
+              extract(epoch FROM t0)::bigint, extract(epoch FROM t1)::bigint
+            FROM folded ORDER BY k, e, b" > out/4-prices.txt
+          q "SELECT DISTINCT regexp_replace(sel.id, '^.*-', '') FROM \"Selection\" sel JOIN \"Market\" m ON m.id = sel.\"marketId\" AND m.type = '1X2'
+              WHERE sel.\"eventId\" IN (SELECT id FROM \"Event\" WHERE kickoff > now() AND kickoff <= now() + interval '72 hours')" > out/5-sides.txt
+          wc -l out/*.txt
+
+      - name: Report summary
+        run: |
+          for f in out/0-now.txt out/1-books-14d.txt out/2-key-books-all-time.txt out/3-runs-48h.txt out/5-sides.txt; do
+            t=$(basename "$f" .txt)
+            msg=$(head -c 9000 "$f" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::notice title=$t::$msg"
+          done
+          echo "::notice title=4-prices lines::$(wc -l < out/4-prices.txt)"
+
+      - name: Report prices part 1
+        run: |
+          split -C 8000 -d -a 2 out/4-prices.txt out/p-
+          for f in $(ls out/p-* | head -9); do
+            echo "::notice title=$(basename "$f")::$(sed 's/%/%25/g' "$f" | awk '{printf "%s%%0A", $0}')"
+          done
+
+      - name: Report prices part 2
+        run: |
+          for f in $(ls out/p-* | sed -n '10,18p'); do
+            echo "::notice title=$(basename "$f")::$(sed 's/%/%25/g' "$f" | awk '{printf "%s%%0A", $0}')"
+          done
+
+      - name: Report prices part 3
+        run: |
+          for f in $(ls out/p-* | sed -n '19,27p'); do
+            echo "::notice title=$(basename "$f")::$(sed 's/%/%25/g' "$f" | awk '{printf "%s%%0A", $0}')"
+          done
+          n=$(ls out/p-* | wc -l); [ "$n" -le 27 ] || echo "::warning title=truncated::$n parts and only 27 reported"
