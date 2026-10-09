@@ -108,9 +108,16 @@ export function normalizeName(name: string): string {
     .join(" ");
 }
 
+const keyMemo = new Map<string, string>();
+
 export function teamKey(name: string): string {
+  const hit = keyMemo.get(name);
+  if (hit !== undefined) return hit;
+  if (keyMemo.size > 10_000) keyMemo.clear();
   const n = normalizeName(name);
-  return ALIASES[n] ?? n;
+  const key = ALIASES[n] ?? n;
+  keyMemo.set(name, key);
+  return key;
 }
 
 /**

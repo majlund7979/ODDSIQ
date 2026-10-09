@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { clv, clvPriceRatio } from "./clv";
 import { modelConsensus, predictionConfidence } from "./consensus";
-import { marketPressure, oddsVelocity, volatility } from "./movement";
 import { devig, impliedProbability, overround } from "./probability";
 import { dataQuality } from "./quality";
 import { brierScore, calibrationBins, expectedCalibrationError, logLoss } from "./scoring";
-import { disagreementLevel, edgePp, expectedValue, priceChange } from "./value";
+import { expectedValue } from "./value";
 
 const HOUR = 3_600_000;
 
@@ -25,16 +24,8 @@ describe("probability", () => {
 });
 
 describe("value", () => {
-  it("matches the spec example: 48.8% market, 56.2% model at 2.05", () => {
-    expect(edgePp(0.562, 0.488)).toBeCloseTo(7.4, 6);
+  it("matches the spec example: 56.2% model at 2.05", () => {
     expect(expectedValue(0.562, 2.05)).toBeCloseTo(0.1521, 4);
-    expect(disagreementLevel(7.4)).toBe("HIGH");
-    expect(disagreementLevel(-3)).toBe("MODERATE");
-    expect(disagreementLevel(1)).toBe("LOW");
-  });
-
-  it("computes price change: 2.20 -> 2.02 is -8.18%", () => {
-    expect(priceChange(2.2, 2.02)).toBeCloseTo(-0.0818, 4);
   });
 });
 
@@ -77,37 +68,6 @@ describe("scoring", () => {
       { p: 0.5, y: 0 as const },
     ];
     expect(expectedCalibrationError(rows)).toBeCloseTo(0, 10);
-  });
-});
-
-describe("movement", () => {
-  const series = [
-    { at: 0, odds: 2.2 },
-    { at: 1 * HOUR, odds: 2.1 },
-    { at: 2 * HOUR, odds: 2.02 },
-  ];
-
-  it("measures odds velocity per hour", () => {
-    expect(oddsVelocity(series, 2, 2 * HOUR)).toBeCloseTo(-0.09, 6);
-    expect(oddsVelocity(series, 1, 2 * HOUR)).toBeCloseTo(-0.08, 6);
-    expect(oddsVelocity([], 1, 0)).toBe(0);
-  });
-
-  it("has zero volatility for a straight line of constant returns", () => {
-    const flat = [1, 2, 3, 4].map((i) => ({ at: i, odds: 2 }));
-    expect(volatility(flat)).toBe(0);
-  });
-
-  it("keeps market pressure within 0-100 and marks it estimated without volume", () => {
-    const calm = marketPressure({ openOdds: 2, currentOdds: 2, relativeVelocityPerHour: 0, booksMovingWithConsensus: 0, booksQuoting: 10, volatility: 0, baselineVolatility: 0.01, hoursToKickoff: 100 });
-    const hot = marketPressure({ openOdds: 2.15, currentOdds: 1.89, relativeVelocityPerHour: -0.03, booksMovingWithConsensus: 10, booksQuoting: 10, volatility: 0.05, baselineVolatility: 0.01, hoursToKickoff: 1 });
-    expect(calm.score).toBeLessThan(10);
-    expect(calm.level).toBe("NORMAL");
-    expect(hot.score).toBeGreaterThanOrEqual(90);
-    expect(hot.score).toBeLessThanOrEqual(100);
-    expect(hot.level).toBe("HIGH");
-    expect(hot.estimated).toBe(true);
-    expect(marketPressure({ openOdds: 2, currentOdds: 2, relativeVelocityPerHour: 0, booksMovingWithConsensus: 0, booksQuoting: 10, volatility: 0, baselineVolatility: 0.01, hoursToKickoff: 100, liquidity: 5000 }).estimated).toBe(false);
   });
 });
 

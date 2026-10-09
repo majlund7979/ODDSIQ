@@ -5,9 +5,8 @@ import type { EventStatus, Prediction, PredictionOutcome, SportEvent, SportId } 
 import { appendPrediction, verifyChain, type ChainVerification } from "@/lib/ledger/hash";
 import { clv } from "@/lib/metrics/clv";
 import { modelConsensus } from "@/lib/metrics/consensus";
-import { marketPressure, volatility, velocityLevel, type PressureResult, type PricePoint } from "@/lib/metrics/movement";
 import { dataQuality, type DataQualityResult } from "@/lib/metrics/quality";
-import { edgePp, expectedValue } from "@/lib/metrics/value";
+import { expectedValue } from "@/lib/metrics/value";
 import { BOOKMAKERS, leagueById, SPORTS, teamById } from "./catalog";
 import {
   bestPrice,
@@ -261,43 +260,19 @@ export interface MarketRow {
   }[];
   openingOdds: number;
   currentOdds: number;
-  /** True if this selection had the shortest consensus price in its market at opening. */
-  openingFavourite: boolean;
-  /** Standard deviation of hourly log price changes over the last 24h. */
-  volatility: number;
   marketProbability: number;
   modelProbability: number | null;
   ciLow: number | null;
   ciHigh: number | null;
   modelVersion: string | null;
-  inPlayModel: boolean;
-  edgePp: number | null;
   ev: number | null;
   movement: number;
-  velocityPerHour: number;
-  relativeVelocityPerHour: number;
-  velocityLevel: ReturnType<typeof velocityLevel>;
-  pressure: PressureResult;
   confidence: number | null;
-  modelDisagreement: ReturnType<typeof modelConsensus>["level"] | null;
   /** Standard deviation of the component models' probabilities, pp. */
   modelStdevPp: number | null;
   dataQuality: DataQualityResult;
   booksQuoting: number;
-  /** Books whose price moved >1% in the consensus direction over the last 6h. */
-  booksMoving: number;
-  /** Books whose price moved >1% in the consensus direction since opening. */
-  booksMovedSinceOpen: number;
   lastUpdate: number;
-}
-
-function consensusSeries(ev: EventSim, m: MarketSim, i: number, from: number, to: number, step: number): PricePoint[] {
-  const out: PricePoint[] = [];
-  for (let t = Math.max(from, ev.openAt); t <= to; t += step) {
-    const odds = consensusPrice(ev, m, i, t);
-    if (!Number.isNaN(odds)) out.push({ at: t, odds });
-  }
-  return out;
 }
 
 function booksMoving(ev: EventSim, m: MarketSim, i: number, from: number, to: number, direction: number) {
@@ -325,27 +300,10 @@ function preMatchRow(ev: EventSim, m: MarketSim, i: number, t: number, predictio
   const openingOdds = consensusPrice(ev, m, i, ev.openAt);
   const currentOdds = consensusPrice(ev, m, i, t);
   const marketProbability = fairProbabilities(ev, m, t)[i];
-  const recent = consensusSeries(ev, m, i, t - 3 * HOUR, t, 15 * MIN);
-  const first = recent[0]?.odds ?? currentOdds;
-  const hours = recent.length > 1 ? (t - recent[0].at) / HOUR : 0;
-  const velocityPerHour = hours > 0 ? (currentOdds - first) / hours : 0;
-  const relativeVelocityPerHour = hours > 0 ? (currentOdds / first - 1) / hours : 0;
   const movement = currentOdds / openingOdds - 1;
   const since = Math.max(ev.openAt, t - 6 * HOUR);
   const breadth = booksMoving(ev, m, i, since, t, Math.sign(currentOdds - consensusPrice(ev, m, i, since)) || 1);
-  const sinceOpen = booksMoving(ev, m, i, ev.openAt, t, Math.sign(currentOdds - openingOdds) || 1);
-  const dayVol = volatility(consensusSeries(ev, m, i, t - 24 * HOUR, t, HOUR));
   const hoursToKickoff = (ev.event.kickoff - t) / HOUR;
-  const pressure = marketPressure({
-    openOdds: openingOdds,
-    currentOdds,
-    relativeVelocityPerHour,
-    booksMovingWithConsensus: breadth.moving,
-    booksQuoting: breadth.quoting,
-    volatility: dayVol,
-    baselineVolatility: 0.012,
-    hoursToKickoff,
-  });
   const latestNews = ev.news.filter((n) => n.at <= t && n.kind !== "lineup").at(-1);
   const dq = dataQuality({
     now: t,
@@ -360,7 +318,6 @@ function preMatchRow(ev: EventSim, m: MarketSim, i: number, t: number, predictio
   });
   const cons = modelConsensus(model.components.map((c) => c.probability));
   const p = prediction?.probability ?? null;
-  const openings = m.selections.map((_, j) => (j === i ? openingOdds : consensusPrice(ev, m, j, ev.openAt)));
   return {
     selectionId: s.selection.id,
     eventId: ev.event.id,
@@ -384,28 +341,17 @@ function preMatchRow(ev: EventSim, m: MarketSim, i: number, t: number, predictio
       .sort((a, b) => b.odds - a.odds),
     openingOdds,
     currentOdds,
-    openingFavourite: openingOdds <= Math.min(...openings),
-    volatility: dayVol,
     marketProbability,
     modelProbability: p,
     ciLow: prediction?.ciLow ?? null,
     ciHigh: prediction?.ciHigh ?? null,
     modelVersion: prediction?.modelVersionId ?? null,
-    inPlayModel: false,
-    edgePp: p === null ? null : edgePp(p, marketProbability),
     ev: p === null ? null : expectedValue(p, best.odds),
     movement,
-    velocityPerHour,
-    relativeVelocityPerHour,
-    velocityLevel: velocityLevel(relativeVelocityPerHour),
-    pressure,
     confidence: prediction?.confidence ?? null,
-    modelDisagreement: prediction ? cons.level : null,
     modelStdevPp: prediction ? cons.stdevPp : null,
     dataQuality: dq,
     booksQuoting: breadth.quoting,
-    booksMoving: breadth.moving,
-    booksMovedSinceOpen: sinceOpen.moving,
     lastUpdate: t - (hashOffset(s.selection.id, t) % 20) * 1000,
   };
 }
@@ -422,25 +368,12 @@ function inPlayRows(ev: EventSim, t: number): MarketRow[] {
   if (!state) return [];
   const view = eventView(ev, t);
   const m = ev.markets[0];
-  const prevState = ev.match!.minutes[Math.max(0, state.minute - 10)];
   return m.selections.map((s, i) => {
     const marketProbability = state.market[i];
     const model = state.model[i];
     const currentOdds = inPlayOdds(marketProbability, 0.05);
     const best = inPlayOdds(marketProbability, 0.035);
     const openingOdds = consensusPrice(ev, m, i, ev.event.kickoff);
-    const tenAgo = inPlayOdds(prevState.market[i], 0.05);
-    const rel = (currentOdds / tenAgo - 1) * 6;
-    const pressure = marketPressure({
-      openOdds: openingOdds,
-      currentOdds,
-      relativeVelocityPerHour: rel,
-      booksMovingWithConsensus: Math.abs(currentOdds / tenAgo - 1) > 0.01 ? 7 : 1,
-      booksQuoting: 8,
-      volatility: 0.02,
-      baselineVolatility: 0.012,
-      hoursToKickoff: 0,
-    });
     return {
       selectionId: s.selection.id,
       eventId: ev.event.id,
@@ -463,23 +396,14 @@ function inPlayRows(ev: EventSim, t: number): MarketRow[] {
       bestBookId: null,
       openingOdds,
       currentOdds,
-      openingFavourite: m.selections.every((_, j) => openingOdds <= consensusPrice(ev, m, j, ev.event.kickoff)),
-      volatility: 0.02,
       marketProbability,
       modelProbability: model,
       ciLow: Math.max(0.005, model - 0.04),
       ciHigh: Math.min(0.995, model + 0.04),
       modelVersion: "football-inplay-v0.6",
-      inPlayModel: true,
-      edgePp: edgePp(model, marketProbability),
       ev: expectedValue(model, best),
       movement: currentOdds / openingOdds - 1,
-      velocityPerHour: (currentOdds - tenAgo) * 6,
-      relativeVelocityPerHour: rel,
-      velocityLevel: velocityLevel(rel),
-      pressure,
       confidence: 55,
-      modelDisagreement: null,
       modelStdevPp: null,
       dataQuality: dataQuality({
         now: t,
@@ -493,14 +417,14 @@ function inPlayRows(ev: EventSim, t: number): MarketRow[] {
         booksTracked: BOOKMAKERS.length,
       }),
       booksQuoting: 8,
-      booksMoving: 0,
-      booksMovedSinceOpen: 0,
       lastUpdate: t - 3000,
     };
   });
 }
 
+/** The last few feed times' rows: the live scores read the rows of three hours ago next to the current ones. */
 const rowCache = new Map<number, MarketRow[]>();
+const ROW_CACHE_SIZE = 3;
 
 /** Every open market: pre-match markets within a week of kickoff plus in-play match-winner markets. */
 export function marketRows(now: number): MarketRow[] {
@@ -524,7 +448,7 @@ export function marketRows(now: number): MarketRow[] {
     }
   }
   for (const ev of showcaseLiveEvents(t)) if (statusAt(ev, t) === "live") rows.push(...inPlayRows(ev, t));
-  rowCache.clear();
+  if (rowCache.size >= ROW_CACHE_SIZE) rowCache.delete(rowCache.keys().next().value!);
   rowCache.set(t, rows);
   return rows;
 }

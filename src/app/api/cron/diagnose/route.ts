@@ -76,7 +76,7 @@ export async function GET(req: Request): Promise<Response> {
     out.pageDataMs = { cold: lightMs, cached: againMs };
     const soon = light.rows.filter((r) => r.sportId === "football" && r.kickoff > now && r.kickoff <= now + PICK_WINDOW_MS);
     out.counts = {
-      events: light.events.length,
+      upcomingEvents: light.events.length,
       rows: light.rows.length,
       matchesNext24h: new Set(soon.map((r) => r.eventId)).size,
       matchesNext24hWithModel: new Set(soon.filter((r) => r.modelProbability !== null).map((r) => r.eventId)).size,
