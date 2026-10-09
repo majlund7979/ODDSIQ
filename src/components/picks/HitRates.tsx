@@ -15,7 +15,7 @@ export function HitRates({ learning, labels, current, period, source, version, r
   return (
     <section className="overflow-hidden rounded-[20px] border border-line bg-surface px-4 py-3">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-sm font-semibold">Træfprocent og afkast pr. bet-type</span>
+        <h2 className="text-sm font-semibold">Træfprocent og afkast pr. bet-type</h2>
         <span className="text-xs text-muted">
           Historisk · {period} · {source} · {version}
         </span>

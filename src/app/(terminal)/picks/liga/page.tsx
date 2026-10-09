@@ -136,7 +136,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
       )}
 
       <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
-        <div className="border-b border-line px-5 py-3 text-sm font-semibold">Stillingen</div>
+        <h2 className="border-b border-line px-5 py-3 text-sm font-semibold">Stillingen</h2>
         {table.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-ink-2">Ingen har gemt et bet i perioden endnu.</p>
         ) : (
@@ -197,7 +197,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
 
       <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
         <div className="flex items-baseline justify-between border-b border-line px-5 py-3">
-          <span className="text-sm font-semibold">Vennernes bets</span>
+          <h2 className="text-sm font-semibold">Vennernes bets</h2>
           <span className="text-xs text-muted">de seneste {Math.min(RECENT, recent.length)}</span>
         </div>
         {recent.length === 0 ? (

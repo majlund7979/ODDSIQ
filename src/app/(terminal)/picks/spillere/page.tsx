@@ -142,11 +142,11 @@ function PlayerCardView({ card, back }: { card: PlayerCard; back: string }) {
               <tr className="text-left text-[11px] text-muted">
                 <th className="px-5 py-2 font-normal">Kamp</th>
                 <th className="px-2 py-2 text-right font-normal">Min</th>
-                <th className="px-2 py-2 text-right font-normal">SOT</th>
+                <th className="px-2 py-2 text-right font-normal"><abbr title="Skud på mål">SOT</abbr></th>
                 <th className="px-2 py-2 text-right font-normal">Mål</th>
                 <th className="px-2 py-2 text-right font-normal">Assist</th>
-                <th className="px-2 py-2 text-right font-normal">FC</th>
-                <th className="px-5 py-2 text-right font-normal">FW</th>
+                <th className="px-2 py-2 text-right font-normal"><abbr title="Frispark begået">FC</abbr></th>
+                <th className="px-5 py-2 text-right font-normal"><abbr title="Frispark vundet">FW</abbr></th>
               </tr>
             </thead>
             <tbody className="num">

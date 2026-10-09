@@ -73,7 +73,7 @@ export function TipsStandings({ tips, modelWeek, week, previous, now, me, source
 
         <section id="stilling" className="scroll-mt-20 overflow-hidden rounded-[20px] border border-line bg-surface">
           <div className="flex items-baseline justify-between border-b border-line px-4 py-3">
-            <span className="text-sm font-semibold">Stillingen i tipsspillet</span>
+            <h3 className="text-sm font-semibold">Stillingen i tipsspillet</h3>
             <span className="text-xs text-muted">{weekLabel(week)}</span>
           </div>
           <Table rows={table} me={me} empty="Ingen har tippet i denne uge endnu." />
@@ -86,7 +86,7 @@ export function TipsStandings({ tips, modelWeek, week, previous, now, me, source
       <div className="space-y-5">
         {stats.length > 0 && (
           <section className="rounded-[20px] border border-line bg-surface">
-            <div className="border-b border-line px-4 py-3 text-sm font-semibold">Sjove stats</div>
+            <h3 className="border-b border-line px-4 py-3 text-sm font-semibold">Sjove stats</h3>
             <ul className="divide-y divide-line">
               {stats.map((s) => (
                 <li key={s.id} className="px-4 py-2.5">
@@ -102,7 +102,7 @@ export function TipsStandings({ tips, modelWeek, week, previous, now, me, source
         )}
 
         <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
-          <div className="border-b border-line px-4 py-3 text-sm font-semibold">Tipsspillet, hele tiden</div>
+          <h3 className="border-b border-line px-4 py-3 text-sm font-semibold">Tipsspillet, hele tiden</h3>
           <Table rows={allTime} me={me} empty="Ingen tips endnu." />
           {winners.length > 0 && (
             <p className="border-t border-line px-4 py-2.5 text-xs text-muted">

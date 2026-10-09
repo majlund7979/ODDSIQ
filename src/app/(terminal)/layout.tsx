@@ -39,6 +39,7 @@ export default async function TerminalLayout({ children }: Readonly<{ children: 
               <Link
                 href="/account"
                 title={user.email}
+                aria-label={`Min konto (${user.email})`}
                 className="hidden h-10 w-10 items-center justify-center rounded-full border border-line-strong bg-surface-2 text-sm font-bold text-ink hover:border-accent xl:flex"
               >
                 {initial}

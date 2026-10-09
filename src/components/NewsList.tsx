@@ -16,7 +16,10 @@ export function NewsList({ items, now, compact = false }: { items: NewsItem[]; n
       {items.map((n) => (
         <li key={n.link + n.title} className={compact ? "" : "px-5 py-3.5"}>
           <a href={n.link} target="_blank" rel="noopener noreferrer" className="group block">
-            <span className={`block leading-snug group-hover:text-accent ${compact ? "text-sm" : "text-[15px] font-medium"}`}>{n.title}</span>
+            <span className={`block leading-snug group-hover:text-accent ${compact ? "text-sm" : "text-[15px] font-medium"}`}>
+              {n.title}
+              <span className="sr-only"> (åbner i nyt vindue)</span>
+            </span>
             <span className="mt-0.5 block text-xs text-muted">
               {n.publisher}
               {n.published ? ` · ${ago(n.published, now)}` : ""}

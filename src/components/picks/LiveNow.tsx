@@ -41,9 +41,9 @@ export function LiveNow({ type, initial, source }: { type: string; initial: Live
   return (
     <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
       <div className="flex items-baseline justify-between border-b border-line px-5 py-3">
-        <span className="flex items-center gap-2 text-sm font-semibold">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
           <span className="h-2 w-2 rounded-full bg-critical" aria-hidden />I gang nu
-        </span>
+        </h2>
         <span className="text-xs text-muted">opdateres hvert minut · {source}</span>
       </div>
       <ul className="divide-y divide-line">
