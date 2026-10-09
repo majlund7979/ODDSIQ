@@ -43,6 +43,13 @@ describe("safeNext", () => {
     expect(safeNext("/\\evil.example")).toBe("/picks");
     expect(safeNext("https://evil.example")).toBe("/picks");
     expect(safeNext(null)).toBe("/picks");
+    expect(safeNext("/picks/resultater?type=vinder&antal=5")).toBe("/picks/resultater?type=vinder&antal=5");
+    expect(safeNext("/")).toBe("/");
+  });
+
+  it("refuses paths a browser would turn into another site", () => {
+    for (const v of ["/\t/evil.example", "/\n/evil.example", "/\r/evil.example", "/\\/evil.example", "/a\\b", "/ /evil.example", "/ x", "/\x7f/x"]) expect(safeNext(v)).toBe("/picks");
+    expect(safeNext("/\t/evil.example", "/picks/liga")).toBe("/picks/liga");
   });
 });
 
