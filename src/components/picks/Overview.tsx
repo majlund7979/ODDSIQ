@@ -30,12 +30,12 @@ export function Overview({
   live,
   week,
   source,
-  topLabel = "Dagens sikreste bet",
+  topLabel,
   empty = "Ingen kampe de næste 24 timer.",
   version = LEARNING_VERSION,
 }: {
   top: TopBet | null;
-  topLabel?: string;
+  topLabel: string;
   /** The rule or model version the week's picks were made with. */
   version?: string;
   /** Shown in the first tile when there is no bet. */
@@ -91,7 +91,7 @@ export function Overview({
                 {s.won} af {s.settled}
               </span>
             </div>
-            <HitBars days={days} />
+            <HitBars days={days} focusable={false} />
           </Link>
         ) : (
           <div className="text-sm text-ink-2">Ingen afgjorte bets endnu.</div>
@@ -105,7 +105,7 @@ export function Overview({
               <span className={`num whitespace-nowrap text-2xl font-extrabold tracking-[-0.02em] sm:text-3xl ${s.profit >= 0 ? "text-good" : "text-serious"}`}>{krFromUnits(s.profit)}</span>
               <span className={`text-sm ${s.withOdds < ROI_MIN ? "text-muted" : "text-ink-2"}`}>afkast {roiLabel(s)}</span>
             </div>
-            <ProfitBars days={days} />
+            <ProfitBars days={days} focusable={false} />
           </Link>
         ) : (
           <div className="text-sm text-ink-2">Ingen afgjorte bets med odds endnu.</div>
@@ -138,24 +138,26 @@ export function GoodSingles({ rows, subtitle = "Højest chance først" }: { rows
       </div>
       <ol className="divide-y divide-line">
         {rows.map((r, i) => (
-          <li key={r.key} className="flex items-center gap-3 px-5 py-3 hover:bg-surface-2">
-            <span className="num flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-3 text-xs font-semibold text-ink">{i + 1}</span>
-            <a href={`#bet-${i + 1}`} className="min-w-0 flex-1">
-              <span className="flex items-center gap-2">
-                <span className="truncate font-semibold">{r.outcome}</span>
-                {r.value && <span className="shrink-0 rounded-full border border-good/40 bg-good/10 px-1.5 text-[10px] font-semibold text-good">Værdi</span>}
+          <li key={r.key}>
+            <a href={`#bet-${i + 1}`} className="flex items-center gap-3 px-5 py-3 hover:bg-surface-2">
+              <span className="num flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-3 text-xs font-semibold text-ink">{i + 1}</span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2">
+                  <span className="truncate font-semibold">{r.outcome}</span>
+                  {r.value && <span className="shrink-0 rounded-full border border-good/40 bg-good/10 px-1.5 text-[10px] font-semibold text-good">Værdi</span>}
+                </span>
+                <span className="block truncate text-xs text-muted">
+                  {r.match.replace(" vs ", " – ")} · {r.league} · kl. {clock(r.kickoff)}
+                </span>
               </span>
-              <span className="block truncate text-xs text-muted">
-                {r.match.replace(" vs ", " – ")} · {r.league} · kl. {clock(r.kickoff)}
+              <span className="hidden w-28 shrink-0 sm:block" aria-hidden>
+                <span className="block h-1.5 overflow-hidden rounded-full bg-surface-3">
+                  <span className={`block h-full rounded-full ${r.probability >= 0.7 ? "bg-good" : "bg-accent"}`} style={{ width: `${Math.round(r.probability * 100)}%` }} />
+                </span>
               </span>
+              <span className="num w-12 shrink-0 text-right text-lg font-bold">{pctTight(r.probability)}</span>
+              <span className="num hidden w-14 shrink-0 text-right text-sm text-ink-2 sm:block">{r.odds ? dec(r.odds) : "—"}</span>
             </a>
-            <span className="hidden w-28 shrink-0 sm:block" aria-hidden>
-              <span className="block h-1.5 overflow-hidden rounded-full bg-surface-3">
-                <span className={`block h-full rounded-full ${r.probability >= 0.7 ? "bg-good" : "bg-accent"}`} style={{ width: `${Math.round(r.probability * 100)}%` }} />
-              </span>
-            </span>
-            <span className="num w-12 shrink-0 text-right text-lg font-bold">{pctTight(r.probability)}</span>
-            <span className="num hidden w-14 shrink-0 text-right text-sm text-ink-2 sm:block">{r.odds ? dec(r.odds) : "—"}</span>
           </li>
         ))}
       </ol>

@@ -21,13 +21,14 @@ export function CountCard({ p, rank, now, save }: { p: CountPick; rank: number; 
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-lime-soft px-3.5 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
             <span className="text-sm text-ink-2">
-              Forventet <span className="num font-semibold text-ink">{dec(f.expected.total, 1)}</span> · {vs === 0 ? "som ligasnittet" : `${Math.abs(vs)} % ${vs > 0 ? "over" : "under"} ligasnittet`}
+              Forventet <span className="num font-semibold text-ink">{dec(f.expected.total, 1)}</span> · {vs === 0 ? "som ligasnittet" : `${Math.abs(vs)} % ${vs > 0 ? "over" : "under"} ligasnittet`} ·
+              50/50-linjen {lineLabel(f.fairLine)}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-5">
           <Gauge p={p.probability} />
-          <StatBox label="Linjen" value={lineLabel(f.fairLine)} sub={<>fair odds {dec(p.fairOdds)}</>} />
+          <StatBox label="Fair odds" value={dec(p.fairOdds)} sub={`for ${f.suggestion.side} ${lineLabel(f.suggestion.line)}`} />
         </div>
       </div>
       <AdviceRow p={p.probability} odds={null} eventId={p.row.eventId} save={save} leg={{ key: `${p.row.eventId}|count|${p.outcome}`, match: p.row.match, outcome: p.outcome, kickoff: p.row.kickoff }} />
@@ -111,6 +112,7 @@ export function CountCard({ p, rank, now, save }: { p: CountPick; rank: number; 
             <p className="mt-2 text-xs text-ink-2">
               Den fremhævede række er linjen, hvor over og under er tættest på 50/50. Spil kun, hvis bookmakeren giver en højere odds end fair odds for samme
               linje.
+              {p.probability !== f.suggestion.probability && " Tabellen er før justeringen ud fra bet-typens resultater; procenten og fair odds øverst er efter."}
             </p>
           </Fact>
           <NewsBlock home={home} away={away} />

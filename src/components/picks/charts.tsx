@@ -17,14 +17,14 @@ export function Tile({ label, children, foot, className = "" }: { label: string;
   );
 }
 
-/** One column per day: the share of bets that won, with a tick at what we expected. */
-export function HitBars({ days }: { days: DayStat[] }) {
+/** One column per day: the share of bets that won, with a tick at what we expected. Inside a link, `focusable={false}` leaves the bars out of the tab order. */
+export function HitBars({ days, focusable = true }: { days: DayStat[]; focusable?: boolean }) {
   return (
     <div className="flex h-14 items-end gap-1.5" role="img" aria-label={days.map((d) => `${longDay(d.day)}: ${d.won} af ${d.settled}`).join(", ")}>
       {days.map((d, i) => {
         const share = d.settled ? d.won / d.settled : 0;
         return (
-          <span key={d.day} className={`tip relative flex h-full flex-1 flex-col items-center justify-end ${i >= days.length / 2 ? "tip-end" : ""}`} tabIndex={0}>
+          <span key={d.day} className={`tip relative flex h-full flex-1 flex-col items-center justify-end ${i >= days.length / 2 ? "tip-end" : ""}`} tabIndex={focusable ? 0 : undefined}>
             <span className="relative w-full flex-1">
               <span className="absolute inset-x-0 bottom-0 rounded-t bg-accent" style={{ height: `${Math.max(4, share * 100)}%` }} />
               <span className="absolute inset-x-[-2px] h-0.5 rounded bg-ink/70" style={{ bottom: `${d.expected * 100}%` }} aria-hidden />
@@ -42,15 +42,15 @@ export function HitBars({ days }: { days: DayStat[] }) {
   );
 }
 
-/** One column per day: profit at 100 kr a bet, above or below zero. */
-export function ProfitBars({ days }: { days: DayStat[] }) {
+/** One column per day: profit at 100 kr a bet, above or below zero. `focusable` as for HitBars. */
+export function ProfitBars({ days, focusable = true }: { days: DayStat[]; focusable?: boolean }) {
   const max = Math.max(0.5, ...days.map((d) => Math.abs(d.profit)));
   return (
     <div className="flex h-14 gap-1.5" role="img" aria-label={days.map((d) => `${longDay(d.day)}: ${krFromUnits(d.profit)}`).join(", ")}>
       {days.map((d, i) => {
         const h = (Math.abs(d.profit) / max) * 50;
         return (
-          <span key={d.day} className={`tip relative flex flex-1 flex-col ${i >= days.length / 2 ? "tip-end" : ""}`} tabIndex={0}>
+          <span key={d.day} className={`tip relative flex flex-1 flex-col ${i >= days.length / 2 ? "tip-end" : ""}`} tabIndex={focusable ? 0 : undefined}>
             <span className="relative flex-1">
               <span className="absolute inset-x-[-2px] top-1/2 h-px bg-line-strong" aria-hidden />
               {d.withOdds > 0 && (

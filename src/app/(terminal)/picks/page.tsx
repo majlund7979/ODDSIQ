@@ -85,10 +85,10 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
       <header className="rounded-[28px] border border-line bg-gradient-to-br from-accent/15 to-surface px-4 py-5 sm:px-10 sm:py-10">
         <div className="text-sm font-medium text-muted">{capitalize(today)}</div>
         <h1 className="display mt-2 text-[36px] text-ink sm:text-6xl">{tab === "bedste" ? "Dagens bedste bets" : tabLabel}</h1>
-        <p className="mt-3 hidden max-w-2xl text-[16px] leading-relaxed text-ink-2 sm:mt-4 sm:block sm:text-[17px]">
+        <p className="mt-3 max-w-2xl text-[16px] leading-relaxed text-ink-2 sm:mt-4 sm:text-[17px]">
           {tab === "bedste"
             ? `Forsøg: vinder-bets i kampene de næste 24 timer, hvor bet365 eller bwin betaler mindst ${dec(SHARP_MIN_EV * 100, 0)} % mere end Pinnacles odds uden margin (ellers Betfair Exchanges), ved odds ${dec(SHARP_MIN_ODDS)}–${dec(SHARP_MAX_ODDS)}. Vi henter odds hver 5.–6. time, så tjek prisen hos bookmakeren, før du spiller. Øverst er den største forskel.`
-            : "De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det sikreste."}
+            : "De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det mest sandsynlige."}
         </p>
         {tab === "bedste" ? (
           <div className="mt-4 sm:mt-6">
@@ -126,7 +126,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
           </p>
         )}
         {tab === "bedste" && <SharpBacktestNote />}
-        <p className="mt-4 hidden text-xs text-muted sm:block">Procenterne bliver mere præcise, når holdopstillingen er meldt, typisk en time før kampstart.</p>
+        <p className="mt-4 text-xs text-muted">Procenterne bliver mere præcise, når holdopstillingen er meldt, typisk en time før kampstart.</p>
       </header>
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10">
@@ -166,9 +166,11 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
 
           {tab !== "bedste" && <LiveNow type={tab} initial={live} source={liveSource} />}
 
-          {tab === "bedste" && (
+          {tab === "bedste" && picks.length > 0 && (
             <div className="flex flex-wrap items-baseline justify-between gap-2 pt-2">
-              <h2 className="text-2xl font-extrabold tracking-[-0.02em]">Alle {count} enkeltbets med analyse</h2>
+              <h2 className="text-2xl font-extrabold tracking-[-0.02em]">
+                Alle {picks.length} {picks.length === 1 ? "enkeltbet" : "enkeltbets"} med analyse
+              </h2>
               <span className="text-sm text-muted">Tryk &quot;Hvorfor?&quot; for begrundelsen</span>
             </div>
           )}
@@ -207,7 +209,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
             <p className="text-xs text-muted md:col-span-3">
               Kilde: {t.dataLabel}. Bookmakernes odds vejer halvdelen, fordi de rummer nyheder og rygter. Skader og xG-form flytter de forventede mål efter en fast
               tommelfingerregel. Form og indbyrdes opgør indgår allerede i resultatmodellen og vises som baggrund. Hjørnespark, kort og frispark: holdenes seneste 20 kampe fra
-              football-data.co.uk sammenlignet med ligasnittet; tippet går i retning af, om kampen ventes over eller under snittet, én linje på den sikre side.
+              football-data.co.uk sammenlignet med ligasnittet; tippet går i retning af, om kampen ventes over eller under snittet, én linje i retning af snittet.
             </p>
           </section>
         </div>

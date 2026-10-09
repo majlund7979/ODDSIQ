@@ -98,7 +98,7 @@ export function explainPick(p: Pick): string[] {
     const goals = h.games.map((g) => g.score.split("-").map(Number)).filter((s) => s.length === 2 && s.every(Number.isFinite));
     const avg = goals.length ? goals.reduce((s, [a, b]) => s + a + b, 0) / goals.length : null;
     out.push(
-      `I de seneste ${h.games.length} indbyrdes opgør vandt ${home} ${h.home}, ${away} ${h.away}, og ${h.draw} endte uafgjort` +
+      `${h.games.length === 1 ? "I det seneste indbyrdes opgør" : `I de seneste ${h.games.length} indbyrdes opgør`} vandt ${home} ${h.home}, ${away} ${h.away}, og ${h.draw} endte uafgjort` +
         (avg !== null ? `, med ${dec(avg, 1)} mål i snit.` : "."),
     );
   }

@@ -49,18 +49,18 @@ function GoalBets({ p, home, away }: { p: Pick; home: string; away: string }) {
           <thead>
             <tr className="text-left text-xs text-muted">
               <th className="py-1 font-normal">Bet</th>
-              <th className="py-1 text-right font-normal">Chance</th>
-              <th className="py-1 text-right font-normal">Odds</th>
-              <th className="py-1 text-right font-normal" title="Chance gange odds: hvad 100 kr giver tilbage i snit (skøn)">Tilbage pr. 100 kr</th>
+              <th className="py-1 pl-3 text-right font-normal">Chance</th>
+              <th className="py-1 pl-3 text-right font-normal">Odds</th>
+              <th className="py-1 pl-3 text-right font-normal" title="Chance gange odds: hvad 100 kr giver tilbage i snit (skøn)">Pr. 100 kr</th>
             </tr>
           </thead>
           <tbody className="num">
             {goals.map((g) => (
               <tr key={g.outcome} className={`border-t border-line ${g === top && !p.marketOnly ? "text-accent" : ""}`}>
                 <td className="py-1.5 font-sans">{g.outcome}</td>
-                <td className="py-1.5 text-right">{Math.round(g.probability * 100)} %</td>
-                <td className="py-1.5 text-right">{dec(g.odds)}</td>
-                <td className="py-1.5 text-right">{Math.round(g.ret * 100)} kr</td>
+                <td className="py-1.5 pl-3 text-right">{Math.round(g.probability * 100)} %</td>
+                <td className="py-1.5 pl-3 text-right">{dec(g.odds)}</td>
+                <td className="py-1.5 pl-3 text-right">{Math.round(g.ret * 100)} kr</td>
               </tr>
             ))}
           </tbody>
@@ -151,7 +151,7 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
         )}
         {i.h2h && (
           <Fact label={`Indbyrdes, seneste ${i.h2h.games.length}`}>
-            {home}: <span className="text-good">{i.h2h.home} sejre</span>, {i.h2h.draw} uafgjort, <span className="text-serious">{i.h2h.away} nederlag</span>
+            {home}: <span className="text-good">{i.h2h.home} {i.h2h.home === 1 ? "sejr" : "sejre"}</span>, {i.h2h.draw} uafgjort, <span className="text-serious">{i.h2h.away} nederlag</span>
             <div className="num mt-1 text-xs text-muted">{i.h2h.games.map((g) => g.score).join(" · ")}</div>
           </Fact>
         )}

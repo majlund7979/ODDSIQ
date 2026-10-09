@@ -142,7 +142,7 @@ export function TabBody({
   return (
     <ol className="space-y-4">
       {picks.map((p, i) => (
-        <li key={p.row.selectionId}>
+        <li key={p.row.selectionId} id={tab === "bedste" ? `bet-${i + 1}` : undefined} className="scroll-mt-20">
           <PickCard p={p} rank={i + 1} now={now} save={saveFor(p.row.eventId)} />
         </li>
       ))}
