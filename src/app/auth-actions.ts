@@ -11,7 +11,7 @@ import { ACCOUNTS_ENABLED, createSession, currentUser, destroySession, newUserId
 import { BILLING_ENABLED } from "@/lib/billing/plans";
 import { createCheckoutSession, createPortalSession } from "@/lib/billing/stripe";
 import { db } from "@/lib/db";
-import { SAVE_FAILED } from "@/lib/save-failed";
+import { SAVE_FAILED, SIGN_IN_FAILED } from "@/lib/save-failed";
 import { siteOrigin } from "@/lib/site-url";
 
 export interface AuthState {
@@ -70,7 +70,7 @@ export async function signIn(_: AuthState, formData: FormData): Promise<AuthStat
   } catch (e) {
     unstable_rethrow(e);
     console.error(e);
-    return { email, error: SAVE_FAILED };
+    return { email, error: SIGN_IN_FAILED };
   }
   redirect(safeNext(formData.get("next")));
 }

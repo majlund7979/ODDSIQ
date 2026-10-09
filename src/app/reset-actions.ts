@@ -9,7 +9,7 @@ import { passwordProblem } from "@/lib/auth/rules";
 import { ACCOUNTS_ENABLED, createSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { MAIL_CONFIGURED, sendMails } from "@/lib/mail";
-import { SAVE_FAILED } from "@/lib/save-failed";
+import { RESET_LINK_FAILED, SAVE_FAILED } from "@/lib/save-failed";
 import { siteOrigin } from "@/lib/site-url";
 
 export interface ResetState {
@@ -40,7 +40,7 @@ export async function requestReset(_: ResetState, formData: FormData): Promise<R
   } catch (e) {
     unstable_rethrow(e);
     console.error(e);
-    return { email, error: SAVE_FAILED };
+    return { email, error: RESET_LINK_FAILED };
   }
   return { email, sent: true };
 }
