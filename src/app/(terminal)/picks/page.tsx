@@ -79,6 +79,9 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
     return l && l.hitRate.n > 0 ? l.hitRate : null;
   };
   const hitPeriod = hitRatePeriod(TABS.flatMap((x) => hit(x.id) ?? []));
+  // The phone strip leaves Straffespark out, so its period covers the same bet types.
+  const stripTabs = TABS.filter((x) => x.id !== "straffe");
+  const stripPeriod = hitRatePeriod(stripTabs.flatMap((x) => hit(x.id) ?? []));
 
   return (
     <div className="space-y-6 lg:space-y-8">
@@ -161,7 +164,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
           )}
 
           <div className="lg:hidden">
-            <HitRates learning={allLearning} labels={TABS.filter((x) => x.id !== "straffe")} current={tab} period={hitPeriod} source={t.dataLabel} version={LEARNING_VERSION} returns={new Map(TABS.map((x) => [x.id, summarise(history.filter((h) => h.category === x.id))]))} />
+            <HitRates learning={allLearning} labels={stripTabs} current={tab} period={stripPeriod} source={t.dataLabel} version={LEARNING_VERSION} returns={new Map(TABS.map((x) => [x.id, summarise(history.filter((h) => h.category === x.id))]))} />
           </div>
 
           {tab !== "bedste" && <LiveNow type={tab} initial={live} source={liveSource} />}

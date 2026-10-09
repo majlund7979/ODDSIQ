@@ -4,7 +4,7 @@
 // described, never explained.
 
 import { capitalize, dec, pct } from "@/lib/format";
-import type { Pick } from "./picks";
+import { isSharp, type Pick } from "./picks";
 
 const wins = (g: { result: string }[]) => g.filter((x) => x.result === "V").length;
 const losses = (g: { result: string }[]) => g.filter((x) => x.result === "T").length;
@@ -15,12 +15,12 @@ export function explainPick(p: Pick): string[] {
   const i = p.insights;
   const out: string[] = [];
 
-  if (p.ev !== undefined) {
+  if (isSharp(p)) {
     out.push(
       `${p.reference}s odds uden deres margin giver "${p.outcome}" ${pct(p.probability)} chance, altså fair odds på ${dec(p.fairOdds)}. ` +
-        `${p.row.bestBook} giver ${dec(p.row.bestOdds)}, ${dec(p.ev * 100, 1)} % mere${p.minOdds !== undefined ? `, og bettet holder kun, så længe oddsen er mindst ${dec(p.minOdds)}` : ""}. ` +
+        `${p.row.bestBook} giver ${dec(p.row.bestOdds)}, ${dec(p.ev * 100, 1)} % mere, og bettet holder kun, så længe oddsen er mindst ${dec(p.minOdds)}. ` +
         `${p.reference} regnes for en af de mest præcise priser på markedet, så den bruges som fair pris. ` +
-        (/betfair/i.test(p.reference ?? "")
+        (/betfair/i.test(p.reference)
           ? "Med Betfair Exchange som fair pris gav den historiske test ingen fordel (156 bets, 2024/25–2025/26). "
           : "I den historiske test med Pinnacle gav bets valgt på den måde ingen sikker fordel, og fra januar 2025 slog de ikke lukkeprisen. ") +
         "Det er et forsøg, som vi følger live.",
@@ -112,7 +112,7 @@ export function explainPick(p: Pick): string[] {
   const model = p.row.modelProbability;
   const market = p.row.marketProbability;
   // A price-comparison pick's chance is the reference price alone; the model is not blended in.
-  if (model != null && !p.marketOnly && p.ev === undefined) {
+  if (model != null && !p.marketOnly && !isSharp(p)) {
     const gap = (market - model) * 100;
     out.push(
       Math.abs(gap) < 3

@@ -21,8 +21,8 @@ export function CountCard({ p, rank, now, save }: { p: CountPick; rank: number; 
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-lime-soft px-3.5 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
             <span className="text-sm text-ink-2">
-              Forventet <span className="num font-semibold text-ink">{dec(f.expected.total, 1)}</span> · {vs === 0 ? "som ligasnittet" : `${Math.abs(vs)} % ${vs > 0 ? "over" : "under"} ligasnittet`} ·
-              50/50-linjen {lineLabel(f.fairLine)}
+              Forventet <span className="num font-semibold text-ink">{dec(f.expected.total, 1)}</span> · {vs === 0 ? "som ligasnittet" : `${Math.abs(vs)} % ${vs > 0 ? "over" : "under"} ligasnittet`} ·{" "}
+              <span className="whitespace-nowrap">50/50-linjen {lineLabel(f.fairLine)}</span>
             </span>
           </div>
         </div>

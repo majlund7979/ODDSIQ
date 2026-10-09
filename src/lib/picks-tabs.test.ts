@@ -30,7 +30,17 @@ describe("bet-type tabs", () => {
   });
 
   it("names the goal and count bet types as the results board does", () => {
-    for (const c of [...GOAL_CATEGORIES, ...COUNT_CATEGORIES]) expect(c.label).toBe(CATEGORY_LABEL[c.id]);
+    expect(GOAL_CATEGORIES.map((c) => [c.id, c.label])).toEqual([
+      ["vinder", "Hvem vinder"],
+      ["maal15", "Over/under 1,5 mål"],
+      ["maal", "Over/under 2,5 mål"],
+      ["btts", "Begge hold scorer"],
+    ]);
+    expect(COUNT_CATEGORIES.map((c) => [c.id, c.label])).toEqual([
+      ["hjorne", "Hjørnespark"],
+      ["kort", "Kort"],
+      ["frispark", "Frispark"],
+    ]);
     for (const c of COUNT_CATEGORIES) expect(TABS.some((x) => x.id === c.id)).toBe(true);
   });
 
