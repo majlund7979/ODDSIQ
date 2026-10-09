@@ -40,9 +40,6 @@ export interface CurrentUser {
   planStatus: string | null;
   planRenewsAt: Date | null;
   stripeCustomerId: string | null;
-  watchlist: string;
-  positions: string;
-  thresholdPp: number;
 }
 
 /** The signed-in user for this request, or null. Cached per request. */
@@ -53,5 +50,5 @@ export const currentUser = cache(async (): Promise<CurrentUser | null> => {
   const session = await db().session.findUnique({ where: { id: hashToken(token) }, include: { user: true } });
   if (!session || session.expiresAt.getTime() < Date.now()) return null;
   const u = session.user;
-  return { id: u.id, email: u.email, plan: u.plan, planStatus: u.planStatus, planRenewsAt: u.planRenewsAt, stripeCustomerId: u.stripeCustomerId, watchlist: u.watchlist, positions: u.positions, thresholdPp: u.thresholdPp };
+  return { id: u.id, email: u.email, plan: u.plan, planStatus: u.planStatus, planRenewsAt: u.planRenewsAt, stripeCustomerId: u.stripeCustomerId };
 });

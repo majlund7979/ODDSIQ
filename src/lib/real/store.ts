@@ -1,5 +1,5 @@
 // Read model over live feed data (DEMO_MODE=false). Produces the same row
-// shapes as the demo store so the terminal pages render either. Prices are
+// shapes as the demo store so the site's pages render either. Prices are
 // the snapshots stored by each ingestion run; model probabilities are the
 // real model's current estimate, or the recorded ledger prediction once one
 // exists. Nothing here is simulated.
@@ -15,13 +15,12 @@ import { marketPressure, velocityLevel, volatility as seriesVolatility } from "@
 import { dataQuality } from "@/lib/metrics/quality";
 import { edgePp, expectedValue } from "@/lib/metrics/value";
 import { REAL_MODEL, type MatchForecast } from "@/lib/model/ensemble";
-import { explainSelection } from "@/lib/model/explain";
 import { buildLeagueModel, forecastFor, type LeagueModel } from "@/lib/model/league-model";
 import { leagueForOddsKey, OPENFOOTBALL_SOURCE } from "@/lib/model/openfootball";
 import { buildCountModels, forecastCounts, halfTimeShare, type CountForecasts, type CountModels } from "@/lib/model/match-stats";
 import { loadMatchStats, loadResults } from "@/lib/model/pipeline";
 import { closingLine, type PricePoint as BookPoint } from "@/lib/providers/closing";
-import type { LedgerAudit, LedgerRow, MarketDetail, MarketRow, MatchView } from "@/lib/demo/store";
+import type { LedgerAudit, LedgerRow, MarketRow } from "@/lib/demo/store";
 import { teamNews, type StoredFixture, type TeamNews } from "@/lib/stats/news";
 
 const HOUR = 3_600_000;
@@ -256,8 +255,8 @@ const EMPTY_AUDIT: LedgerAudit = { verification: { ok: true, checked: 0, brokenA
 /**
  * Everything the pages read, built from Postgres. With `ledger: false` (what
  * the site's pages use) it skips the full prediction ledger and its audit,
- * which only the CSV export and the old terminal views need and which grows
- * with every run.
+ * which only the CSV export and the fixture checks need and which grows with
+ * every run.
  */
 export async function realSnapshot(prisma: PrismaClient, now: number, opts: { ledger?: boolean; fresh?: boolean } = {}): Promise<RealSnapshot> {
   const full = opts.ledger !== false;
@@ -483,92 +482,4 @@ async function ledgerRows(prisma: PrismaClient, preds: Prediction[], books: Map<
       },
     ];
   });
-}
-
-/** Market detail for one selection, in the demo detail shape. */
-export function realMarketDetail(snap: RealSnapshot, selectionId: string): (MarketDetail & { unavailableReason: string | null; teamNews: TeamNews | null }) | undefined {
-  const now = snap.now;
-  for (const e of snap.events) {
-    const m = e.markets.find((x) => x.selections.some((s) => s.id === selectionId));
-    if (!m) continue;
-    const i = m.selections.findIndex((s) => s.id === selectionId);
-    const prediction = snap.predictionsBySelection.get(selectionId);
-    const row = snap.rows.find((r) => r.selectionId === selectionId) ?? buildRow(e, m, i, now, snap.books, prediction);
-    if (!row) return undefined;
-    const ref = Math.min(now, e.view.kickoff);
-    const runs = m.runs.filter((r) => r <= ref);
-    const chart = runs.flatMap((r) => {
-      const line = consensusAt(m, r);
-      const quotes = [...(latestByBook(m.points, r).get(selectionId)?.values() ?? [])];
-      return line ? [{ at: r, consensus: line.selections[i].medianOdds, best: Math.max(...quotes) }] : [];
-    });
-    const nowQ = latestByBook(m.points, runs.at(-1) ?? ref).get(selectionId) ?? new Map<string, number>();
-    const openQ = latestByBook(m.points, runs[0] ?? ref, Infinity).get(selectionId) ?? new Map<string, number>();
-    const prevRun = runs.at(-2);
-    const prevQ = prevRun !== undefined ? (latestByBook(m.points, prevRun).get(selectionId) ?? new Map<string, number>()) : nowQ;
-    const books = [...nowQ].map(([id, odds]) => ({ id, name: snap.books.get(id) ?? id, odds, open: openQ.get(id) ?? NaN, oneHourAgo: prevQ.get(id) ?? NaN, lagMin: 0 }));
-
-    const fc = e.forecast && "f" in e.forecast ? e.forecast : null;
-    const sf = fc?.f.selections.find((s) => s.market === m.type && s.selection === m.selections[i].side);
-    const line = consensusAt(m, runs.at(-1) ?? ref);
-    const estimate = (id: string, p: number, lo: number, hi: number) => ({ selectionId: selectionId, modelVersionId: id, probability: p, ciLow: lo, ciHigh: hi, computedAt: now });
-    const components = sf
-      ? [
-          estimate(REAL_MODEL.poisson.id, sf.components.poisson, sf.components.poisson, sf.components.poisson),
-          ...(sf.components.elo !== null ? [estimate(REAL_MODEL.elo.id, sf.components.elo, sf.components.elo, sf.components.elo)] : []),
-        ]
-      : [];
-    const ensemble = prediction ? estimate(prediction.modelVersionId, prediction.probability, prediction.ciLow, prediction.ciHigh) : sf ? estimate(REAL_MODEL.ensemble.id, sf.probability, sf.ciLow, sf.ciHigh) : estimate(REAL_MODEL.ensemble.id, NaN, NaN, NaN);
-    const factors = fc && e.model && sf ? explainSelection(e.model, fc.home, fc.away, fc.f, m.type, m.selections[i].side) : [];
-    return {
-      row,
-      event: e.view,
-      analysis: { selectionId, ensemble, components, factors, confidence: prediction?.confidence ?? sf?.confidence ?? 0 },
-      prediction,
-      news: [],
-      chart,
-      books,
-      siblings: m.selections.map((s, k) => {
-        const p = snap.predictionsBySelection.get(s.id)?.probability ?? fc?.f.selections.find((x) => x.market === m.type && x.selection === s.side)?.probability ?? null;
-        return { selectionId: s.id, name: s.name, marketProbability: line?.selections[k].fairProbability ?? NaN, modelProbability: p };
-      }),
-      teamNews: e.news,
-      unavailableReason: e.forecast && "reason" in e.forecast ? e.forecast.reason : !e.model ? "The real model does not cover this competition yet." : null,
-    };
-  }
-  return undefined;
-}
-
-/** One match in the Matches list: main market from opening to the latest pre-kickoff run. */
-export function realMatchView(snap: RealSnapshot, eventId: string): MatchView | undefined {
-  const e = snap.events.find((x) => x.view.id === eventId);
-  const m = e?.markets.find((x) => x.type === "1X2" || x.type === "ML") ?? e?.markets[0];
-  if (!e || !m) return undefined;
-  const runs = m.runs.filter((r) => r <= Math.min(snap.now, e.view.kickoff));
-  const open = runs.length ? consensusAt(m, runs[0]) : null;
-  const close = runs.length ? consensusAt(m, runs.at(-1)!) : null;
-  if (!open || !close) return undefined;
-  const preds = m.selections.map((s) => snap.predictionsBySelection.get(s.id));
-  return {
-    event: e.view,
-    showcase: false,
-    marketName: m.name,
-    selections: m.selections.map((s) => ({ id: s.id, name: s.name })),
-    minutes: [],
-    timeline: [],
-    news: [],
-    openingOdds: open.selections.map((x) => x.medianOdds),
-    closingOdds: close.selections.map((x) => x.medianOdds),
-    preMatchMarket: close.selections.map((x) => x.fairProbability),
-    preMatchModel: preds.map((p) => p?.probability ?? null),
-    modelVersion: preds.find((p) => p)?.modelVersionId ?? null,
-    lineupConfirmedAt: e.view.lineupConfirmedAt,
-    xg: e.news?.xg ?? null,
-    results: m.selections.map((s) => (s.result === "won" || s.result === "lost" || s.result === "void" ? s.result : undefined)),
-  };
-}
-
-/** Finished feed matches, newest first. */
-export function realFinishedEvents(snap: RealSnapshot): EventView[] {
-  return snap.events.filter((e) => e.view.status === "finished").map((e) => e.view).sort((a, b) => b.kickoff - a.kickoff);
 }

@@ -5,7 +5,6 @@ import { marketPressure, oddsVelocity, volatility } from "./movement";
 import { devig, impliedProbability, overround } from "./probability";
 import { dataQuality } from "./quality";
 import { brierScore, calibrationBins, expectedCalibrationError, logLoss } from "./scoring";
-import { simulateFlatStakes } from "./staking";
 import { disagreementLevel, edgePp, expectedValue, priceChange } from "./value";
 
 const HOUR = 3_600_000;
@@ -135,21 +134,5 @@ describe("data quality", () => {
     expect(stale.odds).toBe("Stale");
     expect(stale.lineup).toBe("Expected");
     expect(stale.score).toBeLessThan(40);
-  });
-});
-
-describe("staking simulation", () => {
-  it("tracks profit, drawdown and profit factor", () => {
-    const s = simulateFlatStakes([
-      { at: 1, odds: 2.5, won: true },
-      { at: 2, odds: 2, won: false },
-      { at: 3, odds: 2, won: false },
-      { at: 4, odds: 3, won: true },
-    ]);
-    expect(s.profit).toBeCloseTo(1.5, 10);
-    expect(s.roi).toBeCloseTo(0.375, 10);
-    expect(s.maxDrawdown).toBeCloseTo(2, 10);
-    expect(s.profitFactor).toBeCloseTo(3.5 / 2, 10);
-    expect(s.winRate).toBe(0.5);
   });
 });

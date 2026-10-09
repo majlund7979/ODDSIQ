@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isInvited, isOwner, normaliseEmail, requireOwner } from "@/lib/auth/friends";
@@ -10,8 +10,6 @@ import { ACCOUNTS_ENABLED, createSession, currentUser, destroySession, newUserId
 import { BILLING_ENABLED } from "@/lib/billing/plans";
 import { createCheckoutSession, createPortalSession } from "@/lib/billing/stripe";
 import { db } from "@/lib/db";
-import { decodePositions, decodeWatchlist, encodePositions, encodeWatchlist, MAX_POSITIONS } from "@/lib/demo/personal";
-import { POSITIONS_COOKIE, THRESHOLD_COOKIE, WATCH_COOKIE } from "@/lib/personal-store";
 
 export interface AuthState {
   error?: string;
@@ -27,17 +25,6 @@ const TOO_MANY = "For mange forsøg. Prøv igen om 15 minutter.";
 async function clientKey(email: string) {
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
   return [`ip:${ip}`, `email:${email}`];
-}
-
-/** Moves signed-out cookie lists onto the account, then clears the cookies. */
-async function adoptCookieState(userId: string) {
-  const store = await cookies();
-  const user = await db().user.findUniqueOrThrow({ where: { id: userId } });
-  const watch = [...decodeWatchlist(user.watchlist)];
-  for (const i of decodeWatchlist(store.get(WATCH_COOKIE)?.value)) if (!watch.some((w) => w.kind === i.kind && w.id === i.id)) watch.push(i);
-  const positions = [...decodePositions(user.positions), ...decodePositions(store.get(POSITIONS_COOKIE)?.value)].slice(-MAX_POSITIONS);
-  await db().user.update({ where: { id: userId }, data: { watchlist: encodeWatchlist(watch), positions: encodePositions(positions) } });
-  for (const c of [WATCH_COOKIE, POSITIONS_COOKIE, THRESHOLD_COOKIE]) store.delete(c);
 }
 
 export async function signUp(_: AuthState, formData: FormData): Promise<AuthState> {
@@ -56,7 +43,6 @@ export async function signUp(_: AuthState, formData: FormData): Promise<AuthStat
     return { email, error: "Der findes allerede en konto med den email. Log ind i stedet." };
   }
   await createSession(id);
-  await adoptCookieState(id);
   redirect(safeNext(formData.get("next")));
 }
 
@@ -71,7 +57,6 @@ export async function signIn(_: AuthState, formData: FormData): Promise<AuthStat
   if (!user || !ok) return { email, error: GENERIC };
   if (!(await isInvited(email))) return { email, error: NOT_INVITED };
   await createSession(user.id);
-  await adoptCookieState(user.id);
   redirect(safeNext(formData.get("next")));
 }
 
