@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
+import { requireFriend, signedInFriend } from "@/lib/auth/friends";
 import { safeNext } from "@/lib/auth/redirect";
-import { ACCOUNTS_ENABLED, currentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { MAX_STAKE, parseNumber } from "@/lib/friends";
 import type { PickDraft } from "@/lib/picks-extra";
@@ -14,8 +14,9 @@ import { terminal } from "@/lib/terminal";
 
 const withFlag = (path: string, key: string, value: string) => `${path}${path.includes("?") ? "&" : "?"}${key}=${value}`;
 
+/** The signed-in, invited user; everyone else is sent to /login. */
 async function signedIn(back: string) {
-  const user = ACCOUNTS_ENABLED ? await currentUser() : null;
+  const user = await requireFriend(back);
   if (!user) redirect(`/login?next=${encodeURIComponent(back)}`);
   return user;
 }
@@ -51,7 +52,7 @@ export interface PlayState {
 /** "Spil kupon": saves the coupon to the friends' league as one bet; every leg is looked up again on the server. */
 export async function playCoupon(_: PlayState, formData: FormData): Promise<PlayState> {
   try {
-    const user = ACCOUNTS_ENABLED ? await currentUser() : null;
+    const user = await signedInFriend();
     if (!user) return { error: "Log ind for at spille kuponen." };
     let raw: unknown;
     try {

@@ -3,6 +3,7 @@
 // once per Copenhagen day; `?force=1` sends again.
 
 import { cronAuthorized } from "@/lib/auth/cron";
+import { isInvited } from "@/lib/auth/friends";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { MAIL_CONFIGURED, sendMails } from "@/lib/mail";
@@ -21,7 +22,9 @@ export async function GET(req: Request): Promise<Response> {
   const force = new URL(req.url).searchParams.get("force") === "1";
   if (DATABASE_CONFIGURED && !force && (await db().morningMail.findUnique({ where: { day } }))) return Response.json({ ok: true, skipped: `already sent for ${day}` });
 
-  const users = ACCOUNTS_ENABLED ? (await db().user.findMany({ where: { morningEmail: true }, select: { email: true } })).map((u) => u.email) : [];
+  const accounts = ACCOUNTS_ENABLED ? (await db().user.findMany({ where: { morningEmail: true }, select: { email: true } })).map((u) => u.email) : [];
+  // With INVITE_ONLY, a friend the owner has removed keeps the account but not the e-mail.
+  const users = (await Promise.all(accounts.map(async (email) => ((await isInvited(email)) ? [email] : [])))).flat();
   const to = recipients(users, process.env.MORNING_EMAIL_TO);
   if (!to.length) return Response.json({ ok: false, error: "No recipients: nobody has the morning e-mail on and MORNING_EMAIL_TO is empty." }, { status: 503 });
 
