@@ -14,6 +14,8 @@ const MIN = 60_000;
 /** A pick counts as live from kickoff until this long after. */
 export const LIVE_WINDOW_MS = 150 * MIN;
 const CACHE_MS = MIN;
+/** API-Football gets this long for a day's fixtures, retries included, so a slow answer never holds up the picks page. */
+const DEADLINE_MS = 3000;
 const FINISHED = new Set(["FT", "AET", "PEN"]);
 const NOT_STARTED = new Set(["TBD", "NS", "PST", "CANC", "ABD", "AWD", "WO"]);
 
@@ -102,12 +104,24 @@ export function normalizeFixtures(rows: ApiFixture[]): LiveFixture[] {
 }
 
 const cache = new Map<string, { at: number; fixtures: LiveFixture[] }>();
+const pending = new Map<string, Promise<LiveFixture[]>>();
 
-/** All fixtures of one UTC day ("2026-10-04"), cached for a minute. */
+/** All fixtures of one UTC day ("2026-10-04"), cached for a minute; callers at the same time share one request. */
 export async function dayFixtures(apiKey: string, day: string, now: number, fetchImpl?: typeof fetch): Promise<LiveFixture[]> {
   const hit = cache.get(day);
   if (hit && now - hit.at < CACHE_MS) return hit.fixtures;
-  const { body } = await apiFootballGet<ApiFixture>("/fixtures", { date: day }, { apiKey, fetchImpl, wait: async () => {} });
+  let request = pending.get(day);
+  if (!request) {
+    request = fetchDay(apiKey, day, now, fetchImpl).finally(() => pending.delete(day));
+    pending.set(day, request);
+  }
+  return request;
+}
+
+async function fetchDay(apiKey: string, day: string, now: number, fetchImpl?: typeof fetch): Promise<LiveFixture[]> {
+  const signal = AbortSignal.timeout(DEADLINE_MS);
+  const get = fetchImpl ?? fetch;
+  const { body } = await apiFootballGet<ApiFixture>("/fixtures", { date: day }, { apiKey, fetchImpl: (url, init) => get(url, { ...init, signal }), wait: async () => {} });
   const fixtures = normalizeFixtures(body.response);
   cache.set(day, { at: now, fixtures });
   for (const [d, v] of cache) if (now - v.at > 10 * CACHE_MS) cache.delete(d);

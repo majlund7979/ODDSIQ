@@ -25,11 +25,12 @@ export async function saveTip(prisma: PrismaClient, userId: string, m: TipMatch,
 
 /**
  * Every tip (newest first), settled from the page's own results where it has
- * them, else from stored scores and the results CSVs.
+ * them, else from stored scores and the results CSVs. `settle: false` uses only
+ * the page's own results, for a page that shows no standings.
  */
-export async function readTips(prisma: PrismaClient, now: number, known: Map<string, Side | null>): Promise<Tip[]> {
+export async function readTips(prisma: PrismaClient, now: number, known: Map<string, Side | null>, { settle = true }: { settle?: boolean } = {}): Promise<Tip[]> {
   const rows = await prisma.tipPick.findMany({ include: { user: { select: { email: true, displayName: true } } }, orderBy: { kickoff: "desc" }, take: 5000 });
-  const open = rows.filter((r) => !known.get(r.eventId) && r.kickoff.getTime() <= now - SETTLE_AFTER_MS);
+  const open = settle ? rows.filter((r) => !known.get(r.eventId) && r.kickoff.getTime() <= now - SETTLE_AFTER_MS) : [];
   const outcomes = new Map((await matchOutcomes(prisma, open)).map((o, i) => [open[i].id, resultOf(o.goals)]));
   return rows.map((r) => ({
     userId: r.userId,

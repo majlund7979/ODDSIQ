@@ -36,10 +36,13 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
   const q = await searchParams;
   const period = LEAGUE_PERIODS.find((p) => p.id === q.periode)?.id ?? "maaned";
   const since = period === "maaned" ? monthStart(t.now) : null;
-  const profile = user ? await db().user.findUnique({ where: { id: user.id }, select: { displayName: true, morningEmail: true, email: true } }) : null;
-  const singles = DEMO_MODE ? demoFriendBets(t.now).filter((b) => since === null || b.kickoff >= since) : ACCOUNTS_ENABLED ? await readFriendBets(db(), t.now, since) : [];
-  // Played coupons are real account data, so they show in demo mode too.
-  const coupons = ACCOUNTS_ENABLED ? await readFriendCoupons(db(), t.now, since) : [];
+  const [profile, singles, coupons, tipData] = await Promise.all([
+    user ? db().user.findUnique({ where: { id: user.id }, select: { displayName: true, morningEmail: true, email: true } }) : null,
+    DEMO_MODE ? demoFriendBets(t.now).filter((b) => since === null || b.kickoff >= since) : ACCOUNTS_ENABLED ? readFriendBets(db(), t.now, since) : [],
+    // Played coupons are real account data, so they show in demo mode too.
+    ACCOUNTS_ENABLED ? readFriendCoupons(db(), t.now, since) : [],
+    loadTips(t),
+  ]);
   const bets = [...singles, ...coupons].sort((a, b) => b.kickoff - a.kickoff);
   const table = leagueTable(bets);
   const recent = bets.slice(0, RECENT);
@@ -50,7 +53,6 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
   const settledAll = table.reduce((n, r) => n + r.settled, 0);
   const wonAll = table.reduce((n, r) => n + r.won, 0);
   const teamProfit = table.reduce((n, r) => n + r.profit, 0);
-  const tipData = await loadTips(t);
   const week = weekOf(t.now);
 
   return (

@@ -39,8 +39,11 @@ export interface Terminal {
   pickContext(eventId: string): PickContext | null;
   /** The fair-price and bet bookmakers for Dagens bedste bets (sharp.ts). */
   sharpBooks: SharpBooks;
-  /** Recorded picks with kickoff in the last `days` days (default 7). Demo mode always replays 7 days, to keep the page fast. */
-  recordedPicks(days?: number): Promise<RecordedPick[]>;
+  /**
+   * Recorded picks with kickoff in the last `days` days (default 7). `close: false` skips the closing lines, which only
+   * the results board shows. Demo mode always replays 7 days, to keep the page fast, and has no closing lines.
+   */
+  recordedPicks(days?: number, opts?: { close?: boolean }): Promise<RecordedPick[]>;
 }
 
 const FRESH_MS = 5 * 60_000;
@@ -183,7 +186,7 @@ export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal
     dataLabel: "Live odds og Oddsanalyse-modellen",
     marketRows: () => snap.rows,
     ledgerRows: async () => (await full()).ledger,
-    recordedPicks: (days) => readRecordedPicks(db(), now, days),
+    recordedPicks: (days, options) => readRecordedPicks(db(), now, days, options),
     sharpBooks: LIVE_SHARP_BOOKS,
     pickContext: memoContext((id) => {
       const e = snap.events.find((x) => x.view.id === id);

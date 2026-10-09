@@ -59,23 +59,36 @@ export async function matchOutcomes(prisma: PrismaClient, rows: SettleRow[]): Pr
   const codes = [...new Set(rows.map((r) => r.leagueCode).filter((c): c is string => Boolean(c)))];
   const first = Math.min(...rows.map((r) => r.kickoff.getTime()));
   const stats = codes.length ? await prisma.matchStat.findMany({ where: { league: { in: codes }, date: { gte: new Date(first - 2 * DAY) } } }) : [];
+  const byLeague = new Map<string, typeof stats>();
+  for (const s of stats) {
+    if (!byLeague.has(s.league)) byLeague.set(s.league, []);
+    byLeague.get(s.league)!.push(s);
+  }
   const pair = (a: number | null, b: number | null): [number, number] | null => (a === null || b === null ? null : [a, b]);
+  // Every bet type on one match has the same outcome, so each match is looked up once.
+  const memo = new Map<string, MatchOutcome>();
   return rows.map((r) => {
-    const near = stats.filter((s) => s.league === r.leagueCode && Math.abs(s.date.getTime() - r.kickoff.getTime()) <= 1.5 * DAY);
+    const key = `${r.eventId}|${r.leagueCode}|${r.home}|${r.away}|${r.kickoff.getTime()}`;
+    const hit = memo.get(key);
+    if (hit) return hit;
+    const near = (r.leagueCode ? (byLeague.get(r.leagueCode) ?? []) : []).filter((s) => Math.abs(s.date.getTime() - r.kickoff.getTime()) <= 1.5 * DAY);
     const s = near.find((x) => matchTeam(r.home, [x.home]) && matchTeam(r.away, [x.away]));
-    return {
+    const outcome = {
       goals: scores.get(r.eventId) ?? pair(s?.hg ?? null, s?.ag ?? null),
       ht: s ? pair(s.hthg, s.htag) : null,
       corners: s ? pair(s.hc, s.ac) : null,
       cards: s ? pair(s.hcards, s.acards) : null,
       fouls: s ? pair(s.hf, s.af) : null,
     };
+    memo.set(key, outcome);
+    return outcome;
   });
 }
 
-export async function readRecordedPicks(prisma: PrismaClient, now: number, days = RESULTS_DAYS): Promise<RecordedPick[]> {
+/** Recorded picks, settled; `close: false` leaves out the closing lines, which only the results board shows. */
+export async function readRecordedPicks(prisma: PrismaClient, now: number, days = RESULTS_DAYS, { close: withClose = true }: { close?: boolean } = {}): Promise<RecordedPick[]> {
   const rows = await prisma.pickRecord.findMany({ where: { kickoff: { gte: new Date(now - days * DAY), lte: new Date(now - 2 * HOUR) } }, orderBy: { kickoff: "desc" } });
-  const [outcomes, close] = await Promise.all([matchOutcomes(prisma, rows), closes(prisma, rows)]);
+  const [outcomes, close] = await Promise.all([matchOutcomes(prisma, rows), withClose ? closes(prisma, rows) : []]);
   return rows.map((r, i) => ({
     day: dayKey(r.kickoff.getTime()),
     kickoff: r.kickoff.getTime(),

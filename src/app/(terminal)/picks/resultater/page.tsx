@@ -33,7 +33,8 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   await requireFriend("/picks/resultater");
   const t = await terminal();
   const q = await searchParams;
-  const all = await t.recordedPicks();
+  // The week with closing lines for the board, 90 days without them for the learning and calibration.
+  const [all, history] = await Promise.all([t.recordedPicks(), t.recordedPicks(LEARN_DAYS, { close: false })]);
   const raw = one(q.type);
   const type = raw && lookup(CATEGORY_LABEL, raw) ? raw : "bedste";
   const picks = all.filter((p) => p.category === type);
@@ -42,7 +43,6 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   const days = [...new Set(picks.map((p) => p.day))];
   const chartDays = byDay(picks);
   const context = resultsContext(picks, t.dataLabel, type === "bedste" ? SHARP_VERSION : LEARNING_VERSION);
-  const history = await t.recordedPicks(LEARN_DAYS);
   const learning = learn(history, t.dataLabel);
   const cal = calibration(history);
   const score = brier(history);

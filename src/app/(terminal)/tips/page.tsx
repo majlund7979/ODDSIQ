@@ -21,7 +21,8 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
   const today = dayOf(t.now);
   const shown = (q.dag && dayById(q.dag)) || today;
 
-  const { all, tips } = await loadTips(t);
+  // Only your own tips and the tip counts show here, so older tips are not settled.
+  const { all, tips } = await loadTips(t, { settle: false });
   const matches = all.filter((m) => m.kickoff >= shown.start && m.kickoff < shown.end);
   const mine = new Map(tips.filter((x) => x.userId === user?.id).map((x) => [x.eventId, x.pick]));
 

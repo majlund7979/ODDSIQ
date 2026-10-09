@@ -27,8 +27,8 @@ import { applyLearning, applyLearningToPicks, hitRatePeriod, LEARN_DAYS, LEARN_M
 import { COUPON_MIN_ODDS, ROCKET_MIN_CHANCE, correctScorePicks, coupons, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
-import { db, DATABASE_CONFIGURED } from "@/lib/db";
-import { livePicks } from "@/lib/live/scores";
+import { db } from "@/lib/db";
+import { livePicksFor } from "@/lib/live/feed";
 import { LiveNow } from "@/components/picks/LiveNow";
 import { MyCoupon } from "@/components/picks/MyCoupon";
 import { GoodSingles, Overview } from "@/components/picks/Overview";
@@ -39,9 +39,8 @@ import { BankrollInput } from "@/components/picks/BankrollInput";
 import { HitRates } from "@/components/picks/HitRates";
 import { DEMO_MODE } from "@/lib/data";
 import { demoShotBoard } from "@/lib/demo/player-shots";
-import { demoLivePicks } from "@/lib/demo/picks";
 import { POSITION_LABEL, SHOTS_MODEL_VERSION, topShotPicks, TYPICAL_TEAM_GOALS, type ShotPick } from "@/lib/player-shots";
-import { realShotBoard, type ShotBoard } from "@/lib/real/player-shots";
+import { realShotBoard } from "@/lib/real/player-shots";
 import { SHARP_BACKTEST, SHARP_MAX_AGE_MS, SHARP_MAX_ODDS, SHARP_MIN_EV, SHARP_MIN_ODDS, SHARP_RECENT, SHARP_VERSION } from "@/lib/sharp";
 import { capitalize, clock, dayKey, dec, pct, shortDate, signedPct, TZ } from "@/lib/format";
 import { lookup, one, type SearchParams } from "@/lib/url";
@@ -863,7 +862,13 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
   const rows = t.marketRows();
   const goalCat = GOAL_CATEGORIES.find((c) => c.id === tab);
   const countCat = COUNT_CATEGORIES.find((c) => c.id === tab);
-  const history = await t.recordedPicks(LEARN_DAYS);
+  // These reads do not depend on each other, so they run together.
+  const [history, live, savedKeys, shots] = await Promise.all([
+    t.recordedPicks(LEARN_DAYS, { close: false }),
+    livePicksFor(tab, t.now).catch(() => []),
+    user ? openBetKeys(db(), user.id, t.now) : new Set<string>(),
+    tab !== "skud" ? null : DEMO_MODE ? demoShotBoard(rows, t.now, t.pickContext) : realShotBoard(db(), rows, t.now, t.pickContext),
+  ]);
   const allLearning = learn(history, t.dataLabel);
   const learned = allLearning.get(tab);
   // The price comparison's probability is Pinnacle's price without margin, so the per-type learning is not applied on top.
@@ -872,8 +877,6 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
   const couponPool = tab === "bedste" ? couponCandidates(rows, t.now, t.pickContext) : [];
   const cPicks = applyLearning(countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [], learned);
   const xPicks = applyLearning(EXTRA[tab] ? EXTRA[tab](rows, t.now, count, t.pickContext) : [], learned);
-  const shots: ShotBoard | null =
-    tab !== "skud" ? null : DEMO_MODE ? demoShotBoard(rows, t.now, t.pickContext) : await realShotBoard(db(), rows, t.now, t.pickContext);
   const sPicks = shots ? topShotPicks(shots.picks, count) : [];
   const week = history.filter((p) => p.category === "bedste" && p.kickoff >= t.now - 7 * 86_400_000 && p.kickoff < t.now);
   const upcoming = rows.filter((r) => r.sportId === "football" && r.status === "scheduled" && r.kickoff > t.now).map((r) => r.kickoff);
@@ -883,9 +886,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
     return qs ? `/picks?${qs}` : "/picks";
   };
   const scope = analysedMatches(rows, t.now);
-  const live = await (DEMO_MODE ? Promise.resolve(demoLivePicks(tab, t.now)) : DATABASE_CONFIGURED ? livePicks(db(), process.env.STATS_API_KEY || null, tab, t.now) : Promise.resolve([])).catch(() => []);
   const liveSource = DEMO_MODE ? "DEMO DATA" : "API-Football";
-  const savedKeys = user ? await openBetKeys(db(), user.id, t.now) : new Set<string>();
   const back = href(tab, count);
   const saveFor = (eventId: string): SaveTarget | null =>
     tab === "straffe" || tab === "skud" ? null : { category: tab, back, saved: savedKeys.has(`${eventId}|${tab}`), signedIn: !!user, accounts: ACCOUNTS_ENABLED };

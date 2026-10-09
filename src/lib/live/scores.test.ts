@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { dayFixtures, findFixture, liveState, liveTone, normalizeFixtures, type LiveFixture } from "./scores";
 
 const K = Date.UTC(2026, 9, 4, 18);
@@ -34,6 +34,44 @@ describe("live scores", () => {
     await dayFixtures("k", "2026-10-04", K + 30_000, fetchImpl);
     await dayFixtures("k", "2026-10-04", K + 61_000, fetchImpl);
     expect(calls).toBe(2);
+  });
+
+  it("shares one request between callers at the same time", async () => {
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls++;
+      return new Response(JSON.stringify({ response: [], errors: [] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const [a, b] = await Promise.all([dayFixtures("k", "2026-10-05", K, fetchImpl), dayFixtures("k", "2026-10-05", K, fetchImpl)]);
+    expect(calls).toBe(1);
+    expect(a).toBe(b);
+  });
+
+  it("gives up on API-Football after three seconds, retries included", async () => {
+    vi.useFakeTimers();
+    // Node's own AbortSignal.timeout does not run on the test clock; this one does.
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+      const c = new AbortController();
+      setTimeout(() => c.abort(new DOMException("The operation was aborted due to timeout", "TimeoutError")), ms);
+      return c.signal;
+    });
+    try {
+      // Like fetch with no answer: it only ends when its signal aborts.
+      const hang = ((_: string, init?: RequestInit) => new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason)))) as unknown as typeof fetch;
+      let outcome: unknown = "waiting";
+      dayFixtures("k", "2026-10-06", K, hang).then(
+        () => (outcome = "answered"),
+        (e) => (outcome = e),
+      );
+      await vi.advanceTimersByTimeAsync(2_999);
+      expect(outcome).toBe("waiting");
+      await vi.advanceTimersByTimeAsync(1);
+      expect(outcome).toMatchObject({ name: "TimeoutError" });
+      expect(timeout).toHaveBeenCalledWith(3000);
+    } finally {
+      timeout.mockRestore();
+      vi.useRealTimers();
+    }
   });
 });
 

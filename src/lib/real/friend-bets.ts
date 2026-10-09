@@ -12,9 +12,19 @@ import { leagueCodeOf, matchOutcomes } from "./pick-records";
 const DRAFT_COUNT = 50;
 const SETTLE_AFTER_MS = 2 * 3_600_000;
 
+/** The picks the page shows for these matches and bet types, in order; null where one is not open (or has no bet type). */
+export function findDrafts(t: Terminal, legs: { eventId: string; category: string }[]): (PickDraft | null)[] {
+  const drafts = new Map<string, PickDraft>();
+  for (const d of allPickDrafts(t.marketRows(), t.now, DRAFT_COUNT, t.pickContext, t.sharpBooks)) {
+    const key = `${d.row.eventId}|${d.category}`;
+    if (!drafts.has(key)) drafts.set(key, d);
+  }
+  return legs.map((l) => (l.category ? (drafts.get(`${l.eventId}|${l.category}`) ?? null) : null));
+}
+
 /** The pick the page shows for this match and bet type, if it is still open. */
 export function findDraft(t: Terminal, eventId: string, category: string): PickDraft | null {
-  return allPickDrafts(t.marketRows(), t.now, DRAFT_COUNT, t.pickContext, t.sharpBooks).find((d) => d.row.eventId === eventId && d.category === category) ?? null;
+  return findDrafts(t, [{ eventId, category }])[0];
 }
 
 export async function saveFriendBet(prisma: PrismaClient, userId: string, d: PickDraft, odds: number | null, stake: number): Promise<void> {

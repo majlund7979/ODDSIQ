@@ -7,7 +7,7 @@ import { ACCOUNTS_ENABLED, currentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { MAX_STAKE, parseNumber } from "@/lib/friends";
 import type { PickDraft } from "@/lib/picks-extra";
-import { deleteFriendBet, findDraft, saveFriendBet } from "@/lib/real/friend-bets";
+import { deleteFriendBet, findDraft, findDrafts, saveFriendBet } from "@/lib/real/friend-bets";
 import { couponTotals, deleteFriendCoupon, MAX_COUPON_LEGS, MIN_COUPON_LEGS, saveFriendCoupon } from "@/lib/real/friend-coupons";
 import { SAVE_FAILED } from "@/lib/save-failed";
 import { terminal } from "@/lib/terminal";
@@ -68,7 +68,7 @@ export async function playCoupon(_: PlayState, formData: FormData): Promise<Play
     if (stake === null || stake < 1 || stake > MAX_STAKE) return { error: "Skriv en indsats mellem 1 og 100.000 kr." };
     if (odds !== null && (odds < 1.01 || odds > 100_000)) return { error: "Tjek den samlede odds." };
     const t = await terminal();
-    const drafts = legs.map((l) => (l.category ? findDraft(t, l.eventId, l.category) : null));
+    const drafts = findDrafts(t, legs);
     if (drafts.some((d) => !d)) return { error: "Et af bettene er ikke åbent længere. Fjern det og prøv igen." };
     const found = drafts as PickDraft[];
     await saveFriendCoupon(db(), user.id, found, odds ?? couponTotals(found).odds, Math.round(stake));
