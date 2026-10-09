@@ -1,10 +1,9 @@
 // The tipping game's standings: the week's winner, this week's table, fun stats
 // and the all-time table. Shown in Vennerligaen; the tips themselves are on /tips.
 
+import { shortDate } from "@/lib/format";
 import { funStats, MODEL_ID, standings, weekById, weekWinners, type Standing, type Tip, type Week } from "@/lib/tips";
 
-const TZ = "Europe/Copenhagen";
-const dateShort = (t: number) => new Date(t).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: TZ });
 const weekLabel = (w: Week) => `Uge ${w.number}`;
 
 function Table({ rows, me, empty }: { rows: Standing[]; me?: string; empty: string }) {
@@ -75,7 +74,7 @@ export function TipsStandings({ tips, modelWeek, week, previous, now, me, source
           </div>
           <Table rows={table} me={me} empty="Ingen har tippet i denne uge endnu." />
           <p className="border-t border-line px-4 py-2.5 text-xs text-muted">
-            {week.end <= now ? "Historisk" : "Live"}, {weekLabel(week).toLowerCase()} ({dateShort(week.start)} til {dateShort(week.end - 1)}), {weekTips.length} tips · {source}.
+            {week.end <= now ? "Historisk" : "Live"}, {weekLabel(week).toLowerCase()} ({shortDate(week.start)} til {shortDate(week.end - 1)}), {weekTips.length} tips · {source}.
           </p>
         </section>
       </div>

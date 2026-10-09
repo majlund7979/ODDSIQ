@@ -1,6 +1,5 @@
+import { shortDate } from "@/lib/format";
 import type { NewsItem } from "@/lib/news/news";
-
-const TZ = "Europe/Copenhagen";
 
 function ago(t: number, now: number): string {
   if (!t) return "";
@@ -8,7 +7,7 @@ function ago(t: number, now: number): string {
   if (h < 1) return "lige nu";
   if (h < 24) return `${h} t siden`;
   const d = Math.round(h / 24);
-  return d === 1 ? "i går" : new Date(t).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: TZ });
+  return d === 1 ? "i går" : shortDate(t);
 }
 
 export function NewsList({ items, now, compact = false }: { items: NewsItem[]; now: number; compact?: boolean }) {

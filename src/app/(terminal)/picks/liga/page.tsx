@@ -5,22 +5,21 @@ import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { DEMO_MODE } from "@/lib/data";
 import { db } from "@/lib/db";
 import { demoFriendBets } from "@/lib/demo/friends";
+import { capitalize, dec, TZ } from "@/lib/format";
 import { betProfit, displayName, LEAGUE_PERIODS, leagueTable, monthStart, type FriendBet } from "@/lib/friends";
 import { CATEGORY_LABEL } from "@/lib/pick-categories";
 import { readFriendBets } from "@/lib/real/friend-bets";
 import { readFriendCoupons } from "@/lib/real/friend-coupons";
 import { terminal } from "@/lib/terminal";
-import { Tile } from "@/components/picks/Overview";
+import { Tile } from "@/components/picks/charts";
 import { TipsStandings } from "@/components/tips/TipsStandings";
 import { loadTips, modelWeekTips } from "@/lib/tips-data";
 import { previousWeek, weekOf } from "@/lib/tips";
 
 export const metadata = { title: "Vennerligaen · Oddsanalyse" };
 
-const TZ = "Europe/Copenhagen";
 const pct = (x: number) => (Number.isFinite(x) && x >= 0 ? `${Math.round(x * 100)} %` : "—");
-const kr = (x: number) => `${x >= 0 ? "+" : "−"}${Math.round(Math.abs(x)).toLocaleString("da-DK")} kr`;
-const dec = (x: number) => x.toFixed(2).replace(".", ",");
+const kroner = (x: number) => `${x >= 0 ? "+" : "−"}${Math.round(Math.abs(x)).toLocaleString("da-DK")} kr`;
 const when = (t: number) => new Date(t).toLocaleString("da-DK", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: TZ, hour12: false });
 const RECENT = 40;
 const HIT_MIN = 10;
@@ -76,7 +75,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
                 aria-current={p.id === period ? "page" : undefined}
                 className={`rounded-full px-4 py-1.5 text-sm font-medium ${p.id === period ? "bg-accent text-page" : "text-ink-2 hover:text-ink"}`}
               >
-                {p.id === "maaned" ? month.charAt(0).toUpperCase() + month.slice(1) : p.label}
+                {p.id === "maaned" ? capitalize(month) : p.label}
               </Link>
             ))}
           </nav>
@@ -86,7 +85,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
             {leader ? (
               <>
                 <div className="truncate text-2xl font-extrabold tracking-[-0.02em]">{leader.name}</div>
-                <div className={`num text-sm font-semibold ${leader.profit >= 0 ? "text-good" : "text-serious"}`}>{kr(leader.profit)}</div>
+                <div className={`num text-sm font-semibold ${leader.profit >= 0 ? "text-good" : "text-serious"}`}>{kroner(leader.profit)}</div>
               </>
             ) : (
               <div className="text-sm text-ink-2">Ingen bets endnu.</div>
@@ -109,7 +108,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
             <div className="text-sm text-ink-2">af {table.length} {table.length === 1 ? "spiller" : "spillere"}</div>
           </Tile>
           <Tile label="Holdet samlet" foot="Gevinst tæller bets med odds, ramte tæller alle afgjorte bets.">
-            <div className={`num text-2xl font-extrabold tracking-[-0.02em] sm:text-3xl ${teamProfit >= 0 ? "text-good" : "text-serious"}`}>{kr(teamProfit)}</div>
+            <div className={`num text-2xl font-extrabold tracking-[-0.02em] sm:text-3xl ${teamProfit >= 0 ? "text-good" : "text-serious"}`}>{kroner(teamProfit)}</div>
             <div className="num text-sm text-ink-2">{settledAll ? `${pct(wonAll / settledAll)} ramte` : "—"}</div>
           </Tile>
         </div>
@@ -171,7 +170,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
                     )}
                   </td>
                   <td className="hidden px-3 py-2.5 text-right text-ink-2 sm:table-cell">{Number.isFinite(r.roi) ? `${r.roi >= 0 ? "+" : "−"}${Math.round(Math.abs(r.roi) * 100)} %` : "—"}</td>
-                  <td className={`px-3 py-2.5 text-right font-semibold sm:px-5 ${r.staked ? (r.profit >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{r.staked ? kr(r.profit) : "—"}</td>
+                  <td className={`px-3 py-2.5 text-right font-semibold sm:px-5 ${r.staked ? (r.profit >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{r.staked ? kroner(r.profit) : "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -227,7 +226,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
                 )}
                 <span className="num shrink-0 text-right text-sm">
                   {b.stake} kr{b.odds ? ` · ${dec(b.odds)}` : ""}
-                  {b.result && b.odds ? <span className={`block text-xs ${b.result === "won" ? "text-good" : "text-serious"}`}>{kr(betProfit(b))}</span> : null}
+                  {b.result && b.odds ? <span className={`block text-xs ${b.result === "won" ? "text-good" : "text-serious"}`}>{kroner(betProfit(b))}</span> : null}
                 </span>
                 {user && b.userId === user.id && (b.legs ? b.legs.every((l) => l.kickoff > t.now) : b.kickoff > t.now) && (
                   <form action={deleteBet}>

@@ -7,6 +7,7 @@
 // rate and the average predicted probability, shrunk towards zero while the
 // sample is small, and capped so one bad weekend cannot swing the page.
 
+import { dec, pct } from "@/lib/format";
 import { metric, periodOf, type Metric } from "@/lib/metrics/metric";
 import type { RecordedPick } from "./picks-extra";
 import { strengthOf, type Pick } from "./picks";
@@ -101,8 +102,10 @@ export function applyLearningToPicks(picks: Pick[], l: CategoryLearning | undefi
   });
 }
 
+/** The adjustment in percentage points, e.g. "+1,2" or "−0,4". */
+export const adjustmentLabel = (pp: number) => `${pp >= 0 ? "+" : "−"}${dec(Math.abs(pp), 1)}`;
+
 /** One plain sentence on what the learning saw. */
 export function learningDetail(l: CategoryLearning): string {
-  const pct = (x: number) => `${Math.round(x * 100)} %`;
   return `${l.hitRate.n} afgjorte bets af denne type ramte ${pct(l.hitRate.value)}, mod forventet ${pct(l.expected)}, så procenten ${l.shift > 0 ? "hæves" : "sænkes"} lidt`;
 }

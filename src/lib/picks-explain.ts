@@ -3,10 +3,9 @@
 // the bookmakers' view and the price history). Facts only: a price move is
 // described, never explained.
 
+import { capitalize, dec, pct } from "@/lib/format";
 import type { Pick } from "./picks";
 
-const pct = (p: number) => `${Math.round(p * 100)} %`;
-const dec = (x: number, d = 2) => x.toFixed(d).replace(".", ",");
 const wins = (g: { result: string }[]) => g.filter((x) => x.result === "V").length;
 const losses = (g: { result: string }[]) => g.filter((x) => x.result === "T").length;
 
@@ -107,7 +106,7 @@ export function explainPick(p: Pick): string[] {
   const news = p.factors.filter((f) => f.label === "Skader og karantæner" || f.label === "xG-form");
   for (const f of news) {
     const moved = f.pp !== null && Math.abs(f.pp) >= 0.5 ? ` Det ${f.pp > 0 ? "hæver" : "sænker"} procenten med ${dec(Math.abs(f.pp), 1)} point.` : "";
-    out.push(f.label === "xG-form" ? `xG-formen: ${f.detail}.${moved}` : `Afbud: ${f.detail.charAt(0).toUpperCase() + f.detail.slice(1)}.${moved}`);
+    out.push(f.label === "xG-form" ? `xG-formen: ${f.detail}.${moved}` : `Afbud: ${capitalize(f.detail)}.${moved}`);
   }
 
   const model = p.row.modelProbability;

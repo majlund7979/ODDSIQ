@@ -1,10 +1,9 @@
 "use client";
 
 import { saveBet } from "@/app/friends-actions";
+import { dec } from "@/lib/format";
 import { roundStake } from "@/lib/picks-advice";
 import { useBankroll } from "./bankroll";
-
-const dec = (x: number) => x.toFixed(2).replace(".", ",");
 
 /** "Gem bet": saves the pick to the friends' league with the friend's own stake and odds. */
 export function SaveBet({ eventId, category, odds, share, back, saved }: { eventId: string; category: string; odds: number | null; share: number; back: string; saved: boolean }) {

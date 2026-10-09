@@ -43,13 +43,9 @@ import { demoLivePicks } from "@/lib/demo/picks";
 import { POSITION_LABEL, SHOTS_MODEL_VERSION, topShotPicks, TYPICAL_TEAM_GOALS, type ShotPick } from "@/lib/player-shots";
 import { realShotBoard, type ShotBoard } from "@/lib/real/player-shots";
 import { SHARP_BACKTEST, SHARP_MAX_AGE_MS, SHARP_MAX_ODDS, SHARP_MIN_EV, SHARP_MIN_ODDS, SHARP_RECENT, SHARP_VERSION } from "@/lib/sharp";
+import { capitalize, clock, dayKey, dec, pct, shortDate, signedPct, TZ } from "@/lib/format";
 
 export const metadata = { title: "Dagens bedste bets · Oddsanalyse" };
-
-const TZ = "Europe/Copenhagen";
-const dayKey = (t: number) => new Date(t).toLocaleDateString("en-CA", { timeZone: TZ });
-const clock = (t: number) => new Date(t).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit", timeZone: TZ, hour12: false });
-const dec = (x: number, d = 2) => x.toFixed(d).replace(".", ",");
 
 function kickoffLabel(t: number, now: number) {
   const day = dayKey(t) === dayKey(now) ? "I dag" : dayKey(t) === dayKey(now + 86_400_000) ? "I morgen" : new Date(t).toLocaleDateString("da-DK", { weekday: "long", timeZone: TZ });
@@ -182,7 +178,7 @@ function badgeTitle(p: Pick): string {
 /** API-Football's percentages and its home-vs-away comparison, one bar per area. */
 function AfPredictionFact({ a, home, away }: { a: AfPrediction; home: string; away: string }) {
   const pc = (x: number) => Math.round(x * 100);
-  const day = new Date(a.fetchedAt).toLocaleString("da-DK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
+  const day = new Date(a.fetchedAt).toLocaleString("da-DK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: TZ });
   return (
     <Fact label="Holdstyrke (API-Football)">
       <span className="num">
@@ -213,7 +209,7 @@ function AfPredictionFact({ a, home, away }: { a: AfPrediction; home: string; aw
 function ClubEloFact({ c, home, away }: { c: ClubEloPair; home: string; away: string }) {
   const gap = Math.round(c.home.elo - c.away.elo);
   const e = clubEloProbs(c.home.elo, c.away.elo);
-  const day = new Date(c.date).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: "Europe/Copenhagen" });
+  const day = shortDate(c.date);
   return (
     <Fact label="Holdstyrke på tværs af ligaer (ClubElo)">
       <span className="num">{Math.round(c.home.elo)}</span> mod <span className="num">{Math.round(c.away.elo)}</span>
@@ -267,7 +263,6 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 
 function LearningNote({ l }: { l: CategoryLearning }) {
   const n = l.hitRate.n;
-  const pct = (x: number) => `${Math.round(x * 100)} %`;
   return (
     <div className="rounded-[20px] bg-surface-2 px-5 py-4 text-sm text-ink-2">
       <span className="font-semibold text-ink">Modellen lærer af sine resultater. </span>
@@ -287,8 +282,8 @@ function LearningNote({ l }: { l: CategoryLearning }) {
       )}
       <span className="text-xs text-muted">
         {" "}
-        Historisk, {l.hitRate.periodFrom ? new Date(l.hitRate.periodFrom).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: TZ }) : ""}
-        {l.hitRate.periodTo ? `–${new Date(l.hitRate.periodTo).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: TZ })}` : ""} · {l.hitRate.source} ·{" "}
+        Historisk, {l.hitRate.periodFrom ? shortDate(l.hitRate.periodFrom) : ""}
+        {l.hitRate.periodTo ? `–${shortDate(l.hitRate.periodTo)}` : ""} · {l.hitRate.source} ·{" "}
         {l.hitRate.modelVersion}
       </span>
     </div>
@@ -826,7 +821,6 @@ const TAB_GROUPS = [
 ].map((g) => ({ ...g, tabs: g.ids.map((id) => TABS.find((x) => x.id === id)!).filter(Boolean) }));
 
 const month = (t: number | null) => (t === null ? "?" : new Date(t).toLocaleDateString("da-DK", { month: "long", year: "numeric", timeZone: TZ }));
-const signedPct = (x: number, d = 1) => `${x >= 0 ? "+" : "−"}${dec(Math.abs(x) * 100, d)} %`;
 
 /** The rule's historical test, with sample size, period, source and version, so the list is never read as a proven edge. */
 function SharpBacktestNote() {
@@ -902,7 +896,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   return (
     <div className="space-y-6 lg:space-y-8">
       <header className="rounded-[28px] border border-line bg-gradient-to-br from-accent/15 to-surface px-4 py-5 sm:px-10 sm:py-10">
-        <div className="text-sm font-medium text-muted">{today.charAt(0).toUpperCase() + today.slice(1)}</div>
+        <div className="text-sm font-medium text-muted">{capitalize(today)}</div>
         <h1 className="display mt-2 text-[36px] text-ink sm:text-6xl">{tab === "bedste" ? "Dagens bedste bets" : tabLabel}</h1>
         <p className="mt-3 hidden max-w-2xl text-[16px] leading-relaxed text-ink-2 sm:mt-4 sm:block sm:text-[17px]">
           {tab === "bedste"

@@ -3,6 +3,7 @@ import { requireFriend } from "@/lib/auth/friends";
 import { DEMO_MODE } from "@/lib/data";
 import { db } from "@/lib/db";
 import { demoTeams, demoTeamSquad } from "@/lib/demo/team-search";
+import { dec, shortDate, TZ } from "@/lib/format";
 import { POSITION_LABEL } from "@/lib/player-shots";
 import { searchTeams, teamSquad, type TeamSquad } from "@/lib/real/team-search";
 import { API_FOOTBALL, seasonFor, type TeamHit } from "@/lib/stats/api-football";
@@ -14,10 +15,7 @@ export const metadata = { title: "Holdsøgning · Oddsanalyse" };
 // A team that has not been opened today is fetched from API-Football on the spot (up to about 10 requests).
 export const maxDuration = 60;
 
-const TZ = "Europe/Copenhagen";
-const dec = (x: number) => x.toFixed(2).replace(".", ",");
-const day = (t: number) => new Date(t).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: TZ });
-const clock = (t: number) => new Date(t).toLocaleString("da-DK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: TZ, hour12: false });
+const kickoffStamp = (t: number) => new Date(t).toLocaleString("da-DK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: TZ, hour12: false });
 const seasonLabel = (s: number) => `${s}/${String((s + 1) % 100).padStart(2, "0")}`;
 const min = (m: number) => `${m.toLocaleString("da-DK")} min`;
 
@@ -153,7 +151,7 @@ function PlayerCardView({ card, back }: { card: PlayerCard; back: string }) {
             <tbody className="num">
               {card.matches.map((m, i) => (
                 <tr key={i} className="border-t border-line">
-                  <td className="px-5 py-2 font-sans text-ink-2">{m.kickoff ? day(m.kickoff) : "—"}</td>
+                  <td className="px-5 py-2 font-sans text-ink-2">{m.kickoff ? shortDate(m.kickoff) : "—"}</td>
                   <td className="px-2 py-2 text-right">{m.minutes}</td>
                   <td className="px-2 py-2 text-right">{m.shotsOn}</td>
                   <td className="px-2 py-2 text-right">{m.goals}</td>
@@ -202,7 +200,7 @@ export default async function TeamSearchPage({ searchParams }: { searchParams: P
     });
     const seen = new Map<string, TeamLink>();
     for (const f of soon)
-      for (const [id, name] of [[f.homeTeamId, f.home], [f.awayTeamId, f.away]] as const) if (id && !seen.has(String(id))) seen.set(String(id), { key: String(id), name, sub: `spiller ${clock(f.kickoff.getTime())}` });
+      for (const [id, name] of [[f.homeTeamId, f.home], [f.awayTeamId, f.away]] as const) if (id && !seen.has(String(id))) seen.set(String(id), { key: String(id), name, sub: `spiller ${kickoffStamp(f.kickoff.getTime())}` });
     links = [...seen.values()].slice(0, 16);
   }
 
@@ -275,8 +273,8 @@ export default async function TeamSearchPage({ searchParams }: { searchParams: P
             <h2 className="display text-3xl">{teamName || "Holdet"}</h2>
             <span className="text-xs text-muted">
               Historisk · sæson {seasonLabel(season)} · {new Set(squad.players.map((p) => p.playerId)).size} spillere · {squad.competitions ?? 1} {squad.competitions === 1 ? "turnering" : "turneringer"}
-              {squad.recentKickoffs.length > 0 && ` · sidste ${squad.recentKickoffs.length} kampe ${day(squad.recentKickoffs.at(-1)!)}–${day(squad.recentKickoffs[0])}`} · {source}
-              {squad.fetchedAt ? ` · hentet ${clock(squad.fetchedAt)}` : ""}
+              {squad.recentKickoffs.length > 0 && ` · sidste ${squad.recentKickoffs.length} kampe ${shortDate(squad.recentKickoffs.at(-1)!)}–${shortDate(squad.recentKickoffs[0])}`} · {source}
+              {squad.fetchedAt ? ` · hentet ${kickoffStamp(squad.fetchedAt)}` : ""}
             </span>
           </div>
           {card && <PlayerCardView card={card} back={teamHref} />}

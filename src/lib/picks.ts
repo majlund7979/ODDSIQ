@@ -10,6 +10,7 @@
 // Steps 2 and 3 move the model's expected goals and re-price the outcome with
 // a Poisson goals model; their size is a heuristic, not a fitted parameter.
 
+import { dec, pct } from "@/lib/format";
 import { leagueForOddsKey } from "@/lib/model/openfootball";
 import type { MarketRow } from "@/lib/demo/store";
 import type { CountForecast, CountForecasts, CountStat } from "@/lib/model/match-stats";
@@ -209,7 +210,6 @@ export function outcomeLabel(r: MarketRow): string {
 }
 
 const clamp = (p: number) => Math.min(0.99, Math.max(0.01, p));
-const pct = (p: number) => `${Math.round(p * 100)} %`;
 
 function pmf(k: number, l: number) {
   let p = Math.exp(-l);
@@ -484,8 +484,7 @@ export function dailyPicks(
  */
 export function sharpPicks(rows: MarketRow[], now: number, count: number, context: (eventId: string) => PickContext | null, books: SharpBooks): Pick[] {
   const upcoming = rows.filter((r) => r.sportId === "football" && r.status === "scheduled" && r.kickoff > now && r.kickoff <= now + PICK_WINDOW_MS);
-  const pct = (x: number) => `${(x * 100).toFixed(1).replace(".", ",")} %`;
-  const odds = (x: number) => x.toFixed(2).replace(".", ",");
+  const pct1 = (x: number) => `${dec(x * 100, 1)} %`;
   return sharpBets(upcoming, books, now)
     .slice(0, count)
     .map((b) => {
@@ -494,9 +493,9 @@ export function sharpPicks(rows: MarketRow[], now: number, count: number, contex
       const a = analysePick(row, ctx);
       const insights = a?.insights ?? { expectedGoals: null, elo: null, clubElo: null, afPrediction: null, scorers: null, form: null, h2h: null, movement: row.movement, lineupsConfirmed: false };
       const factors: PickFactor[] = [
-        { label: `${b.reference}s fair pris`, pp: null, detail: `${pct(b.fair)} chance uden margin, fair odds ${odds(1 / b.fair)}` },
-        { label: `${b.book}s odds`, pp: null, detail: `${odds(b.price)}, ${b.ev >= 0 ? "+" : ""}${pct(b.ev)} over fair pris` },
-        { label: "Mindste odds", pp: null, detail: `Spil kun, hvis oddsen stadig er mindst ${odds(b.minOdds)}` },
+        { label: `${b.reference}s fair pris`, pp: null, detail: `${pct1(b.fair)} chance uden margin, fair odds ${dec(1 / b.fair)}` },
+        { label: `${b.book}s odds`, pp: null, detail: `${dec(b.price)}, ${b.ev >= 0 ? "+" : ""}${pct1(b.ev)} over fair pris` },
+        { label: "Mindste odds", pp: null, detail: `Spil kun, hvis oddsen stadig er mindst ${dec(b.minOdds)}` },
       ];
       return {
         row,

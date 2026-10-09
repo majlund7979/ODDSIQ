@@ -3,12 +3,12 @@ import { inviteOnly, isOwner, requireOwner } from "@/lib/auth/friends";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { wallClock } from "@/lib/data";
 import { db } from "@/lib/db";
+import { TZ } from "@/lib/format";
 import { displayName } from "@/lib/friends";
 import { weekOf } from "@/lib/tips";
 
 export const metadata = { title: "Admin · Oddsanalyse" };
 
-const TZ = "Europe/Copenhagen";
 const DAY = 86_400_000;
 const when = (d: Date | null | undefined) =>
   d ? d.toLocaleString("da-DK", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: TZ, hour12: false }) : "—";

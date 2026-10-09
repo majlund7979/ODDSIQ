@@ -2,6 +2,7 @@
 // and reads them back settled for the results board.
 
 import type { PrismaClient } from "@/generated/prisma/client";
+import { dayKey } from "@/lib/format";
 import { leagueForOddsKey } from "@/lib/model/openfootball";
 import { matchTeam } from "@/lib/model/teams";
 import { recordedCategory, shownCategory } from "@/lib/pick-categories";
@@ -41,8 +42,6 @@ export async function recordPicks(prisma: PrismaClient, t: Terminal): Promise<nu
   });
   return r.count;
 }
-
-const dayKey = (t: number) => new Date(t).toLocaleDateString("en-CA", { timeZone: "Europe/Copenhagen" });
 
 interface SettleRow {
   eventId: string;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RecordedPick } from "./picks-extra";
-import { adjusted, applyLearning, LEARN_MAX_SHIFT, LEARN_MIN, learn } from "./picks-learning";
+import { adjusted, adjustmentLabel, applyLearning, LEARN_MAX_SHIFT, LEARN_MIN, learn } from "./picks-learning";
 
 const rec = (category: string, probability: number, won: boolean, i = 0): RecordedPick => ({
   day: "2026-10-01",
@@ -52,5 +52,11 @@ describe("learning from settled picks", () => {
     expect(out[0].probability).toBeGreaterThan(out[1].probability);
     expect(out[0].fairOdds).toBeCloseTo(1 / out[0].probability);
     expect(out[1].probability).toBeLessThan(0.6);
+  });
+
+  it("labels the adjustment in points with a decimal comma and a real minus", () => {
+    expect(adjustmentLabel(1.234)).toBe("+1,2");
+    expect(adjustmentLabel(-0.4)).toBe("−0,4");
+    expect(adjustmentLabel(0)).toBe("+0,0");
   });
 });

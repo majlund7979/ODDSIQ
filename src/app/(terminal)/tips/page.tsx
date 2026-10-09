@@ -4,16 +4,14 @@ import { TipButtons } from "@/components/TipButtons";
 import { requireFriend } from "@/lib/auth/friends";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { DEMO_MODE } from "@/lib/data";
+import { capitalize, clock, shortDate, TZ } from "@/lib/format";
 import { terminal } from "@/lib/terminal";
 import { loadTips } from "@/lib/tips-data";
 import { dayById, dayOf, MAX_TIP_POINTS, nextDay, previousDay, SIDE_LABEL, tipCounts, type Day, type Side } from "@/lib/tips";
 
 export const metadata = { title: "Dagens tips · Oddsanalyse" };
 
-const TZ = "Europe/Copenhagen";
 const day = (t: number) => new Date(t).toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: TZ });
-const time = (t: number) => new Date(t).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit", timeZone: TZ, hour12: false });
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const DAY_NAMES: Record<number, string> = { 0: "I dag", 1: "I morgen", [-1]: "I går" };
 
 export default async function TipsPage({ searchParams }: { searchParams: Promise<{ dag?: string }> }) {
@@ -33,7 +31,7 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
   const next = nextDay(shown);
   const hasNext = all.some((m) => m.kickoff >= next.start);
   const offset = Math.round((shown.start - today.start) / 86_400_000);
-  const label = DAY_NAMES[offset] ?? cap(day(shown.start + 12 * 3_600_000));
+  const label = DAY_NAMES[offset] ?? capitalize(day(shown.start + 12 * 3_600_000));
   const dayHref = (d: Day) => (d.id === today.id ? "/tips" : `/tips?dag=${d.id}`);
 
   return (
@@ -56,7 +54,7 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
               </Link>
               <span className="px-2 font-medium whitespace-nowrap">
                 {label}
-                {offset >= -1 && offset <= 1 && <span className="ml-1.5 text-xs font-normal text-muted">{new Date(shown.start + 12 * 3_600_000).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: TZ })}</span>}
+                {offset >= -1 && offset <= 1 && <span className="ml-1.5 text-xs font-normal text-muted">{shortDate(shown.start + 12 * 3_600_000)}</span>}
               </span>
               {hasNext ? (
                 <Link href={dayHref(next)} scroll={false} className="rounded-md px-2.5 py-1.5 text-ink-2 hover:bg-surface-2 hover:text-ink" aria-label="Næste dag">
@@ -117,9 +115,9 @@ export default async function TipsPage({ searchParams }: { searchParams: Promise
                               ) : m.status === "live" ? (
                                 <span className="font-semibold text-good">I gang</span>
                               ) : locked ? (
-                                <span>Startet {time(m.kickoff)}</span>
+                                <span>Startet {clock(m.kickoff)}</span>
                               ) : (
-                                <span>{time(m.kickoff)}</span>
+                                <span>{clock(m.kickoff)}</span>
                               )}
                             </div>
                           </div>

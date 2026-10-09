@@ -1,9 +1,8 @@
 "use client";
 
 import { useOptimistic, useTransition } from "react";
+import { dec } from "@/lib/format";
 import { SIDE_LABEL, SIDES, type Side } from "@/lib/tips";
-
-const dec = (x: number) => x.toFixed(2).replace(".", ",");
 
 /** The 1, X and 2 buttons for one match. The choice shows at once and is saved in the background. */
 export function TipButtons({

@@ -1,23 +1,19 @@
 import Link from "next/link";
 import { requireFriend } from "@/lib/auth/friends";
-import { roiLabel, ROI_MIN, summarise, type RecordedPick } from "@/lib/picks-extra";
+import { byDay, resultsContext, roiLabel, ROI_MIN, summarise, type RecordedPick } from "@/lib/picks-extra";
 import { brier, calibration, CALIBRATION_MIN, CALIBRATION_VERSION } from "@/lib/picks-calibration";
 import { terminal } from "@/lib/terminal";
-import { byDay, HitBars, ProfitBars, Tile } from "@/components/picks/Overview";
+import { HitBars, ProfitBars, Tile } from "@/components/picks/charts";
+import { capitalize, krFromUnits, pctOrDash, pctTight, signedPct } from "@/lib/format";
 import { CLV_VERSION } from "@/lib/real/clv";
 import { CATEGORY_LABEL } from "@/lib/pick-categories";
 import { SHARP_VERSION } from "@/lib/sharp";
-import { LEARN_DAYS, LEARN_MIN, LEARNING_VERSION, learn, type CategoryLearning } from "@/lib/picks-learning";
+import { adjustmentLabel, LEARN_DAYS, LEARN_MIN, LEARNING_VERSION, learn, type CategoryLearning } from "@/lib/picks-learning";
 
 export const metadata = { title: "Resultater · Oddsanalyse" };
 
-const pct = (x: number) => (Number.isFinite(x) ? `${Math.round(x * 100)} %` : "—");
-const signedPct = (x: number) => `${x >= 0 ? "+" : "−"}${(Math.abs(x) * 100).toFixed(1).replace(".", ",")} %`;
-const kr = (units: number) => `${units >= 0 ? "+" : "−"}${Math.round(Math.abs(units) * 100)} kr`;
-
 function dayLabel(day: string) {
-  const d = new Date(`${day}T12:00:00Z`).toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
-  return d.charAt(0).toUpperCase() + d.slice(1);
+  return capitalize(new Date(`${day}T12:00:00Z`).toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }));
 }
 
 function Mark({ r }: { r: RecordedPick["result"] }) {
@@ -29,7 +25,7 @@ function Mark({ r }: { r: RecordedPick["result"] }) {
 function adjustment(l: CategoryLearning | undefined): string {
   if (!l) return "—";
   if (!l.learning) return `lærer (${l.hitRate.n}/${LEARN_MIN})`;
-  return `${l.adjustmentPp >= 0 ? "+" : "−"}${Math.abs(l.adjustmentPp).toFixed(1).replace(".", ",")} point`;
+  return `${adjustmentLabel(l.adjustmentPp)} point`;
 }
 
 export default async function ResultsPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
@@ -43,17 +39,13 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   const byCat = Object.keys(CATEGORY_LABEL).map((c) => ({ id: c, s: summarise(all.filter((p) => p.category === c)) }));
   const days = [...new Set(picks.map((p) => p.day))];
   const chartDays = byDay(picks);
-  const settledKick = picks.filter((p) => p.result).map((p) => p.kickoff);
-  const period = settledKick.length
-    ? `${new Date(Math.min(...settledKick)).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: "Europe/Copenhagen" })}–${new Date(Math.max(...settledKick)).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: "Europe/Copenhagen" })}`
-    : "sidste 7 dage";
-  const context = `Historisk · n = ${total.settled} · ${period} · ${t.dataLabel} · ${type === "bedste" ? SHARP_VERSION : LEARNING_VERSION}`;
+  const context = resultsContext(picks, t.dataLabel, type === "bedste" ? SHARP_VERSION : LEARNING_VERSION);
   const history = await t.recordedPicks(LEARN_DAYS);
   const learning = learn(history, t.dataLabel);
   const cal = calibration(history);
   const score = brier(history);
 
-  const pickKr = (p: RecordedPick) => (p.result && p.odds ? kr(p.result === "won" ? p.odds - 1 : -1) : null);
+  const pickKr = (p: RecordedPick) => (p.result && p.odds ? krFromUnits(p.result === "won" ? p.odds - 1 : -1) : null);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -69,12 +61,12 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
         </div>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Tile label="Gik hjem">
-            <div className="num text-3xl font-extrabold tracking-[-0.02em]">{total.settled ? pct(total.won / total.settled).replace(" ", "") : "—"}</div>
-            <div className="mt-1 text-sm text-ink-2">{total.settled ? `${total.won} af ${total.settled} · forventet ${pct(total.expectedRate)}` : "Ingen afgjorte endnu"}</div>
+            <div className="num text-3xl font-extrabold tracking-[-0.02em]">{total.settled ? pctTight(total.won / total.settled) : "—"}</div>
+            <div className="mt-1 text-sm text-ink-2">{total.settled ? `${total.won} af ${total.settled} · forventet ${pctOrDash(total.expectedRate)}` : "Ingen afgjorte endnu"}</div>
           </Tile>
           <Tile label="Gevinst, 100 kr pr. bet">
             <div className={`num text-3xl font-extrabold tracking-[-0.02em] ${total.withOdds ? (total.profit >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>
-              {total.withOdds ? kr(total.profit) : "—"}
+              {total.withOdds ? krFromUnits(total.profit) : "—"}
             </div>
             <div className="mt-1 text-sm text-ink-2">
               {total.withOdds ? (total.withOdds < ROI_MIN ? `${total.withOdds} bets med odds, for få til at sige noget sikkert` : `Afkast ${roiLabel(total)} på ${total.withOdds} bets`) : "Ingen bets med odds"}
@@ -103,7 +95,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
             className={`shrink-0 rounded-full border px-3.5 py-1.5 text-sm ${id === type ? "border-accent bg-accent/20 font-semibold text-ink" : "border-line bg-surface text-ink-2 hover:text-ink"}`}
           >
             {CATEGORY_LABEL[id]}
-            <span className="num ml-1.5 text-xs text-muted">{s.settled ? pct(s.won / s.settled).replace(" ", "") : "—"}</span>
+            <span className="num ml-1.5 text-xs text-muted">{s.settled ? pctTight(s.won / s.settled) : "—"}</span>
           </Link>
         ))}
       </nav>
@@ -125,7 +117,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
                     <span className="font-semibold">{dayLabel(day)}</span>
                     <span className="flex items-center gap-2 text-sm">
                       <span className="text-ink-2">{s.settled ? `${s.won} af ${s.settled}` : "afventer"}</span>
-                      {s.withOdds > 0 && <span className={`num rounded-full px-2 py-0.5 text-xs font-semibold ${s.profit >= 0 ? "bg-good/15 text-good" : "bg-critical/15 text-serious"}`}>{kr(s.profit)}</span>}
+                      {s.withOdds > 0 && <span className={`num rounded-full px-2 py-0.5 text-xs font-semibold ${s.profit >= 0 ? "bg-good/15 text-good" : "bg-critical/15 text-serious"}`}>{krFromUnits(s.profit)}</span>}
                     </span>
                   </div>
                   <ul className="divide-y divide-line">
@@ -175,14 +167,14 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
                 className={`rounded-[18px] border px-4 py-3 transition-colors ${id === type ? "border-accent bg-surface-2" : "border-line bg-surface hover:border-ink-2"}`}
               >
                 <div className="truncate text-sm font-medium">{CATEGORY_LABEL[id]}</div>
-                <div className="num mt-1 text-2xl font-extrabold">{s.settled ? pct(rate).replace(" ", "") : "—"}</div>
+                <div className="num mt-1 text-2xl font-extrabold">{s.settled ? pctTight(rate) : "—"}</div>
                 <div className="relative mt-2 h-1.5 rounded-full bg-surface-3">
                   {s.settled > 0 && <div className="absolute inset-y-0 left-0 rounded-full bg-accent" style={{ width: `${Math.round(rate * 100)}%` }} />}
                   {Number.isFinite(s.expectedRate) && <div className="absolute -top-1 h-3.5 w-0.5 bg-ink" style={{ left: `${Math.round(s.expectedRate * 100)}%` }} title="Forventet" />}
                 </div>
                 <div className="num mt-2 flex justify-between gap-2 text-xs">
                   <span className="text-muted">{s.settled ? `${s.won}/${s.settled}` : "ingen"}</span>
-                  <span className={s.withOdds ? (s.profit >= 0 ? "text-good" : "text-serious") : "text-muted"}>{s.withOdds ? kr(s.profit) : "ingen odds"}</span>
+                  <span className={s.withOdds ? (s.profit >= 0 ? "text-good" : "text-serious") : "text-muted"}>{s.withOdds ? krFromUnits(s.profit) : "ingen odds"}</span>
                 </div>
               </Link>
             );
@@ -233,7 +225,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
                 {byCat.map(({ id, s }) => (
                   <tr key={id} className={`border-t border-line ${id === type ? "bg-surface-2" : ""}`}>
                     <td className="py-2 pr-3 font-sans">{CATEGORY_LABEL[id]}</td>
-                    <td className="px-3 py-2 text-right text-ink-2">{pct(s.expectedRate)}</td>
+                    <td className="px-3 py-2 text-right text-ink-2">{pctOrDash(s.expectedRate)}</td>
                     <td className={`px-3 py-2 text-right ${!s.withOdds || s.withOdds < ROI_MIN ? "text-muted" : s.roi >= 0 ? "text-good" : "text-serious"}`}>
                       {!s.withOdds ? "—" : s.withOdds < ROI_MIN ? "for få" : roiLabel(s)}
                     </td>
@@ -275,12 +267,12 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
                           {Math.round(r.from * 100)}–{Math.round(r.to * 100)} %
                         </td>
                         <td className="px-3 py-2 text-right text-ink-2">{r.n}</td>
-                        <td className="px-3 py-2 text-right">{pct(r.stated)}</td>
+                        <td className="px-3 py-2 text-right">{pctOrDash(r.stated)}</td>
                         <td className={`px-3 py-2 text-right font-semibold ${few ? "text-muted" : Math.abs(gap) <= 0.05 ? "text-good" : "text-serious"}`}>
-                          {pct(r.hitRate)}
+                          {pctOrDash(r.hitRate)}
                           {few && <span className="block text-[10px] font-normal">for få bets</span>}
                         </td>
-                        <td className="py-2 pl-3 text-right text-ink-2">{r.withOdds ? pct(r.market) : "—"}</td>
+                        <td className="py-2 pl-3 text-right text-ink-2">{r.withOdds ? pctOrDash(r.market) : "—"}</td>
                       </tr>
                     );
                   })}

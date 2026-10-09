@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MarketRow } from "@/lib/demo/store";
 import { dailyPicks } from "./picks";
-import { coupons, goalsCoupon, rocketCoupon, ROCKET_MIN_CHANCE, doubleChancePicks, oddsCoupon, chanceCoupon, halfTime, scoreGrid, settle, summarise } from "./picks-extra";
+import { byDay, coupons, goalsCoupon, rocketCoupon, ROCKET_MIN_CHANCE, doubleChancePicks, oddsCoupon, chanceCoupon, halfTime, resultsContext, scoreGrid, settle, settledPeriod, summarise, type RecordedPick } from "./picks-extra";
 import type { Pick } from "./picks";
 
 const none = { goals: null, ht: null, corners: null, cards: null, fouls: null };
@@ -27,6 +27,38 @@ describe("settling recorded picks", () => {
     const s = summarise([p("won", 2), p("lost", 1.5), p("won", null), p(null, 2)]);
     expect(s).toMatchObject({ settled: 3, won: 2, withOdds: 2 });
     expect(s.profit).toBeCloseTo(0);
+  });
+});
+
+describe("results per day and their context line", () => {
+  const at = (day: string, hour: number, result: RecordedPick["result"], odds: number | null = 2): RecordedPick => ({
+    day,
+    kickoff: Date.parse(`${day}T${String(hour).padStart(2, "0")}:00:00Z`),
+    league: "",
+    match: "",
+    category: "bedste",
+    outcome: "",
+    probability: 0.5,
+    odds,
+    result,
+  });
+
+  it("groups settled picks per day, oldest first", () => {
+    const days = byDay([at("2026-10-08", 18, "lost"), at("2026-10-03", 13, "won"), at("2026-10-08", 15, "won", null), at("2026-10-09", 18, null)]);
+    expect(days).toEqual([
+      { day: "2026-10-03", won: 1, settled: 1, expected: 0.5, profit: 1, withOdds: 1 },
+      { day: "2026-10-08", won: 1, settled: 2, expected: 0.5, profit: -1, withOdds: 1 },
+    ]);
+    expect(byDay([])).toEqual([]);
+  });
+
+  it("states the period and context of the settled picks", () => {
+    // 22:30 UTC on 2 October is already 3 October in Copenhagen.
+    const picks = [at("2026-10-08", 18, "lost"), { ...at("2026-10-03", 13, "won"), kickoff: Date.UTC(2026, 9, 2, 22, 30) }, at("2026-10-09", 18, null)];
+    expect(settledPeriod(picks)).toBe("3. okt.–8. okt.");
+    expect(resultsContext(picks, "DEMO DATA", "sharp-v1")).toBe("Historisk · n = 2 · 3. okt.–8. okt. · DEMO DATA · sharp-v1");
+    expect(settledPeriod([at("2026-10-09", 18, null)])).toBe("sidste 7 dage");
+    expect(resultsContext([], "DEMO DATA", "sharp-v1")).toBe("Historisk · n = 0 · sidste 7 dage · DEMO DATA · sharp-v1");
   });
 });
 

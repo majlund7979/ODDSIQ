@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { TZ } from "@/lib/format";
+import type { Metric } from "@/lib/metrics/metric";
 
 export function Panel({ title, right, children, className = "", id }: { title?: ReactNode; right?: ReactNode; children: ReactNode; className?: string; id?: string }) {
   return (
@@ -30,6 +32,19 @@ export function Badge({ children, tone = "neutral", className = "" }: { children
     <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${toneClass[tone]} ${className}`}>
       {children}
     </span>
+  );
+}
+
+const BASIS: Record<Metric["basis"], string> = { historical: "Historisk", simulated: "Simuleret", live: "Live", estimated: "Skøn" };
+const MONTH = (t: number | null) => (t == null ? "—" : new Date(t).toLocaleDateString("da-DK", { month: "short", year: "numeric", timeZone: TZ }));
+
+/** The context every aggregate statistic carries: basis, sample size, period, model version and source. */
+export function MetricContextLine({ m }: { m: Metric<unknown> }) {
+  return (
+    <p className="mt-1 text-[11px] leading-relaxed text-muted">
+      <span className="text-ink-2">{BASIS[m.basis]}</span> · n = {m.n.toLocaleString("da-DK")} · {MONTH(m.periodFrom)} – {MONTH(m.periodTo)} ·{" "}
+      {m.modelVersion} · {m.source}
+    </p>
   );
 }
 

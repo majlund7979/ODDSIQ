@@ -6,11 +6,9 @@
 import Link from "next/link";
 import { useActionState, useEffect } from "react";
 import { playCoupon, type PlayState } from "@/app/friends-actions";
+import { dec, pct } from "@/lib/format";
 import { couponMath } from "@/lib/my-coupon";
 import { clearLegs, removeLeg, useLegs } from "./coupon-store";
-
-const dec = (x: number) => x.toFixed(2).replace(".", ",");
-const pct = (x: number) => `${Math.round(x * 100)} %`;
 
 /** `canPlay`: signed in, so "Spil kupon" can save it to the friends' league. */
 export function MyCoupon({ canPlay = false }: { canPlay?: boolean }) {
