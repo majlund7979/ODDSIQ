@@ -143,7 +143,7 @@ One run costs competitions × regions × markets credits, plus 2 per competition
 
 **Accounts** (`ACCOUNTS_ENABLED=true` or `OWNER_EMAIL`, needs `DATABASE_URL`): email and password, scrypt hashes, 30-day http-only session cookies with only a SHA-256 of the token stored, 10 attempts per 15 minutes per IP and per email. A forgotten password is reset with a link by e-mail (`/login/glemt`, needs `RESEND_API_KEY`).
 
-**Mail** (Resend): `RESEND_API_KEY` switches on the password reset and the morning e-mail; `MAIL_FROM` sets the sender (Resend's test sender until a domain is verified), and `MORNING_EMAIL_TO` adds addresses to the morning e-mail beside the friends who have it on.
+**Mail** (Resend): `RESEND_API_KEY` switches on the password reset and the morning e-mail; `MAIL_FROM` sets the sender (Resend's test sender until a domain is verified), and `MORNING_EMAIL_TO` adds addresses to the morning e-mail beside the friends who have it on. Reset and invite links use `APP_URL`, else the request's host; set `APP_URL` wherever the server answers any host name (`next start` or self-hosting), or a forged host could end up in a reset link.
 
 **Billing** (Stripe, via its REST API): set `STRIPE_SECRET_KEY`, `STRIPE_PRICE_PRO` (a recurring price id), `STRIPE_WEBHOOK_SECRET` and optionally `PRO_PRICE_LABEL` and `APP_URL`. Point a Stripe webhook at `/api/stripe/webhook` with `checkout.session.completed` and `customer.subscription.created/updated/deleted`. Plans change only from signed webhooks.
 
