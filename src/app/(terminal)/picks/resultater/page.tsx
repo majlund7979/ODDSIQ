@@ -7,9 +7,8 @@ import { HitBars, ProfitBars, Tile } from "@/components/picks/charts";
 import { capitalize, krFromUnits, pctOrDash, pctTight, signedPct } from "@/lib/format";
 import { CLV_VERSION } from "@/lib/real/clv";
 import { CATEGORY_LABEL } from "@/lib/pick-categories";
-import { SHARP_VERSION } from "@/lib/sharp";
 import { lookup, one, type SearchParams } from "@/lib/url";
-import { adjustmentLabel, LEARN_DAYS, LEARN_MIN, LEARNING_VERSION, learn, type CategoryLearning } from "@/lib/picks-learning";
+import { adjustmentLabel, LEARN_DAYS, LEARN_MIN, LEARNING_VERSION, learn, recordVersion, type CategoryLearning } from "@/lib/picks-learning";
 
 export const metadata = { title: "Resultater · Oddsanalyse" };
 
@@ -42,7 +41,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   const byCat = Object.keys(CATEGORY_LABEL).map((c) => ({ id: c, s: summarise(all.filter((p) => p.category === c)) }));
   const days = [...new Set(picks.map((p) => p.day))];
   const chartDays = byDay(picks);
-  const context = resultsContext(picks, t.dataLabel, type === "bedste" ? SHARP_VERSION : LEARNING_VERSION);
+  const context = resultsContext(picks, t.dataLabel, recordVersion(type));
   const learning = learn(history, t.dataLabel);
   const cal = calibration(history);
   const score = brier(history);

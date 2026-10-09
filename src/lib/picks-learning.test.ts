@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RecordedPick } from "./picks-extra";
-import { adjusted, adjustmentLabel, applyLearning, hitRatePeriod, LEARN_DAYS, LEARN_MAX_SHIFT, LEARN_MIN, learn } from "./picks-learning";
+import { adjusted, adjustmentLabel, applyLearning, hitRatePeriod, LEARN_DAYS, LEARN_MAX_SHIFT, LEARN_MIN, learn, LEARNING_VERSION } from "./picks-learning";
+import { SHARP_VERSION } from "./sharp";
 
 const rec = (category: string, probability: number, won: boolean, i = 0): RecordedPick => ({
   day: "2026-10-01",
@@ -32,6 +33,12 @@ describe("learning from settled picks", () => {
     expect(adjusted(0.7, over)).toBeLessThan(0.7);
     expect(adjusted(0.7, over)).toBeGreaterThan(0.5); // shrunk: not all the way to the 50 % hit rate
     expect(over.hitRate).toMatchObject({ n: 40, value: 0.5, basis: "historical", source: "test" });
+  });
+
+  it("labels Bedste bets' record with the price comparison's version, the other types with the learning's", () => {
+    const m = learn([...batch("bedste", 7, 4, 0.5), ...batch("vinder", 7, 4, 0.5)], "test");
+    expect(m.get("bedste")!.hitRate.modelVersion).toBe(SHARP_VERSION);
+    expect(m.get("vinder")!.hitRate.modelVersion).toBe(LEARNING_VERSION);
   });
 
   it("caps the shift and ignores unsettled picks", () => {

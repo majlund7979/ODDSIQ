@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { analysedMatches, COUNT_CATEGORIES, countPicks, couponCandidates, GOAL_CATEGORIES, isSharp, marketPicks, PICK_COUNTS, sharpPicks } from "@/lib/picks";
 import { requireFriend } from "@/lib/auth/friends";
-import { applyLearning, applyLearningToPicks, hitRatePeriod, LEARN_DAYS, learn, LEARNING_VERSION } from "@/lib/picks-learning";
+import { applyLearning, applyLearningToPicks, hitRatePeriod, LEARN_DAYS, learn, RECORD_VERSIONS } from "@/lib/picks-learning";
 import { coupons, summarise } from "@/lib/picks-extra";
 import { EXTRA, picksHref, tabFor, TABS } from "@/lib/picks-tabs";
 import { terminal } from "@/lib/terminal";
@@ -164,7 +164,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
           )}
 
           <div className="lg:hidden">
-            <HitRates learning={allLearning} labels={stripTabs} current={tab} period={stripPeriod} source={t.dataLabel} version={LEARNING_VERSION} returns={new Map(TABS.map((x) => [x.id, summarise(history.filter((h) => h.category === x.id))]))} />
+            <HitRates learning={allLearning} labels={stripTabs} current={tab} period={stripPeriod} source={t.dataLabel} versions={RECORD_VERSIONS} returns={new Map(TABS.map((x) => [x.id, summarise(history.filter((h) => h.category === x.id))]))} />
           </div>
 
           {tab !== "bedste" && <LiveNow type={tab} initial={live} source={liveSource} />}

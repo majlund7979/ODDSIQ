@@ -9,6 +9,7 @@
 
 import { dec, pct, shortDate } from "@/lib/format";
 import { metric, periodOf, type Metric } from "@/lib/metrics/metric";
+import { SHARP_VERSION } from "@/lib/sharp";
 import type { RecordedPick } from "./picks-extra";
 import { strengthOf, type Pick } from "./picks";
 
@@ -21,6 +22,11 @@ export const LEARN_MAX_SHIFT = 0.5;
 /** How far back the learning looks. */
 export const LEARN_DAYS = 90;
 export const LEARNING_VERSION = "picks-calibration-v1";
+
+/** The version behind a bet type's record: Bedste bets follow the price comparison, which the learning never adjusts. */
+export const recordVersion = (category: string) => (category === "bedste" ? SHARP_VERSION : LEARNING_VERSION);
+/** Both versions, for the line under the hit rates of several bet types. */
+export const RECORD_VERSIONS = [LEARNING_VERSION, `Bedste bets: ${SHARP_VERSION}`] as const;
 
 const logit = (p: number) => Math.log(p / (1 - p));
 const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));
@@ -60,7 +66,7 @@ export function learn(records: RecordedPick[], source: string): Learning {
       hitRate: metric(won / n, {
         n,
         ...periodOf(rs.map((r) => r.kickoff)),
-        modelVersion: LEARNING_VERSION,
+        modelVersion: recordVersion(category),
         source,
         definition: "Share of settled picks of this bet type that won",
         basis: "historical",

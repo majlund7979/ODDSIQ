@@ -2,10 +2,11 @@
 // switch, the bankroll and how the stake is worked out.
 
 import Link from "next/link";
+import { Fragment } from "react";
 import type { Metric } from "@/lib/metrics/metric";
 import { PICK_COUNTS } from "@/lib/picks";
 import { STAKE_VERSION } from "@/lib/picks-advice";
-import { hitRatePeriod, LEARNING_VERSION } from "@/lib/picks-learning";
+import { hitRatePeriod, RECORD_VERSIONS } from "@/lib/picks-learning";
 import { picksHref, TAB_GROUPS, type TabId } from "@/lib/picks-tabs";
 import { BankrollInput } from "./BankrollInput";
 import { LinkPending } from "./LinkPending";
@@ -36,7 +37,11 @@ export function TabNav({ tab, count, hit, hitPeriod, source }: { tab: TabId; cou
                   }`}
                 >
                   {x.label}
-                  {h && <span className={`num hidden text-xs lg:inline ${active ? "text-accent/80" : "text-muted"}`}>{Math.round(h.value * 100)}%</span>}
+                  {h && (
+                    <span className={`num hidden text-xs lg:inline ${active ? "text-accent/80" : "text-muted"}`}>
+                      {Math.round(h.value * 100)}% <span className="text-[11px]">({h.n})</span>
+                    </span>
+                  )}
                   <LinkPending />
                 </Link>
               );
@@ -53,7 +58,13 @@ export function TabNav({ tab, count, hit, hitPeriod, source }: { tab: TabId; cou
         ))}
       </nav>
       <p className="hidden px-4 text-xs leading-relaxed text-muted lg:block">
-        Tallet er træfprocenten for de afgjorte bets ({hitPeriod}, {source}, {LEARNING_VERSION}).
+        Tallet er træfprocenten for de afgjorte bets, historisk, og i parentes antallet af bets. {hitPeriod} · {source}
+        {RECORD_VERSIONS.map((v) => (
+          <Fragment key={v}>
+            {" · "}
+            <span className="whitespace-nowrap">{v}</span>
+          </Fragment>
+        ))}
       </p>
 
       <div className="flex flex-wrap items-center gap-3 lg:block lg:space-y-3 lg:rounded-[20px] lg:bg-surface-2 lg:p-4">

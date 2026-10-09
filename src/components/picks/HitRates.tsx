@@ -2,10 +2,11 @@
 // easy to see which bets work best, with the return when there are odds.
 
 import Link from "next/link";
+import { Fragment } from "react";
 import { roiLabel, ROI_MIN, type ResultsSummary } from "@/lib/picks-extra";
 import type { Learning } from "@/lib/picks-learning";
 
-export function HitRates({ learning, labels, current, period, source, version, returns }: { learning: Learning; labels: { id: string; label: string }[]; current: string; period: string; source: string; version: string; returns?: Map<string, ResultsSummary> }) {
+export function HitRates({ learning, labels, current, period, source, versions, returns }: { learning: Learning; labels: { id: string; label: string }[]; current: string; period: string; source: string; versions: readonly string[]; returns?: Map<string, ResultsSummary> }) {
   const rows = labels.flatMap((c) => {
     const l = learning.get(c.id);
     return l && l.hitRate.n > 0 ? [{ ...c, rate: l.hitRate.value, n: l.hitRate.n, ret: returns?.get(c.id) }] : [];
@@ -17,7 +18,13 @@ export function HitRates({ learning, labels, current, period, source, version, r
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold">Træfprocent og afkast pr. bet-type</h2>
         <span className="text-xs text-muted">
-          Historisk · {period} · {source} · {version}
+          Historisk · {period} · {source}
+          {versions.map((v) => (
+            <Fragment key={v}>
+              {" · "}
+              <span className="whitespace-nowrap">{v}</span>
+            </Fragment>
+          ))}
         </span>
       </div>
       <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scroll-fade-x [scrollbar-width:none] after:w-4 after:shrink-0 after:content-[''] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:[mask-image:none] sm:after:hidden">
