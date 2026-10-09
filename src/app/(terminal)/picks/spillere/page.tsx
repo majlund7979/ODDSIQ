@@ -52,14 +52,14 @@ function CategoryCard({ label, short, leaders, link }: { label: string; short: s
           <li className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-1.5 text-[10px] text-muted">
             <span>Spiller · spilletid</span>
             <span className="w-[4.5rem] text-right">Sæson</span>
-            <span className="w-24 text-right">Sidste {RECENT_MATCHES}</span>
+            <span className="w-20 text-right">Sidste {RECENT_MATCHES}</span>
           </li>
           {leaders.map((l, i) => (
             <li key={l.playerId} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-2.5">
               <span className="min-w-0">
                 <span className="flex items-center gap-2">
                   <span className="num w-4 shrink-0 text-xs text-muted">{i + 1}</span>
-                  <Link href={link(l.playerId)} scroll={false} className="truncate text-sm font-semibold hover:text-accent hover:underline">
+                  <Link href={link(l.playerId)} scroll={false} className="line-clamp-2 break-words text-sm font-semibold hover:text-accent hover:underline">
                     {l.name}
                   </Link>
                 </span>
@@ -72,7 +72,7 @@ function CategoryCard({ label, short, leaders, link }: { label: string; short: s
                 <span className="num block text-lg font-bold leading-tight">{l.value}</span>
                 <span className="num block whitespace-nowrap text-[10px] text-muted">{l.per90 === null ? "få min." : `${dec(l.per90)} pr. 90`}</span>
               </span>
-              <span className="w-24 text-right">
+              <span className="w-20 text-right">
                 {l.recent ? (
                   <>
                     <span className="num flex items-center justify-end gap-1 text-sm font-semibold leading-tight">

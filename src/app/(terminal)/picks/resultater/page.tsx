@@ -227,12 +227,12 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
                 {byCat.map(({ id, s }) => (
                   <tr key={id} className={`border-t border-line ${id === type ? "bg-surface-2" : ""}`}>
                     <td className="py-2 pr-3 font-sans">{CATEGORY_LABEL[id]}</td>
-                    <td className="px-3 py-2 text-right text-ink-2">{pctOrDash(s.expectedRate)}</td>
-                    <td className={`px-3 py-2 text-right ${!s.withOdds || s.withOdds < ROI_MIN ? "text-muted" : s.roi >= 0 ? "text-good" : "text-serious"}`}>
+                    <td className="whitespace-nowrap px-3 py-2 text-right text-ink-2">{pctOrDash(s.expectedRate)}</td>
+                    <td className={`whitespace-nowrap px-3 py-2 text-right ${!s.withOdds || s.withOdds < ROI_MIN ? "text-muted" : s.roi >= 0 ? "text-good" : "text-serious"}`}>
                       {!s.withOdds ? "—" : s.withOdds < ROI_MIN ? "for få" : roiLabel(s)}
                     </td>
-                    <td className={`px-3 py-2 text-right ${s.withClose ? (s.clv >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{s.withClose ? signedPct(s.clv) : "—"}</td>
-                    <td className="py-2 pl-3 text-right text-ink-2">{adjustment(learning.get(id))}</td>
+                    <td className={`whitespace-nowrap px-3 py-2 text-right ${s.withClose ? (s.clv >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>{s.withClose ? signedPct(s.clv) : "—"}</td>
+                    <td className="whitespace-nowrap py-2 pl-3 text-right text-ink-2">{adjustment(learning.get(id))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -259,7 +259,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
                     <th className="py-2 pl-3 text-right font-normal" title="1 / bedste odds, et skøn der stadig rummer lidt bookmakeravance">Bookmakerne</th>
                   </tr>
                 </thead>
-                <tbody className="num">
+                <tbody className="num whitespace-nowrap">
                   {cal.map((r) => {
                     const gap = r.hitRate - r.stated;
                     const few = r.n < CALIBRATION_MIN;

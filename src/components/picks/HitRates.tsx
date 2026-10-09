@@ -20,7 +20,7 @@ export function HitRates({ learning, labels, current, period, source, version, r
           Historisk · {period} · {source} · {version}
         </span>
       </div>
-      <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+      <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] after:w-4 after:shrink-0 after:content-[''] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:[mask-image:none] sm:after:hidden">
         {rows.map((r) => (
           <li key={r.id} className="shrink-0">
             <Link

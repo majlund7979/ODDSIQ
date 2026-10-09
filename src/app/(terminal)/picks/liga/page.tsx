@@ -219,7 +219,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
                   </span>
                 ) : (
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">
+                    <span className="line-clamp-2 text-sm font-medium">
                       {b.name} · {b.outcome}
                     </span>
                     <span className="block truncate text-xs text-muted">

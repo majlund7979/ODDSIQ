@@ -8,12 +8,16 @@ import { STAKE_VERSION } from "@/lib/picks-advice";
 import { hitRatePeriod, LEARNING_VERSION } from "@/lib/picks-learning";
 import { picksHref, TAB_GROUPS, type TabId } from "@/lib/picks-tabs";
 import { BankrollInput } from "./BankrollInput";
+import { LinkPending } from "./LinkPending";
 
 /** Everything you choose, on the left of the list. On phones it collapses to one row of buttons. */
 export function TabNav({ tab, count, hit, hitPeriod, source }: { tab: TabId; count: number; hit: (id: string) => Metric | null; hitPeriod: string; source: string }) {
   return (
     <aside className="min-w-0 space-y-4 lg:sticky lg:top-24 lg:space-y-6 lg:self-start">
-      <nav aria-label="Bet-type" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:block lg:space-y-5 lg:overflow-visible lg:px-0">
+      <nav
+        aria-label="Bet-type"
+        className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] after:w-4 after:shrink-0 after:content-[''] lg:mx-0 lg:block lg:space-y-5 lg:overflow-visible lg:px-0 lg:[mask-image:none] lg:after:hidden"
+      >
         {TAB_GROUPS.map((g) => (
           <div key={g.title} className="contents lg:block">
             <div className="mb-1.5 hidden px-3 text-xs font-semibold text-muted lg:block">{g.title}</div>
@@ -27,12 +31,13 @@ export function TabNav({ tab, count, hit, hitPeriod, source }: { tab: TabId; cou
                   scroll={false}
                   aria-current={active ? "page" : undefined}
                   title={h ? `Træfprocent ${Math.round(h.value * 100)} % i ${h.n} afgjorte bets, ${hitRatePeriod([h])} (historisk, ${h.source}, ${h.modelVersion})` : undefined}
-                  className={`flex shrink-0 items-center justify-between gap-3 whitespace-nowrap rounded-full border px-4 py-2 text-[15px] font-medium lg:border-0 lg:px-4 ${
+                  className={`relative flex shrink-0 items-center justify-between gap-3 whitespace-nowrap rounded-full border px-4 py-2 text-[15px] font-medium lg:border-0 lg:px-4 ${
                     active ? "border-lime bg-lime font-semibold text-accent" : "border-line bg-surface text-ink-2 hover:text-accent lg:bg-transparent lg:hover:bg-surface-2"
                   }`}
                 >
                   {x.label}
                   {h && <span className={`num hidden text-xs lg:inline ${active ? "text-accent/80" : "text-muted"}`}>{Math.round(h.value * 100)}%</span>}
+                  <LinkPending />
                 </Link>
               );
             })}
@@ -59,9 +64,10 @@ export function TabNav({ tab, count, hit, hitPeriod, source }: { tab: TabId; cou
               href={picksHref(tab, n)}
               scroll={false}
               aria-current={n === count ? "page" : undefined}
-              className={`flex-1 whitespace-nowrap rounded-full px-4 py-1.5 text-center text-sm font-semibold ${n === count ? "bg-accent text-white" : "text-ink-2 hover:text-accent"}`}
+              className={`relative flex-1 whitespace-nowrap rounded-full px-4 py-1.5 text-center text-sm font-semibold ${n === count ? "bg-accent text-white" : "text-ink-2 hover:text-accent"}`}
             >
               Top {n}
+              <LinkPending />
             </Link>
           ))}
         </nav>
