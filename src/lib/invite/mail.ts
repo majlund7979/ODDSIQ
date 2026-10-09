@@ -2,7 +2,7 @@
 
 import { emailShell, escapeHtml, type Mail } from "@/lib/mail";
 
-export const validEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length <= 254;
+export { validEmail } from "@/lib/auth/rules";
 
 /** The sender's name as friends know it: display name, else the part of the e-mail before the @. */
 export const senderName = (email: string, displayName: string | null | undefined) => (displayName?.trim() || email.split("@")[0]).slice(0, 60);

@@ -3,8 +3,9 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isInvited, normaliseEmail } from "@/lib/auth/friends";
-import { allowAttempt, hashPassword, MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
+import { allowAttempt, hashPassword } from "@/lib/auth/password";
 import { createReset, resetMail, consumeReset } from "@/lib/auth/reset";
+import { passwordProblem } from "@/lib/auth/rules";
 import { ACCOUNTS_ENABLED, createSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { MAIL_CONFIGURED, sendMails } from "@/lib/mail";
@@ -41,8 +42,8 @@ export async function resetPassword(_: ResetState, formData: FormData): Promise<
   if (!ACCOUNTS_ENABLED) return { error: "Login er ikke slået til endnu." };
   const token = String(formData.get("token") ?? "");
   const password = String(formData.get("password") ?? "");
-  if (password.length < MIN_PASSWORD_LENGTH) return { error: `Adgangskoden skal være mindst ${MIN_PASSWORD_LENGTH} tegn.` };
-  if (password.length > 200) return { error: "Adgangskoden er for lang." };
+  const problem = passwordProblem(password);
+  if (problem) return { error: problem };
   if (password !== String(formData.get("repeat") ?? "")) return { error: "De to adgangskoder er ikke ens." };
   const userId = await consumeReset(token, await hashPassword(password));
   if (!userId) return { error: "Linket virker ikke længere. Bed om et nyt." };

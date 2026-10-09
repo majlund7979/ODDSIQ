@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { isInvited, isOwner, normaliseEmail, requireOwner } from "@/lib/auth/friends";
 import { allowAttempt, hashPassword, validateCredentials, verifyPassword } from "@/lib/auth/password";
 import { safeNext } from "@/lib/auth/redirect";
+import { validEmail } from "@/lib/auth/rules";
 import { ACCOUNTS_ENABLED, createSession, currentUser, destroySession, newUserId } from "@/lib/auth/session";
 import { BILLING_ENABLED } from "@/lib/billing/plans";
 import { createCheckoutSession, createPortalSession } from "@/lib/billing/stripe";
@@ -91,7 +92,7 @@ export async function addFriend(_: FriendState, formData: FormData): Promise<Fri
   await requireOwner();
   const email = normaliseEmail(String(formData.get("email") ?? ""));
   const name = String(formData.get("name") ?? "").trim().slice(0, 60);
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return { error: "Skriv en gyldig email." };
+  if (!validEmail(email)) return { error: "Skriv en gyldig email." };
   if (isOwner(email)) return { error: "Det er din egen email. Du har altid adgang." };
   await db().friend.upsert({ where: { email }, create: { email, name }, update: { name } });
   revalidatePath("/venner");
