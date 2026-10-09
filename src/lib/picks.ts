@@ -64,6 +64,16 @@ export interface PickContext {
   scorers?: { home: TopScorer | null; away: TopScorer | null; source?: string };
 }
 
+/** A match's context, worked out once per match: for one request, or one replayed moment of the demo. */
+export function memoContext(context: (eventId: string) => PickContext | null): (eventId: string) => PickContext | null {
+  const memo = new Map<string, PickContext | null>();
+  return (eventId) => {
+    let c = memo.get(eventId);
+    if (c === undefined) memo.set(eventId, (c = context(eventId)));
+    return c;
+  };
+}
+
 export interface FormGame {
   result: "V" | "U" | "T";
   score: string;

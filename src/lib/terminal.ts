@@ -12,12 +12,12 @@ import { loadScoring, refreshScorerFormOnVisit, type TeamScoring } from "@/lib/r
 import { topScorer, type TopScorer } from "@/lib/top-scorer";
 import { loadPredictions, refreshPredictionsOnVisit, type AfPrediction } from "@/lib/stats/af-predictions";
 import { statsConfig } from "@/lib/stats/config";
-import { clubEloCovers, clubEloRatings, clubPair, type ClubEloPair } from "@/lib/stats/clubelo";
+import { clubEloCovers, clubEloRatings, clubPair, type ClubEloPair, type ClubRating } from "@/lib/stats/clubelo";
 import { settleOnVisit } from "@/lib/providers/settle-on-visit";
 import * as demo from "@/lib/demo/store";
 import type { LedgerRow, MarketRow } from "@/lib/demo/store";
 import type { TeamNews } from "@/lib/stats/news";
-import type { PickContext } from "@/lib/picks";
+import { memoContext, type PickContext } from "@/lib/picks";
 import { rating } from "@/lib/model/elo";
 import { DEMO_SHARP_BOOKS, demoPickContext, demoRecordedPicks } from "@/lib/demo/picks";
 import { LIVE_SHARP_BOOKS, type SharpBooks } from "@/lib/sharp";
@@ -133,6 +133,21 @@ async function predictionsFor(snap: RealSnapshot, now: number): Promise<Map<numb
   return map;
 }
 
+/** ClubElo pairs per match, kept across requests while the ratings' day stays the same. */
+const clubMemo = new Map<string, ClubEloPair | null>();
+let clubMemoDate: number | null = null;
+
+function clubEloOf(e: RealSnapshot["events"][number], clubs: { date: number; ratings: ClubRating[] } | null): ClubEloPair | null {
+  if (!clubs || !clubEloCovers(e.view.leagueId)) return null;
+  if (clubs.date !== clubMemoDate) {
+    clubMemo.clear();
+    clubMemoDate = clubs.date;
+  }
+  const key = `${clubs.date}|${e.view.id}`;
+  if (!clubMemo.has(key)) clubMemo.set(key, clubPair(e.view.homeName, e.view.awayName, e.view.leagueId, clubs.ratings, clubs.date));
+  return clubMemo.get(key)!;
+}
+
 async function resultsOnVisit(now: number): Promise<void> {
   const s = await settleOnVisit(db(), now).catch(() => null);
   if (s?.some((x) => x.results > 0)) latest = null;
@@ -150,7 +165,7 @@ export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal
       dataLabel: "DEMO DATA",
       marketRows: () => demo.marketRows(now),
       ledgerRows: async () => demo.ledgerRows(now),
-      pickContext: (id) => demoPickContext(id, now),
+      pickContext: memoContext((id) => demoPickContext(id, now)),
       sharpBooks: DEMO_SHARP_BOOKS,
       recordedPicks: async () => demoRecordedPicks(now),
     };
@@ -161,12 +176,6 @@ export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal
   let fullSnap: Promise<RealSnapshot> | null = null;
   const full = () => (fullSnap ??= realSnapshot(db(), now));
   const [clubs, predictions, scoring] = await Promise.all([clubEloRatings(now), predictionsFor(snap, now), scoringFor(snap, now)]);
-  const clubMemo = new Map<string, ClubEloPair | null>();
-  const clubEloOf = (e: RealSnapshot["events"][number]) => {
-    if (!clubs || !clubEloCovers(e.view.leagueId)) return null;
-    if (!clubMemo.has(e.view.id)) clubMemo.set(e.view.id, clubPair(e.view.homeName, e.view.awayName, e.view.leagueId, clubs.ratings, clubs.date));
-    return clubMemo.get(e.view.id)!;
-  };
   return {
     live: true,
     now,
@@ -176,10 +185,10 @@ export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal
     ledgerRows: async () => (await full()).ledger,
     recordedPicks: (days) => readRecordedPicks(db(), now, days),
     sharpBooks: LIVE_SHARP_BOOKS,
-    pickContext: (id) => {
+    pickContext: memoContext((id) => {
       const e = snap.events.find((x) => x.view.id === id);
       if (!e) return null;
-      const clubElo = clubEloOf(e);
+      const clubElo = clubEloOf(e, clubs);
       const afPrediction = (e.fixtureId !== null && predictions.get(e.fixtureId)) || null;
       // A league without results history: only the cross-league strength and the team news.
       const scorers = scorersOf(scoring.get(e.view.id), e.news);
@@ -187,6 +196,6 @@ export async function terminal(opts: { fresh?: boolean } = {}): Promise<Terminal
       const { f, home, away } = e.forecast;
       const teams = e.model ? { home, away, homeElo: rating(e.model.elo, home), awayElo: rating(e.model.elo, away), history: e.model.history } : undefined;
       return { expectedGoals: f.expectedGoals, news: e.news, teams, counts: e.counts, htShare: e.htShare, clubElo, afPrediction, scorers };
-    },
+    }),
   };
 }
