@@ -11,6 +11,8 @@ export const dayKey = (t: number) => DAY_KEY.format(t);
 export const clock = (t: number) => new Date(t).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit", timeZone: TZ, hour12: false });
 /** "8. okt." */
 export const shortDate = (t: number) => new Date(t).toLocaleDateString("da-DK", { day: "numeric", month: "short", timeZone: TZ });
+/** "8. okt. 2026" */
+export const dateDa = (t: number) => new Date(t).toLocaleDateString("da-DK", { day: "numeric", month: "short", year: "numeric", timeZone: TZ });
 
 /** "1,50" */
 export const dec = (x: number, d = 2) => x.toFixed(d).replace(".", ",");
@@ -26,8 +28,3 @@ export const signedPct = (x: number, d = 1) => `${x >= 0 ? "+" : "−"}${dec(Mat
 export const krFromUnits = (units: number) => `${units >= 0 ? "+" : "−"}${Math.round(Math.abs(units) * 100)} kr`;
 
 export const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-export function fmtDate(t: number | null | undefined): string {
-  if (t == null) return "—";
-  return new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-}

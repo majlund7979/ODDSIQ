@@ -5,7 +5,7 @@ import { connection } from "next/server";
 import { openBillingPortal, signOut, startCheckout } from "@/app/auth-actions";
 import { inviteOnly, isOwner, requireFriend } from "@/lib/auth/friends";
 import { BILLING_ENABLED, PLANS } from "@/lib/billing/plans";
-import { fmtDate } from "@/lib/format";
+import { dateDa } from "@/lib/format";
 import { lookup, one, type SearchParams } from "@/lib/url";
 
 export const metadata = { title: "Min konto · Oddsanalyse" };
@@ -64,7 +64,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Sear
           {user.plan === "pro" && (
             <p className="text-xs text-muted">
               Status {user.planStatus ?? "aktiv"}
-              {user.planRenewsAt ? ` · fornyes ${fmtDate(user.planRenewsAt.getTime())}` : ""}
+              {user.planRenewsAt ? ` · fornyes ${dateDa(user.planRenewsAt.getTime())}` : ""}
             </p>
           )}
           {user.plan === "pro" ? (

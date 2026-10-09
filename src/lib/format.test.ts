@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capitalize, clock, dayKey, dec, krFromUnits, pct, pctOrDash, pctTight, shortDate, signedPct, TZ } from "./format";
+import { capitalize, clock, dateDa, dayKey, dec, krFromUnits, pct, pctOrDash, pctTight, shortDate, signedPct, TZ } from "./format";
 
 describe("Danish numbers", () => {
   it("uses a decimal comma", () => {
@@ -37,6 +37,12 @@ describe("Copenhagen dates", () => {
     expect(clock(Date.UTC(2026, 0, 8, 23, 59))).toBe("00.59");
     expect(shortDate(Date.UTC(2026, 9, 8, 15, 30))).toBe("8. okt.");
     expect(shortDate(Date.UTC(2026, 9, 31, 23, 30))).toBe("1. nov.");
+  });
+
+  it("writes a full date with the year in Danish", () => {
+    expect(dateDa(Date.UTC(2026, 9, 8, 15, 30))).toBe("8. okt. 2026");
+    expect(dateDa(Date.UTC(2026, 11, 31, 23, 30))).toBe("1. jan. 2027");
+    expect(dateDa(Date.UTC(2027, 4, 1, 12))).toBe("1. maj 2027");
   });
 
   it("gives the same day key as toLocaleDateString, across both clock changes", () => {
