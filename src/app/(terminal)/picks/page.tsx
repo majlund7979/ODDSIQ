@@ -44,6 +44,7 @@ import { POSITION_LABEL, SHOTS_MODEL_VERSION, topShotPicks, TYPICAL_TEAM_GOALS, 
 import { realShotBoard, type ShotBoard } from "@/lib/real/player-shots";
 import { SHARP_BACKTEST, SHARP_MAX_AGE_MS, SHARP_MAX_ODDS, SHARP_MIN_EV, SHARP_MIN_ODDS, SHARP_RECENT, SHARP_VERSION } from "@/lib/sharp";
 import { capitalize, clock, dayKey, dec, pct, shortDate, signedPct, TZ } from "@/lib/format";
+import { lookup, one, type SearchParams } from "@/lib/url";
 
 export const metadata = { title: "Dagens bedste bets · Oddsanalyse" };
 
@@ -851,12 +852,14 @@ const SAVED_FLASH: Record<string, string> = {
   lukket: "Bettet kan ikke gemmes længere, fordi kampen er gået i gang eller ikke er på listen mere.",
 };
 
-export default async function PicksPage({ searchParams }: { searchParams: Promise<{ antal?: string; type?: string; gemt?: string }> }) {
+export default async function PicksPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireFriend();
   const t = await terminal();
   const q = await searchParams;
   const count = PICK_COUNTS.find((n) => String(n) === q.antal) ?? 10;
   const tab = TABS.find((x) => x.id === q.type)?.id ?? "bedste";
+  const gemt = one(q.gemt);
+  const flash = lookup(SAVED_FLASH, gemt);
   const rows = t.marketRows();
   const goalCat = GOAL_CATEGORIES.find((c) => c.id === tab);
   const countCat = COUNT_CATEGORIES.find((c) => c.id === tab);
@@ -1012,9 +1015,9 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
 
       <div className="min-w-0 space-y-6">
 
-        {q.gemt && SAVED_FLASH[q.gemt] && (
-          <div role="status" className={`rounded-[20px] border px-4 py-3 text-sm ${q.gemt === "ok" ? "border-good/40 bg-good/10 text-good" : "border-warning/40 bg-warning/10 text-warning"}`}>
-            {SAVED_FLASH[q.gemt]} {q.gemt === "ok" && <Link href="/picks/liga" className="underline">Se vennerligaen</Link>}
+        {flash && (
+          <div role="status" className={`rounded-[20px] border px-4 py-3 text-sm ${gemt === "ok" ? "border-good/40 bg-good/10 text-good" : "border-warning/40 bg-warning/10 text-warning"}`}>
+            {flash} {gemt === "ok" && <Link href="/picks/liga" className="underline">Se vennerligaen</Link>}
           </div>
         )}
 

@@ -8,6 +8,7 @@ import { capitalize, krFromUnits, pctOrDash, pctTight, signedPct } from "@/lib/f
 import { CLV_VERSION } from "@/lib/real/clv";
 import { CATEGORY_LABEL } from "@/lib/pick-categories";
 import { SHARP_VERSION } from "@/lib/sharp";
+import { lookup, one, type SearchParams } from "@/lib/url";
 import { adjustmentLabel, LEARN_DAYS, LEARN_MIN, LEARNING_VERSION, learn, type CategoryLearning } from "@/lib/picks-learning";
 
 export const metadata = { title: "Resultater · Oddsanalyse" };
@@ -28,12 +29,13 @@ function adjustment(l: CategoryLearning | undefined): string {
   return `${adjustmentLabel(l.adjustmentPp)} point`;
 }
 
-export default async function ResultsPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
+export default async function ResultsPage({ searchParams }: { searchParams: SearchParams }) {
   await requireFriend("/picks/resultater");
   const t = await terminal();
   const q = await searchParams;
   const all = await t.recordedPicks();
-  const type = q.type && CATEGORY_LABEL[q.type] ? q.type : "bedste";
+  const raw = one(q.type);
+  const type = raw && lookup(CATEGORY_LABEL, raw) ? raw : "bedste";
   const picks = all.filter((p) => p.category === type);
   const total = summarise(picks);
   const byCat = Object.keys(CATEGORY_LABEL).map((c) => ({ id: c, s: summarise(all.filter((p) => p.category === c)) }));

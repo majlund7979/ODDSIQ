@@ -5,15 +5,16 @@ import { Logo } from "@/components/Logo";
 import { NewPasswordForm } from "@/components/ResetForms";
 import { checkReset } from "@/lib/auth/reset";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
+import { one, type SearchParams } from "@/lib/url";
 
 export const metadata = { title: "Ny adgangskode · Oddsanalyse" };
 
 const WHY = { unknown: "Linket er ikke gyldigt.", used: "Linket er allerede brugt.", expired: "Linket er udløbet." };
 
-export default async function NewPasswordPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
+export default async function NewPasswordPage({ searchParams }: { searchParams: SearchParams }) {
   await connection();
   if (!ACCOUNTS_ENABLED) redirect("/picks");
-  const token = (await searchParams).token ?? "";
+  const token = one((await searchParams).token) ?? "";
   const check = await checkReset(token);
   return (
     <div className="space-y-6">

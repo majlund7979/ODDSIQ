@@ -6,6 +6,7 @@ import { openBillingPortal, signOut, startCheckout } from "@/app/auth-actions";
 import { inviteOnly, isOwner, requireFriend } from "@/lib/auth/friends";
 import { BILLING_ENABLED, PLANS } from "@/lib/billing/plans";
 import { fmtDate } from "@/lib/format";
+import { lookup, one, type SearchParams } from "@/lib/url";
 
 export const metadata = { title: "Min konto · Oddsanalyse" };
 
@@ -15,11 +16,11 @@ const NOTICE: Record<string, string> = {
   unavailable: "Betaling er ikke slået til.",
 };
 
-export default async function AccountPage({ searchParams }: { searchParams: Promise<{ billing?: string }> }) {
+export default async function AccountPage({ searchParams }: { searchParams: SearchParams }) {
   await connection();
   const user = await requireFriend("/account");
   if (!user) redirect("/picks");
-  const { billing } = await searchParams;
+  const notice = lookup(NOTICE, one((await searchParams).billing));
   const plan = PLANS.find((p) => p.id === user.plan) ?? PLANS[0];
   const pro = PLANS.find((p) => p.id === "pro")!;
   const btn = "rounded-xl border border-line-strong px-4 py-2.5 text-sm font-medium hover:bg-surface-2";
@@ -27,7 +28,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   return (
     <div className="mx-auto max-w-xl space-y-5">
       <h1 className="display text-[40px] text-ink sm:text-5xl">Min konto</h1>
-      {billing && NOTICE[billing] && <p className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink-2">{NOTICE[billing]}</p>}
+      {notice && <p className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink-2">{notice}</p>}
 
       <section className="flex items-center gap-4 rounded-[20px] border border-line bg-surface p-5">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-lime-soft text-lg font-semibold text-accent">{user.email.charAt(0).toUpperCase()}</span>

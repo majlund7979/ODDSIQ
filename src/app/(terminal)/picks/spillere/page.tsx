@@ -10,6 +10,7 @@ import { API_FOOTBALL, seasonFor, type TeamHit } from "@/lib/stats/api-football"
 import { configuredStatsFeed } from "@/lib/stats/config";
 import { cleanQuery, LEADER_CATEGORIES, PER90_MIN_MINUTES, playerCard, RECENT_MATCHES, teamLeaders, type Leader, type PlayerCard } from "@/lib/team-leaders";
 import { terminal } from "@/lib/terminal";
+import { one, type SearchParams } from "@/lib/url";
 
 export const metadata = { title: "Holdsøgning · Oddsanalyse" };
 // A team that has not been opened today is fetched from API-Football on the spot (up to about 10 requests).
@@ -177,9 +178,10 @@ interface TeamLink {
   sub?: string;
 }
 
-export default async function TeamSearchPage({ searchParams }: { searchParams: Promise<{ q?: string; hold?: string; navn?: string; spiller?: string }> }) {
+export default async function TeamSearchPage({ searchParams }: { searchParams: SearchParams }) {
   await requireFriend("/picks/spillere");
-  const q = await searchParams;
+  const raw = await searchParams;
+  const q = { q: one(raw.q), hold: one(raw.hold), navn: one(raw.navn), spiller: one(raw.spiller) };
   const query = cleanQuery(q.q);
   const t = await terminal();
   const feed = DEMO_MODE ? null : configuredStatsFeed();
