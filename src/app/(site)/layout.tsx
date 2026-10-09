@@ -13,7 +13,7 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
       </section>
       <div className="flex flex-col items-center justify-center px-4 py-10">
         <main className="w-full max-w-sm">{children}</main>
-        <footer className="mt-10 max-w-sm text-center text-xs leading-relaxed text-muted">Kun analyse, vi formidler ikke spil. 18+. Spil indebærer risiko for tab.</footer>
+        <footer className="mt-10 max-w-sm text-center text-xs leading-relaxed text-muted">Kun analyse, vi formidler ikke spil. 18+. Spil indebærer risiko for tab. Brug for hjælp? Kontakt StopSpillet.dk.</footer>
       </div>
     </div>
   );

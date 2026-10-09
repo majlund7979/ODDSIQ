@@ -31,9 +31,7 @@ export default async function TerminalLayout({ children }: Readonly<{ children: 
       <header className="sticky top-0 z-30 border-b border-line bg-page">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 xl:gap-5">
           <Logo />
-          {DEMO_MODE && <Badge tone="warning" className="whitespace-nowrap xl:hidden">
-              Demo<span className="hidden sm:inline"> data</span>
-            </Badge>}
+          {DEMO_MODE && <Badge tone="warning" className="whitespace-nowrap">DEMO DATA</Badge>}
           <div className="ml-auto flex items-center gap-2 xl:gap-3">
             <TopNav items={items.filter((i) => i !== ACCOUNT_NAV)} />
             {user && <InviteBar count={count} />}
@@ -49,8 +47,8 @@ export default async function TerminalLayout({ children }: Readonly<{ children: 
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-28 md:pt-8 xl:pb-16">{children}</main>
-      <footer className="mx-auto hidden w-full max-w-6xl border-t border-line px-4 py-8 text-sm text-muted xl:block">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-8 md:pt-8 xl:pb-16">{children}</main>
+      <footer className="mx-auto w-full max-w-6xl border-t border-line px-4 pt-6 pb-28 text-xs text-muted xl:py-8 xl:text-sm">
         Kun analyse, vi formidler ikke spil. 18+. Spil indebærer risiko for tab. Brug for hjælp? Kontakt StopSpillet.dk.
       </footer>
       <BottomNav items={items} />
