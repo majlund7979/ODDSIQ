@@ -23,7 +23,7 @@ import {
 } from "@/lib/picks";
 import { requireFriend } from "@/lib/auth/friends";
 import { explainPick } from "@/lib/picks-explain";
-import { applyLearning, applyLearningToPicks, LEARN_DAYS, LEARN_MIN, learn, type CategoryLearning } from "@/lib/picks-learning";
+import { applyLearning, applyLearningToPicks, hitRatePeriod, LEARN_DAYS, LEARN_MIN, learn, LEARNING_VERSION, type CategoryLearning } from "@/lib/picks-learning";
 import { COUPON_MIN_ODDS, ROCKET_MIN_CHANCE, correctScorePicks, coupons, doubleChancePicks, halfTimePicks, summarise, type Coupon, type ExtraPick } from "@/lib/picks-extra";
 import { terminal } from "@/lib/terminal";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
@@ -881,6 +881,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   };
   const scope = analysedMatches(rows, t.now);
   const live = await (DEMO_MODE ? Promise.resolve(demoLivePicks(tab, t.now)) : DATABASE_CONFIGURED ? livePicks(db(), process.env.STATS_API_KEY || null, tab, t.now) : Promise.resolve([])).catch(() => []);
+  const liveSource = DEMO_MODE ? "DEMO DATA" : "API-Football";
   const savedKeys = user ? await openBetKeys(db(), user.id, t.now) : new Set<string>();
   const back = href(tab, count);
   const saveFor = (eventId: string): SaveTarget | null =>
@@ -892,6 +893,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
     const l = allLearning.get(id);
     return l && l.hitRate.n > 0 ? l.hitRate : null;
   };
+  const hitPeriod = hitRatePeriod(TABS.flatMap((x) => hit(x.id) ?? []));
 
   return (
     <div className="space-y-6 lg:space-y-8">
@@ -927,6 +929,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
               leagues={scope.leagues}
               nextKickoff={nextKickoff}
               feedTime={t.feedTime}
+              live={t.live}
               week={week}
               source={t.dataLabel}
             />
@@ -957,7 +960,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
                     href={href(x.id, count)}
                     scroll={false}
                     aria-current={active ? "page" : undefined}
-                    title={h ? `Træfprocent ${Math.round(h.value * 100)} % i ${h.n} afgjorte bets, sidste ${LEARN_DAYS} dage (historisk)` : undefined}
+                    title={h ? `Træfprocent ${Math.round(h.value * 100)} % i ${h.n} afgjorte bets, ${hitRatePeriod([h])} (historisk, ${h.source}, ${h.modelVersion})` : undefined}
                     className={`flex shrink-0 items-center justify-between gap-3 whitespace-nowrap rounded-full border px-4 py-2 text-[15px] font-medium lg:border-0 lg:px-4 ${
                       active ? "border-lime bg-lime font-semibold text-accent" : "border-line bg-surface text-ink-2 hover:text-accent lg:bg-transparent lg:hover:bg-surface-2"
                     }`}
@@ -978,7 +981,9 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
             </div>
           ))}
         </nav>
-        <p className="hidden px-4 text-xs leading-relaxed text-muted lg:block">Tallet er træfprocenten de sidste {LEARN_DAYS} dage (historisk).</p>
+        <p className="hidden px-4 text-xs leading-relaxed text-muted lg:block">
+          Tallet er træfprocenten for de afgjorte bets ({hitPeriod}, {t.dataLabel}, {LEARNING_VERSION}).
+        </p>
 
         <div className="flex flex-wrap items-center gap-3 lg:block lg:space-y-3 lg:rounded-[20px] lg:bg-surface-2 lg:p-4">
           <nav aria-label="Antal bets" className="flex rounded-full bg-surface-2 p-1 lg:bg-surface-3">
@@ -1013,7 +1018,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
           </div>
         )}
 
-        {tab === "bedste" && <LiveNow type={tab} initial={live} />}
+        {tab === "bedste" && <LiveNow type={tab} initial={live} source={liveSource} />}
 
         {tab === "bedste" && <CouponCard coupons={coupons(couponPool)} />}
 
@@ -1037,10 +1042,10 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
 
 
         <div className="lg:hidden">
-          <HitRates learning={allLearning} labels={TABS.filter((x) => x.id !== "straffe")} current={tab} days={LEARN_DAYS} source={t.dataLabel} returns={new Map(TABS.map((x) => [x.id, summarise(history.filter((h) => h.category === x.id))]))} />
+          <HitRates learning={allLearning} labels={TABS.filter((x) => x.id !== "straffe")} current={tab} period={hitPeriod} source={t.dataLabel} version={LEARNING_VERSION} returns={new Map(TABS.map((x) => [x.id, summarise(history.filter((h) => h.category === x.id))]))} />
         </div>
 
-        {tab !== "bedste" && <LiveNow type={tab} initial={live} />}
+        {tab !== "bedste" && <LiveNow type={tab} initial={live} source={liveSource} />}
 
         {tab === "bedste" && (
           <div className="flex flex-wrap items-baseline justify-between gap-2 pt-2">

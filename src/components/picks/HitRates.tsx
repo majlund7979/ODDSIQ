@@ -5,7 +5,7 @@ import Link from "next/link";
 import { roiLabel, ROI_MIN, type ResultsSummary } from "@/lib/picks-extra";
 import type { Learning } from "@/lib/picks-learning";
 
-export function HitRates({ learning, labels, current, days, source, returns }: { learning: Learning; labels: { id: string; label: string }[]; current: string; days: number; source: string; returns?: Map<string, ResultsSummary> }) {
+export function HitRates({ learning, labels, current, period, source, version, returns }: { learning: Learning; labels: { id: string; label: string }[]; current: string; period: string; source: string; version: string; returns?: Map<string, ResultsSummary> }) {
   const rows = labels.flatMap((c) => {
     const l = learning.get(c.id);
     return l && l.hitRate.n > 0 ? [{ ...c, rate: l.hitRate.value, n: l.hitRate.n, ret: returns?.get(c.id) }] : [];
@@ -17,7 +17,7 @@ export function HitRates({ learning, labels, current, days, source, returns }: {
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
         <span className="text-sm font-semibold">Træfprocent og afkast pr. bet-type</span>
         <span className="text-xs text-muted">
-          Historisk, sidste {days} dage · {source}
+          Historisk · {period} · {source} · {version}
         </span>
       </div>
       <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">

@@ -7,7 +7,7 @@
 // rate and the average predicted probability, shrunk towards zero while the
 // sample is small, and capped so one bad weekend cannot swing the page.
 
-import { dec, pct } from "@/lib/format";
+import { dec, pct, shortDate } from "@/lib/format";
 import { metric, periodOf, type Metric } from "@/lib/metrics/metric";
 import type { RecordedPick } from "./picks-extra";
 import { strengthOf, type Pick } from "./picks";
@@ -100,6 +100,12 @@ export function applyLearningToPicks(picks: Pick[], l: CategoryLearning | undefi
       factors: [...p.factors, { label: "Læring fra resultater", pp: (p.probability - before) * 100, detail: learningDetail(l) }],
     };
   });
+}
+
+/** The period hit rates cover, from the earliest to the latest settled kickoff, e.g. "1. okt.–7. okt."; the look-back window when none has settled. */
+export function hitRatePeriod(rates: Metric[]): string {
+  const { periodFrom, periodTo } = periodOf(rates.flatMap((m) => (m.periodFrom !== null && m.periodTo !== null ? [m.periodFrom, m.periodTo] : [])));
+  return periodFrom !== null && periodTo !== null ? `${shortDate(periodFrom)}–${shortDate(periodTo)}` : `sidste ${LEARN_DAYS} dage`;
 }
 
 /** The adjustment in percentage points, e.g. "+1,2" or "−0,4". */

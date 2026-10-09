@@ -72,7 +72,7 @@ export async function GET(request: Request) {
         r.clv?.toFixed(5),
         p.prevHash,
         p.hash,
-        "DEMO",
+        t.live ? "LIVE" : "DEMO DATA",
       ]
         .map(cell)
         .join(","),
@@ -81,7 +81,7 @@ export async function GET(request: Request) {
   return new Response(lines.join("\n") + "\n", {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="oddsiq-ledger-${new Date(t.now).toISOString().slice(0, 10)}.csv"`,
+      "Content-Disposition": `attachment; filename="oddsanalyse-ledger-${new Date(t.now).toISOString().slice(0, 10)}.csv"`,
     },
   });
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RecordedPick } from "./picks-extra";
-import { adjusted, adjustmentLabel, applyLearning, LEARN_MAX_SHIFT, LEARN_MIN, learn } from "./picks-learning";
+import { adjusted, adjustmentLabel, applyLearning, hitRatePeriod, LEARN_DAYS, LEARN_MAX_SHIFT, LEARN_MIN, learn } from "./picks-learning";
 
 const rec = (category: string, probability: number, won: boolean, i = 0): RecordedPick => ({
   day: "2026-10-01",
@@ -58,5 +58,12 @@ describe("learning from settled picks", () => {
     expect(adjustmentLabel(1.234)).toBe("+1,2");
     expect(adjustmentLabel(-0.4)).toBe("−0,4");
     expect(adjustmentLabel(0)).toBe("+0,0");
+  });
+
+  it("gives the hit rates the period they cover, not the look-back window", () => {
+    const m = learn([...batch("maal", 3, 1, 0.6), { ...rec("vinder", 0.5, true), kickoff: Date.UTC(2026, 9, 7, 12) }], "test");
+    expect(hitRatePeriod([m.get("maal")!.hitRate])).toBe("1. okt.–1. okt.");
+    expect(hitRatePeriod([m.get("maal")!.hitRate, m.get("vinder")!.hitRate])).toBe("1. okt.–7. okt.");
+    expect(hitRatePeriod([])).toBe(`sidste ${LEARN_DAYS} dage`);
   });
 });

@@ -27,6 +27,7 @@ export function Overview({
   leagues,
   nextKickoff,
   feedTime,
+  live,
   week,
   source,
   topLabel = "Dagens sikreste bet",
@@ -43,6 +44,8 @@ export function Overview({
   leagues: number;
   nextKickoff: number | null;
   feedTime: number;
+  /** False on demo data: the feed tile then says DEMO DATA. */
+  live: boolean;
   /** Settled "bedste" picks from the last seven days. */
   week: RecordedPick[];
   source: string;
@@ -71,7 +74,7 @@ export function Overview({
         )}
       </Tile>
 
-      <Tile label="Analyseret nu" className="col-span-2 lg:col-span-1" foot={`Odds opdateret kl. ${clock(feedTime)}. Live tal.`}>
+      <Tile label="Analyseret nu" className="col-span-2 lg:col-span-1" foot={`Odds opdateret kl. ${clock(feedTime)}. ${live ? "Live tal." : "DEMO DATA."}`}>
         <div className="num text-2xl font-extrabold tracking-[-0.02em] text-ink sm:text-3xl">{matches}</div>
         <div className="text-sm text-ink-2">
           kampe i {leagues} {leagues === 1 ? "liga" : "ligaer"}
