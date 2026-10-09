@@ -6,11 +6,11 @@ import type { Metric } from "@/lib/metrics/metric";
 import { PICK_COUNTS } from "@/lib/picks";
 import { STAKE_VERSION } from "@/lib/picks-advice";
 import { hitRatePeriod, LEARNING_VERSION } from "@/lib/picks-learning";
-import { picksHref, TAB_GROUPS } from "@/lib/picks-tabs";
+import { picksHref, TAB_GROUPS, type TabId } from "@/lib/picks-tabs";
 import { BankrollInput } from "./BankrollInput";
 
 /** Everything you choose, on the left of the list. On phones it collapses to one row of buttons. */
-export function TabNav({ tab, count, hit, hitPeriod, source }: { tab: string; count: number; hit: (id: string) => Metric | null; hitPeriod: string; source: string }) {
+export function TabNav({ tab, count, hit, hitPeriod, source }: { tab: TabId; count: number; hit: (id: string) => Metric | null; hitPeriod: string; source: string }) {
   return (
     <aside className="min-w-0 space-y-4 lg:sticky lg:top-24 lg:space-y-6 lg:self-start">
       <nav aria-label="Bet-type" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:block lg:space-y-5 lg:overflow-visible lg:px-0">

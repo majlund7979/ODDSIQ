@@ -8,6 +8,7 @@ import { SHOTS_MODEL_VERSION, type ShotPick } from "@/lib/player-shots";
 import type { ShotBoard } from "@/lib/real/player-shots";
 import { SHARP_MAX_AGE_MS, SHARP_MAX_ODDS, SHARP_MIN_EV, SHARP_MIN_ODDS } from "@/lib/sharp";
 import { dec } from "@/lib/format";
+import type { TabId } from "@/lib/picks-tabs";
 import type { SaveTarget } from "./Advice";
 import { kickoffLabel } from "./BetCard";
 import { CountCard } from "./cards/CountCard";
@@ -35,7 +36,7 @@ export function TabBody({
   shotPicks,
   saveFor,
 }: {
-  tab: string;
+  tab: TabId;
   now: number;
   /** Bedste bets or a goal market's picks; empty on the other tabs. */
   picks: Pick[];

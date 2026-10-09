@@ -21,6 +21,7 @@ import { AF_PREDICTION_MODEL, AF_PREDICTION_WEIGHT, flooredPercent, type AfPredi
 import { CLUBELO_MODEL, CLUBELO_WEIGHT, clubEloProbs, type ClubEloPair } from "@/lib/stats/clubelo";
 import type { TeamNews } from "@/lib/stats/news";
 import { sharpBets, type SharpBooks } from "@/lib/sharp";
+import { CATEGORY_LABEL } from "@/lib/pick-categories";
 
 export const PICK_WINDOW_MS = 24 * 3_600_000;
 export const PICK_COUNTS = [5, 10] as const;
@@ -167,6 +168,11 @@ export interface Pick {
   /** On a "Dagens bedste bets" pick: when the price was observed. */
   pricedAt?: number;
 }
+
+/** A "Dagens bedste bets" pick, which always carries the price comparison. */
+export type SharpPick = Pick & { ev: number; reference: string; minOdds: number; pricedAt: number };
+
+export const isSharp = (p: Pick): p is SharpPick => p.ev !== undefined && p.reference !== undefined && p.minOdds !== undefined && p.pricedAt !== undefined;
 
 /** Begge hold scorer is only suggested when both teams scored in every one of this many recent matches. */
 export const BTTS_FORM_GAMES = 5;
@@ -492,7 +498,7 @@ export function dailyPicks(
  * bet365 or bwin pays at least 1 % more, at odds 1,25–5 (sharp.ts). The bet is shown at that bookmaker's price. The
  * backtest found no documented edge, so the page shows it as an experiment.
  */
-export function sharpPicks(rows: MarketRow[], now: number, count: number, context: (eventId: string) => PickContext | null, books: SharpBooks): Pick[] {
+export function sharpPicks(rows: MarketRow[], now: number, count: number, context: (eventId: string) => PickContext | null, books: SharpBooks): SharpPick[] {
   const upcoming = rows.filter((r) => r.sportId === "football" && r.status === "scheduled" && r.kickoff > now && r.kickoff <= now + PICK_WINDOW_MS);
   const pct1 = (x: number) => `${dec(x * 100, 1)} %`;
   return sharpBets(upcoming, books, now)
@@ -605,16 +611,16 @@ export { signedPp };
 // Bet types
 
 export const GOAL_CATEGORIES = [
-  { id: "vinder", label: "Hvem vinder", market: "1X2" },
-  { id: "maal15", label: "Over/under 1,5 mål", market: "OU15" },
-  { id: "maal", label: "Over/under 2,5 mål", market: "OU25" },
-  { id: "btts", label: "Begge hold scorer", market: "BTTS" },
+  { id: "vinder", label: CATEGORY_LABEL.vinder, market: "1X2" },
+  { id: "maal15", label: CATEGORY_LABEL.maal15, market: "OU15" },
+  { id: "maal", label: CATEGORY_LABEL.maal, market: "OU25" },
+  { id: "btts", label: CATEGORY_LABEL.btts, market: "BTTS" },
 ] as const;
 
 export const COUNT_CATEGORIES: { id: string; label: string; stat: CountStat; unit: string }[] = [
-  { id: "hjorne", label: "Hjørnespark", stat: "corners", unit: "hjørnespark" },
-  { id: "kort", label: "Kort", stat: "cards", unit: "kort" },
-  { id: "frispark", label: "Frispark", stat: "fouls", unit: "frispark" },
+  { id: "hjorne", label: CATEGORY_LABEL.hjorne, stat: "corners", unit: "hjørnespark" },
+  { id: "kort", label: CATEGORY_LABEL.kort, stat: "cards", unit: "kort" },
+  { id: "frispark", label: CATEGORY_LABEL.frispark, stat: "fouls", unit: "frispark" },
 ];
 
 /** The best pick per match within one goal market. */

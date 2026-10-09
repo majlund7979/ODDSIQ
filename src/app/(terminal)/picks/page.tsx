@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { analysedMatches, COUNT_CATEGORIES, countPicks, couponCandidates, GOAL_CATEGORIES, marketPicks, PICK_COUNTS, sharpPicks } from "@/lib/picks";
+import { analysedMatches, COUNT_CATEGORIES, countPicks, couponCandidates, GOAL_CATEGORIES, isSharp, marketPicks, PICK_COUNTS, sharpPicks } from "@/lib/picks";
 import { requireFriend } from "@/lib/auth/friends";
 import { applyLearning, applyLearningToPicks, hitRatePeriod, LEARN_DAYS, learn, LEARNING_VERSION } from "@/lib/picks-learning";
 import { coupons, summarise } from "@/lib/picks-extra";
-import { EXTRA, picksHref, TABS } from "@/lib/picks-tabs";
+import { EXTRA, picksHref, tabFor, TABS } from "@/lib/picks-tabs";
 import { terminal } from "@/lib/terminal";
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { db } from "@/lib/db";
@@ -39,7 +39,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
   const t = await terminal();
   const q = await searchParams;
   const count = PICK_COUNTS.find((n) => String(n) === q.antal) ?? 10;
-  const tab = TABS.find((x) => x.id === q.type)?.id ?? "bedste";
+  const tab = tabFor(one(q.type)).id;
   const gemt = one(q.gemt);
   const flash = lookup(SAVED_FLASH, gemt);
   const rows = t.marketRows();
@@ -56,6 +56,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
   const learned = allLearning.get(tab);
   // The price comparison's probability is Pinnacle's price without margin, so the per-type learning is not applied on top.
   const picks = tab === "bedste" ? sharpPicks(rows, t.now, count, t.pickContext, t.sharpBooks) : applyLearningToPicks(goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [], learned);
+  const first = picks[0];
   // The coupons pick the likeliest bets; "bedste"'s record now follows the price comparison, so its learning does not fit them.
   const couponPool = tab === "bedste" ? couponCandidates(rows, t.now, t.pickContext) : [];
   const cPicks = applyLearning(countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [], learned);
@@ -72,7 +73,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
     tab === "straffe" || tab === "skud" ? null : { category: tab, back, saved: savedKeys.has(`${eventId}|${tab}`), signedIn: !!user, accounts: ACCOUNTS_ENABLED };
   const today = new Date(t.now).toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: TZ });
 
-  const tabLabel = TABS.find((x) => x.id === tab)!.label;
+  const tabLabel = tabFor(tab).label;
   const hit = (id: string) => {
     const l = allLearning.get(id);
     return l && l.hitRate.n > 0 ? l.hitRate : null;
@@ -93,16 +94,16 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
           <div className="mt-4 sm:mt-6">
             <Overview
               top={
-                picks[0]
+                first && isSharp(first)
                   ? {
-                      outcome: picks[0].outcome,
-                      match: picks[0].row.match,
-                      league: picks[0].row.league,
-                      kickoff: picks[0].row.kickoff,
-                      probability: picks[0].probability,
-                      odds: picks[0].row.bestOdds,
-                      headline: { value: signedPct(picks[0].ev ?? 0), caption: `over ${picks[0].reference}s fair pris · chance ${Math.round(picks[0].probability * 100)} %` },
-                      note: `${picks[0].row.bestBook} betaler ${dec((picks[0].ev ?? 0) * 100, 1)} % mere end ${picks[0].reference}s odds uden margin. Spil kun til mindst ${dec(picks[0].minOdds ?? 0)}. Ingen dokumenteret fordel.`,
+                      outcome: first.outcome,
+                      match: first.row.match,
+                      league: first.row.league,
+                      kickoff: first.row.kickoff,
+                      probability: first.probability,
+                      odds: first.row.bestOdds,
+                      headline: { value: signedPct(first.ev), caption: `over ${first.reference}s fair pris · chance ${Math.round(first.probability * 100)} %` },
+                      note: `${first.row.bestBook} betaler ${dec(first.ev * 100, 1)} % mere end ${first.reference}s odds uden margin. Spil kun til mindst ${dec(first.minOdds)}. Ingen dokumenteret fordel.`,
                     }
                   : null
               }

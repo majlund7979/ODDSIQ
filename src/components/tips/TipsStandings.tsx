@@ -53,13 +53,17 @@ export function TipsStandings({ tips, modelWeek, week, previous, now, me, source
   const shownWinner = winners.find((w) => w.week === (week.end <= now ? week.id : previous.id));
   const allTime = standings(tips.filter((x) => x.userId !== MODEL_ID)).slice(0, 10);
   const stats = funStats(tips, winners);
+  const label = (id: string) => {
+    const w = weekById(id);
+    return w ? weekLabel(w) : id;
+  };
 
   return (
     <div className="grid items-start gap-5 md:grid-cols-2">
       <div className="space-y-5">
         {shownWinner && (
           <section className="rounded-2xl border border-warning/40 bg-warning/10 p-5">
-            <div className="text-[13px] font-semibold text-warning">Ugens vinder · {weekLabel(weekById(shownWinner.week)!)}</div>
+            <div className="text-[13px] font-semibold text-warning">Ugens vinder · {label(shownWinner.week)}</div>
             <div className="mt-2 text-2xl font-semibold">{shownWinner.winners.map((w) => w.name).join(" og ")}</div>
             <div className="mt-1 text-sm text-ink-2">
               {shownWinner.winners[0].points.toFixed(1).replace(".", ",")} point · {shownWinner.winners[0].correct} rigtige af {shownWinner.winners[0].settled}
@@ -102,7 +106,7 @@ export function TipsStandings({ tips, modelWeek, week, previous, now, me, source
           <Table rows={allTime} me={me} empty="Ingen tips endnu." />
           {winners.length > 0 && (
             <p className="border-t border-line px-4 py-2.5 text-xs text-muted">
-              Tidligere vindere: {winners.slice(0, 6).map((w) => `${weekLabel(weekById(w.week)!)} ${w.winners.map((x) => x.name).join(" og ")}`).join(", ")}.
+              Tidligere vindere: {winners.slice(0, 6).map((w) => `${label(w.week)} ${w.winners.map((x) => x.name).join(" og ")}`).join(", ")}.
             </p>
           )}
         </section>

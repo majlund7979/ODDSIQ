@@ -1,7 +1,7 @@
 // A pick on Dagens bedste bets or a goal market: the bet, the chance, the
 // odds and, behind "Hvorfor?", how the percentage was worked out.
 
-import { BTTS_FORM_GAMES, isNationalTeams, NATIONAL_OVER_MIN_SCORED, signedPp, type Pick } from "@/lib/picks";
+import { BTTS_FORM_GAMES, isNationalTeams, isSharp, NATIONAL_OVER_MIN_SCORED, signedPp, type Pick } from "@/lib/picks";
 import { explainPick } from "@/lib/picks-explain";
 import { compareBooks, oddsMove } from "@/lib/picks-advice";
 import { clock, dec } from "@/lib/format";
@@ -75,7 +75,7 @@ function GoalBets({ p, home, away }: { p: Pick; home: string; away: string }) {
       </div>
       <div className="mt-1 text-xs text-muted">
         Tilbage pr. 100 kr er chance gange odds, et skøn.{" "}
-        {p.ev !== undefined ? "Dagens bedste bets sammenligner kun vinder-oddsene med Pinnacles fair pris; mål-bets er ikke med i sammenligningen." : "Vi foreslår altid det bet, der oftest går hjem."}
+        {isSharp(p) ? "Dagens bedste bets sammenligner kun vinder-oddsene med Pinnacles fair pris; mål-bets er ikke med i sammenligningen." : "Vi foreslår altid det bet, der oftest går hjem."}
       </div>
     </Fact>
   );
@@ -212,17 +212,16 @@ export function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: n
         <div className="flex items-center gap-5">
           <Gauge p={p.probability} />
           <div className="min-w-[96px] rounded-2xl bg-surface-2 px-3 py-2.5 text-center">
-            <div className="text-[11px] font-medium text-muted">{p.ev !== undefined ? "Odds hos" : "Bedste odds"}</div>
+            <div className="text-[11px] font-medium text-muted">{isSharp(p) ? "Odds hos" : "Bedste odds"}</div>
             <div className="num text-2xl font-semibold">{dec(p.row.bestOdds)}</div>
             <div className="truncate text-[11px] text-ink-2">{p.row.bestBook}</div>
           </div>
         </div>
       </div>
-      {p.ev !== undefined && p.minOdds !== undefined && (
+      {isSharp(p) && (
         <div className="border-t border-line bg-surface-2 px-5 py-2.5 text-sm text-ink-2">
           {p.reference}s fair pris {dec(p.fairOdds)} · {p.row.bestBook} {dec(p.row.bestOdds)} ({p.ev >= 0 ? "+" : ""}
-          {dec(p.ev * 100, 1)} %) · <span className="font-semibold text-ink">spil kun til mindst {dec(p.minOdds)}</span>
-          {p.pricedAt !== undefined && <> · odds hentet kl. {clock(p.pricedAt)}</>}
+          {dec(p.ev * 100, 1)} %) · <span className="font-semibold text-ink">spil kun til mindst {dec(p.minOdds)}</span> · odds hentet kl. {clock(p.pricedAt)}
         </div>
       )}
       {p.instead && (

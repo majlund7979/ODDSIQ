@@ -15,6 +15,9 @@ export const CATEGORY_LABEL: Record<string, string> = {
   frispark: "Frispark",
 };
 
+/** Bet types on /picks that are never recorded, so they stay out of CATEGORY_LABEL, whose keys the results board lists. */
+export const TAB_EXTRA_LABEL = { skud: "Skud på mål", straffe: "Straffespark" };
+
 /**
  * Dagens bedste bets has followed three rules: the most probable bet, then the prediction engine's value bets
  * (2026-10-06), then the Pinnacle price comparison (sharp.ts). Its picks are recorded under an id that names the
