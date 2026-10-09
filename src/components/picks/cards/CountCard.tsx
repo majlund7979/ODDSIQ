@@ -4,7 +4,7 @@
 import { lineLabel, type CountPick } from "@/lib/picks";
 import { dec } from "@/lib/format";
 import { AdviceRow, type SaveTarget } from "../Advice";
-import { CardTop, Fact, Gauge, MoreToggle } from "../BetCard";
+import { CardTop, Fact, Gauge, MatchTitle, MoreToggle, SplitBar, StatBox } from "../BetCard";
 import { NewsBlock } from "../facts";
 
 export function CountCard({ p, rank, now, save }: { p: CountPick; rank: number; now: number; save: SaveTarget | null }) {
@@ -17,9 +17,7 @@ export function CountCard({ p, rank, now, save }: { p: CountPick; rank: number; 
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
           <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} probability={p.probability} now={now} />
-          <h2 className="text-xl font-bold leading-tight tracking-[-0.01em] sm:text-[22px]">
-            {home} <span className="text-muted">–</span> {away}
-          </h2>
+          <MatchTitle home={home} away={away} />
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-lime-soft px-3.5 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
             <span className="text-sm text-ink-2">
@@ -29,11 +27,7 @@ export function CountCard({ p, rank, now, save }: { p: CountPick; rank: number; 
         </div>
         <div className="flex items-center gap-5">
           <Gauge p={p.probability} />
-          <div className="min-w-[96px] rounded-2xl bg-surface-2 px-3 py-2.5 text-center">
-            <div className="text-[11px] font-medium text-muted">Linjen</div>
-            <div className="num text-2xl font-semibold">{lineLabel(f.fairLine)}</div>
-            <div className="text-[11px] text-ink-2">fair odds {dec(p.fairOdds)}</div>
-          </div>
+          <StatBox label="Linjen" value={lineLabel(f.fairLine)} sub={<>fair odds {dec(p.fairOdds)}</>} />
         </div>
       </div>
       <AdviceRow p={p.probability} odds={null} eventId={p.row.eventId} save={save} leg={{ key: `${p.row.eventId}|count|${p.outcome}`, match: p.row.match, outcome: p.outcome, kickoff: p.row.kickoff }} />
@@ -42,14 +36,7 @@ export function CountCard({ p, rank, now, save }: { p: CountPick; rank: number; 
         <div className="grid gap-6 border-t border-line px-5 py-5 md:grid-cols-2">
           <div className="space-y-5">
             <Fact label={`Forventede ${p.unit}`}>
-              <div className="flex items-center gap-3">
-                <span className="num text-lg font-semibold">{dec(f.expected.home, 1)}</span>
-                <div className="flex h-2 flex-1 overflow-hidden rounded bg-surface-3">
-                  <span className="bg-accent" style={{ width: `${(f.expected.home / f.expected.total) * 100}%` }} />
-                  <span className="flex-1 bg-model/70" />
-                </div>
-                <span className="num text-lg font-semibold">{dec(f.expected.away, 1)}</span>
-              </div>
+              <SplitBar home={f.expected.home} away={f.expected.away} />
               <div className="mt-1 text-xs text-muted">
                 I alt {dec(f.expected.total, 1)} · ligasnit {dec(leagueAvg, 1)} ({f.league.matches} kampe)
               </div>

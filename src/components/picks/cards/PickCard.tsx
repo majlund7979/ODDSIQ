@@ -6,7 +6,7 @@ import { explainPick } from "@/lib/picks-explain";
 import { compareBooks, oddsMove } from "@/lib/picks-advice";
 import { clock, dec } from "@/lib/format";
 import { AdviceRow, OddsMoveTag, type SaveTarget } from "../Advice";
-import { CardTop, Fact, Gauge, MoreToggle } from "../BetCard";
+import { CardTop, Fact, Gauge, MatchTitle, MoreToggle, SplitBar, StatBox } from "../BetCard";
 import { AfPredictionFact, badgeText, badgeTitle, ClubEloFact, FormRow, NewsBlock, ScorersFact } from "../facts";
 
 /** With a reference (Dagens bedste bets), fairOdds is that book's price without margin and no "Værdi" is claimed. */
@@ -126,14 +126,7 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
       <div className="space-y-5">
         {i.expectedGoals && (
           <Fact label="Forventede mål">
-            <div className="flex items-center gap-3">
-              <span className="num text-lg font-semibold">{dec(i.expectedGoals.home, 1)}</span>
-              <div className="flex h-2 flex-1 overflow-hidden rounded bg-surface-3">
-                <span className="bg-accent" style={{ width: `${(i.expectedGoals.home / (i.expectedGoals.home + i.expectedGoals.away)) * 100}%` }} />
-                <span className="flex-1 bg-model/70" />
-              </div>
-              <span className="num text-lg font-semibold">{dec(i.expectedGoals.away, 1)}</span>
-            </div>
+            <SplitBar home={i.expectedGoals.home} away={i.expectedGoals.away} />
           </Fact>
         )}
         {i.elo && (
@@ -191,9 +184,7 @@ export function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: n
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
           <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} probability={p.probability} now={now} />
-          <h2 className="text-xl font-bold leading-tight tracking-[-0.01em] sm:text-[22px]">
-            {home} <span className="text-muted">–</span> {away}
-          </h2>
+          <MatchTitle home={home} away={away} />
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted">Vores bud</span>
             <span className="rounded-full bg-lime-soft px-3.5 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
@@ -211,11 +202,7 @@ export function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: n
         </div>
         <div className="flex items-center gap-5">
           <Gauge p={p.probability} />
-          <div className="min-w-[96px] rounded-2xl bg-surface-2 px-3 py-2.5 text-center">
-            <div className="text-[11px] font-medium text-muted">{isSharp(p) ? "Odds hos" : "Bedste odds"}</div>
-            <div className="num text-2xl font-semibold">{dec(p.row.bestOdds)}</div>
-            <div className="truncate text-[11px] text-ink-2">{p.row.bestBook}</div>
-          </div>
+          <StatBox label={isSharp(p) ? "Odds hos" : "Bedste odds"} value={dec(p.row.bestOdds)} sub={p.row.bestBook} truncate />
         </div>
       </div>
       {isSharp(p) && (

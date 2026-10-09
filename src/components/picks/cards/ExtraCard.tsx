@@ -4,7 +4,7 @@
 import type { ExtraPick } from "@/lib/picks-extra";
 import { dec } from "@/lib/format";
 import { AdviceRow, type SaveTarget } from "../Advice";
-import { CardTop, Gauge, MoreToggle } from "../BetCard";
+import { CardTop, Gauge, MatchTitle, MoreToggle, StatBox } from "../BetCard";
 import { NewsBlock } from "../facts";
 
 export function ExtraCard({ p, rank, now, save }: { p: ExtraPick; rank: number; now: number; save: SaveTarget | null }) {
@@ -14,26 +14,17 @@ export function ExtraCard({ p, rank, now, save }: { p: ExtraPick; rank: number; 
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
           <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} probability={p.probability} now={now} />
-          <h2 className="text-xl font-bold leading-tight tracking-[-0.01em] sm:text-[22px]">
-            {home} <span className="text-muted">–</span> {away}
-          </h2>
+          <MatchTitle home={home} away={away} />
           <span className="inline-block rounded-lg bg-lime-soft px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
         </div>
         <div className="flex items-center gap-5">
           <Gauge p={p.probability} />
           {p.best && (
-            <div className="min-w-[96px] rounded-2xl bg-surface-2 px-3 py-2.5 text-center">
-              <div className="text-[11px] font-medium text-muted">Bedste odds</div>
-              <div className="num text-2xl font-semibold">{dec(p.best.odds)}</div>
-              <div className="truncate text-[11px] text-ink-2">{p.best.book}</div>
+            <StatBox label="Bedste odds" value={dec(p.best.odds)} sub={p.best.book} truncate>
               {p.best.odds * p.probability > 1 && <div className="mt-1 rounded-full bg-good/15 px-2 py-0.5 text-[10px] font-semibold text-good">Værdi</div>}
-            </div>
+            </StatBox>
           )}
-          <div className="min-w-[96px] rounded-2xl bg-surface-2 px-3 py-2.5 text-center">
-            <div className="text-[11px] font-medium text-muted">Fair odds</div>
-            <div className="num text-2xl font-semibold">{dec(p.fairOdds)}</div>
-            <div className="text-[11px] text-ink-2">spil over denne</div>
-          </div>
+          <StatBox label="Fair odds" value={dec(p.fairOdds)} sub="spil over denne" />
         </div>
       </div>
       <AdviceRow p={p.probability} odds={p.best?.odds ?? null} eventId={p.row.eventId} save={save} leg={{ key: `${p.row.eventId}|${p.category}|${p.outcome}`, match: p.row.match, outcome: p.outcome, kickoff: p.row.kickoff }} />

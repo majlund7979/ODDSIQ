@@ -1,7 +1,7 @@
 // The pieces every bet card on /picks shares: the top line with league and
 // kickoff, the chance gauge, the "Hvorfor?" toggle and the fact blocks.
 
-import { clock, dayKey, TZ } from "@/lib/format";
+import { clock, dayKey, dec, TZ } from "@/lib/format";
 import { isFriendly } from "@/lib/picks-advice";
 import { RiskBadge } from "./Advice";
 
@@ -40,6 +40,40 @@ export function CardTop({ rank, league, kickoff, probability, now }: { rank: num
         </span>
       )}
       <RiskBadge p={probability} className="ml-auto sm:ml-2" />
+    </div>
+  );
+}
+
+export function MatchTitle({ home, away }: { home: string; away: string }) {
+  return (
+    <h2 className="text-xl font-bold leading-tight tracking-[-0.01em] sm:text-[22px]">
+      {home} <span className="text-muted">–</span> {away}
+    </h2>
+  );
+}
+
+/** The box beside the gauge: odds, a line or a fair price, with a short note under it. */
+export function StatBox({ label, value, sub, truncate = false, children }: { label: string; value: string; sub: React.ReactNode; truncate?: boolean; children?: React.ReactNode }) {
+  return (
+    <div className="min-w-[96px] rounded-2xl bg-surface-2 px-3 py-2.5 text-center">
+      <div className="text-[11px] font-medium text-muted">{label}</div>
+      <div className="num text-2xl font-semibold">{value}</div>
+      <div className={`${truncate ? "truncate " : ""}text-[11px] text-ink-2`}>{sub}</div>
+      {children}
+    </div>
+  );
+}
+
+/** Home's and away's expected count side by side, with home's share as a bar. */
+export function SplitBar({ home, away }: { home: number; away: number }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="num text-lg font-semibold">{dec(home, 1)}</span>
+      <div className="flex h-2 flex-1 overflow-hidden rounded bg-surface-3">
+        <span className="bg-accent" style={{ width: `${(home / (home + away)) * 100}%` }} />
+        <span className="flex-1 bg-model/70" />
+      </div>
+      <span className="num text-lg font-semibold">{dec(away, 1)}</span>
     </div>
   );
 }

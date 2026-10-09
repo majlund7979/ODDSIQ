@@ -4,7 +4,7 @@
 import { POSITION_LABEL, TYPICAL_TEAM_GOALS, type ShotPick } from "@/lib/player-shots";
 import { dec } from "@/lib/format";
 import { AdviceRow } from "../Advice";
-import { CardTop, Gauge } from "../BetCard";
+import { CardTop, Gauge, StatBox } from "../BetCard";
 
 export function ShotCard({ p, rank, now }: { p: ShotPick; rank: number; now: number }) {
   const start =
@@ -36,11 +36,7 @@ export function ShotCard({ p, rank, now }: { p: ShotPick; rank: number; now: num
         </div>
         <div className="flex items-center gap-5">
           <Gauge p={p.probability} />
-          <div className="min-w-[96px] rounded-2xl bg-surface-2 px-3 py-2.5 text-center">
-            <div className="text-[11px] font-medium text-muted">Fair odds</div>
-            <div className="num text-2xl font-semibold">{dec(p.fairOdds)}</div>
-            <div className="text-[11px] text-ink-2">tag kun højere</div>
-          </div>
+          <StatBox label="Fair odds" value={dec(p.fairOdds)} sub="tag kun højere" />
         </div>
       </div>
       <div className="grid gap-x-6 gap-y-2 border-t border-line px-5 py-3 text-sm text-ink-2 sm:grid-cols-3">
