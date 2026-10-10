@@ -84,6 +84,7 @@ def market_features(targets: pd.DataFrame, odds: pd.DataFrame, market: str = "1x
         if fair.empty:
             rows.append(rec)
             continue
+        latest, first = latest.loc[fair.index], first.loc[first.index.intersection(fair.index)]
         cons = fair.median()
         margin = (1.0 / latest).sum(axis=1)
         for s in selections:

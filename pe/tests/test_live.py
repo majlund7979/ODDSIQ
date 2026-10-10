@@ -227,6 +227,9 @@ def test_fair_closing_devigs_per_bookmaker():
     f = evaluate.fair_closing(c)
     inv = np.array([1 / 2.0, 1 / 3.5, 1 / 4.0])
     assert f[(1, "1x2", "home")] == pytest.approx(inv[0] / inv.sum())     # bookmaker 2 lacks 'away' and is skipped
+    exchange = pd.DataFrame({"match_id": 1, "bookmaker_id": 3, "market": "1x2", "selection": ["home", "draw", "away"],
+                             "odds": [1.18, 1.10, 1.18]})
+    pd.testing.assert_series_equal(evaluate.fair_closing(pd.concat([c, exchange], ignore_index=True)), f)  # not a book: skipped
 
 
 @db

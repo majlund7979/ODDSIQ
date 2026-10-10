@@ -46,6 +46,7 @@ def quotes(odds: pd.DataFrame, match_id: str, market: str, cutoff: pd.Timestamp,
     cur = cur.loc[fair.index]
     if cur.empty:
         return pd.DataFrame()
+    opn = opn.loc[opn.index.intersection(cur.index)]  # opening and current prices from the same bookmakers
     fair0 = opn.apply(lambda r: pd.Series(devig(r.values), index=r.index), axis=1).dropna() if len(opn) else None
     rows = []
     for s in sels:

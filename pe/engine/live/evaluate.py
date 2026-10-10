@@ -25,6 +25,7 @@ import json
 import numpy as np
 import pandas as pd
 
+from engine.features.market import real_book
 from engine.live import site
 
 MIN_MATCHES = 500
@@ -116,6 +117,9 @@ def fair_closing(closing: pd.DataFrame) -> pd.Series:
     full = c.groupby(["match_id", "bookmaker_id", "market"])["selection"].transform("nunique")
     need = c["market"].map(lambda m: len(CLASSES[m]))
     c = c[full == need]
+    # A bookmaker whose closing prices are not a real book (engine.features.market.real_book) is left out.
+    ok = c.groupby(["match_id", "bookmaker_id", "market"])["odds"].transform(lambda o: real_book(o.to_numpy()))
+    c = c[ok.astype(bool)]
     c["p"] = c["inv"] / c.groupby(["match_id", "bookmaker_id", "market"])["inv"].transform("sum")
     return c.groupby(["match_id", "market", "selection"])["p"].median()
 

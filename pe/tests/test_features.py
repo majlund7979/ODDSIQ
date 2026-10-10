@@ -58,6 +58,12 @@ def test_market_features_movement_and_cutoff():
     assert f["mkt_best_odds_home"].iloc[0] == 1.90
     assert f["mkt_move_home"].iloc[0] > 0  # home shortened from 2.10 to 1.90
     assert f["sharp_home"].iloc[0] == pytest.approx(f["mkt_home"].iloc[0])
+    # A bookmaker whose prices are not a book counts nowhere: not in the consensus, best odds, margin or book count.
+    exchange = pd.DataFrame([
+        dict(match_id=1, bookmaker="betfair_ex_eu", market="1x2", line=None, selection=s, odds=o, available_at=t0 - pd.Timedelta(hours=4))
+        for s, o in (("home", 1.18), ("draw", 1.10), ("away", 5.0))])
+    g = market.market_features(targets, pd.concat([odds, exchange], ignore_index=True))
+    pd.testing.assert_frame_equal(g, f)
 
 
 def test_table_asof_counts_only_known_results(league):
