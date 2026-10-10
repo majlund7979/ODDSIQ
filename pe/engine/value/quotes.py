@@ -13,7 +13,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from engine.features.market import DEVIG
+from engine.features.market import DEVIG, real_book
 
 SELECTIONS = {"1x2": ("home", "draw", "away"), "ou": ("over", "under"), "btts": ("yes", "no"),
               "dnb": ("home", "away"), "ah": ("home", "away")}
@@ -38,11 +38,15 @@ def quotes(odds: pd.DataFrame, match_id: str, market: str, cutoff: pd.Timestamp,
     o = o.sort_values("available_at")
     cur = o.groupby(["bookmaker", "selection"])["odds"].last().unstack().reindex(columns=list(sels)).dropna()
     opn = o.groupby(["bookmaker", "selection"])["odds"].first().unstack().reindex(columns=list(sels)).dropna()
+    # A bookmaker whose prices are not a real book (engine.features.market.real_book) is left out of everything below.
+    cur = cur[cur.apply(real_book, axis=1)] if len(cur) else cur
+    opn = opn[opn.apply(real_book, axis=1)] if len(opn) else opn
+    devig = DEVIG[method]
+    fair = cur.apply(lambda r: pd.Series(devig(r.values), index=r.index), axis=1).dropna() if len(cur) else cur
+    cur = cur.loc[fair.index]
     if cur.empty:
         return pd.DataFrame()
-    devig = DEVIG[method]
-    fair = cur.apply(lambda r: pd.Series(devig(r.values), index=r.index), axis=1)
-    fair0 = opn.apply(lambda r: pd.Series(devig(r.values), index=r.index), axis=1) if len(opn) else None
+    fair0 = opn.apply(lambda r: pd.Series(devig(r.values), index=r.index), axis=1).dropna() if len(opn) else None
     rows = []
     for s in sels:
         best_book = cur[s].idxmax()

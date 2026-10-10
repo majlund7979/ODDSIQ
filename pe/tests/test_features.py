@@ -34,6 +34,15 @@ def test_devig_methods_sum_to_one_and_shin_shrinks_longshots():
     assert shin[2] < prop[2] and shin[0] > prop[0]
 
 
+def test_devig_gives_nan_for_prices_that_are_not_a_book():
+    exchange = np.array([1.18, 1.10, 1.18])  # Betfair Exchange, 2026-10-09: 160 % margin
+    assert np.isnan(market.devig_power(exchange)).all()
+    assert np.isnan(market.devig_shin(exchange)).all()
+    assert not market.real_book(exchange)
+    assert not market.real_book([1.0, 3.0, 4.0]) and not market.real_book([2.0, np.nan, 3.0])
+    assert market.real_book([1.40, 4.80, 8.50]) and market.real_book([1.95, 1.95])
+
+
 def test_market_features_movement_and_cutoff():
     t0 = pd.Timestamp("2026-10-10 12:00", tz="UTC")
     odds = pd.DataFrame([
