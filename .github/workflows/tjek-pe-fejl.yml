@@ -35,10 +35,31 @@ jobs:
           mkdir -p out
           q "SELECT started_at, finished_at, status, left(code_sha, 7), summary->>'error' FROM pe.job_run WHERE job = 'pe-predict' ORDER BY started_at DESC LIMIT 12" > out/runs.txt
           q "SELECT started_at, summary->>'trace' FROM pe.job_run WHERE job = 'pe-predict' AND status = 'failed' ORDER BY started_at DESC LIMIT 3" > out/traces.txt
+          # Bookmaker price sets the engine's power de-vig cannot solve (no k in [0.5, 5] with sum((1/odds)^k) = 1):
+          # latest price per selection and bookmaker, as engine/value/quotes.py builds them, for the next 8 days.
+          q "WITH up AS (SELECT id FROM \"Event\" WHERE status = 'scheduled' AND kickoff > now() AND kickoff <= now() + interval '8 days'),
+            latest AS (
+              SELECT DISTINCT ON (o.\"selectionId\", o.\"bookmakerId\")
+                sel.\"eventId\" e, m.type mk, regexp_replace(sel.id, '^.*-', '') side, o.\"bookmakerId\" b, o.odds::float8 x, o.\"observedAt\" t
+              FROM \"OddsSnapshot\" o
+              JOIN \"Selection\" sel ON sel.id = o.\"selectionId\"
+              JOIN \"Market\" m ON m.id = sel.\"marketId\" AND m.type IN ('1X2', 'OU25')
+              WHERE sel.\"eventId\" IN (SELECT id FROM up) AND o.odds > 1
+              ORDER BY o.\"selectionId\", o.\"bookmakerId\", o.\"observedAt\" DESC),
+            books AS (
+              SELECT e, mk, b, count(*) n, sum(power(1 / x, 5)) f5, sum(sqrt(1 / x)) f05,
+                string_agg(side || '=' || x, ',' ORDER BY side) prices, min(t) t0, max(t) t1
+              FROM latest GROUP BY 1, 2, 3)
+            SELECT e, mk, b, prices, round(f5::numeric, 3), round(f05::numeric, 3), t0, t1 FROM books
+            WHERE ((mk = '1X2' AND n = 3) OR (mk = 'OU25' AND n = 2)) AND (f5 > 1 OR f05 < 1)
+            ORDER BY t1 DESC LIMIT 60" > out/unsolvable.txt
+          q "SELECT count(*) FROM \"Event\" WHERE status = 'scheduled' AND kickoff > now() AND kickoff <= now() + interval '8 days'" > out/upcoming.txt
           wc -c out/*.txt
 
       - name: Report
         run: |
+          echo "::notice title=upcoming::$(cat out/upcoming.txt)"
+          echo "::notice title=unsolvable::$(head -c 3900 out/unsolvable.txt | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
           echo "::notice title=runs::$(head -c 3900 out/runs.txt | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
           split -C 3800 -d -a 2 out/traces.txt out/t-
           for f in $(ls out/t-* | head -9); do
