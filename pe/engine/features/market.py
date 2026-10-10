@@ -15,9 +15,13 @@ def devig_proportional(odds: np.ndarray) -> np.ndarray:
 
 
 def devig_power(odds: np.ndarray) -> np.ndarray:
-    """p_i = (1/o_i) ** k with k chosen so the probabilities sum to 1 (handles favourite-longshot bias)."""
+    """p_i = (1/o_i) ** k with k chosen so the probabilities sum to 1 (handles favourite-longshot bias).
+    NaN for every selection when no k in [0.5, 5] works, i.e. the prices are not a real book."""
     q = 1.0 / np.asarray(odds, dtype=float)
-    k = brentq(lambda k: (q ** k).sum() - 1.0, 0.5, 5.0)
+    f = lambda k: (q ** k).sum() - 1.0  # noqa: E731
+    if not np.isfinite(q).all() or f(0.5) * f(5.0) > 0:
+        return np.full(len(q), np.nan)
+    k = brentq(f, 0.5, 5.0)
     return q ** k
 
 
@@ -29,11 +33,26 @@ def devig_shin(odds: np.ndarray) -> np.ndarray:
     def probs(z):
         return (np.sqrt(z ** 2 + 4 * (1 - z) * q ** 2 / s) - z) / (2 * (1 - z))
 
-    z = brentq(lambda z: probs(z).sum() - 1.0, 0.0, 0.4) if s > 1 else 0.0
+    g = lambda z: probs(z).sum() - 1.0  # noqa: E731
+    if s > 1 and g(0.0) * g(0.4) > 0:
+        return np.full(len(q), np.nan)
+    z = brentq(g, 0.0, 0.4) if s > 1 else 0.0
     return probs(z)
 
 
 DEVIG = {"proportional": devig_proportional, "power": devig_power, "shin": devig_shin}
+
+# A bookmaker's current prices count as a book only with a margin (sum of 1/odds minus 1) in this range. Betfair
+# Exchange has sent sets such as 1.18 / 1.10 / 1.18 for one match (2026-10-09), which say nothing about the match.
+BOOK_MARGIN = (-0.05, 0.30)
+
+
+def real_book(odds) -> bool:
+    o = np.asarray(odds, dtype=float)
+    if not np.isfinite(o).all() or (o <= 1.0).any():
+        return False
+    margin = (1.0 / o).sum() - 1.0
+    return BOOK_MARGIN[0] <= margin <= BOOK_MARGIN[1]
 
 
 def market_features(targets: pd.DataFrame, odds: pd.DataFrame, market: str = "1x2",
@@ -61,7 +80,11 @@ def market_features(targets: pd.DataFrame, odds: pd.DataFrame, market: str = "1x
         if latest.empty:
             rows.append(rec)
             continue
-        fair = latest.apply(lambda r: pd.Series(devig(r.values), index=r.index), axis=1)
+        fair = latest.apply(lambda r: pd.Series(devig(r.values), index=r.index), axis=1).dropna()
+        if fair.empty:
+            rows.append(rec)
+            continue
+        latest, first = latest.loc[fair.index], first.loc[first.index.intersection(fair.index)]
         cons = fair.median()
         margin = (1.0 / latest).sum(axis=1)
         for s in selections:

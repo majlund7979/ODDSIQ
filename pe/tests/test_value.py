@@ -38,6 +38,17 @@ def test_quotes_use_only_prices_before_cutoff_and_report_movement():
     assert t.loc["home", "books"] == 3 and 0 < t.loc["home", "margin"] < 0.1
 
 
+def test_quotes_leave_out_a_bookmaker_whose_prices_are_not_a_book():
+    clean = q.quotes(market(), "m1", "1x2", CUT).set_index("selection")
+    early, late = CUT - pd.Timedelta(hours=48), CUT - pd.Timedelta(hours=1)
+    exchange = book("betfair_ex_eu", 2.60, 3.30, 3.00, early) + book("betfair_ex_eu", 1.18, 1.10, 1.18, late)
+    t = q.quotes(_odds(market().values.tolist() + exchange), "m1", "1x2", CUT).set_index("selection")
+    assert t.loc["home", "books"] == 3
+    for col in ("p_fair", "odds_open", "move_logit", "books_moved_same_way"):    # its sane opening prices are left out too
+        pd.testing.assert_series_equal(t[col], clean[col])
+    assert q.quotes(_odds(book("betfair_ex_eu", 1.18, 1.10, 1.18, late)), "m1", "1x2", CUT).empty
+
+
 def test_confidence_falls_with_disagreement_and_is_50_at_zero_edge():
     sd_agree, sd_split = unc.sigma([0.01]), unc.sigma([0.08])
     assert unc.confidence([0.04], sd_agree)[0] > 75 > unc.confidence([0.04], sd_split)[0] > 50

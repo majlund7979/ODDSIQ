@@ -28,6 +28,21 @@ from engine.live import evaluate, predict, site, write  # noqa: E402
 from engine.sources import gabora  # noqa: E402
 
 
+def connect(dsn: str, attempts: int = 3):
+    """A new connection, retried a few times. The run reads first, then trains for several minutes without a query, and
+    Neon can close a connection that sits idle that long ("AdminShutdown", 8 October twice), so every write uses a new
+    connection instead of the one the run started with."""
+    import psycopg
+
+    for i in range(attempts):
+        try:
+            return psycopg.connect(dsn, autocommit=True)
+        except psycopg.OperationalError:
+            if i == attempts - 1:
+                raise
+            time.sleep(10 * (i + 1))
+
+
 def notice(summary: dict) -> None:
     """One GitHub annotation with the run's headline numbers (annotations are readable without the log)."""
     keys = ["upcoming_events", "upcoming_mapped", "results_added", "blend_1x2", "blend_ou25", "matches", "predictions",
@@ -69,12 +84,11 @@ def main():
     if not dsn:
         print("::error::PE_DATABASE_URL is not set (the workflow gets it from the site, see pe/README.md, 'Daily shadow run').")
         sys.exit(1)
-    import psycopg
 
     sha = os.environ.get("GITHUB_SHA")
     now = pd.Timestamp(args.now, tz="UTC") if args.now else pd.Timestamp.now(tz="UTC").floor("s")
     t0 = time.time()
-    with psycopg.connect(dsn, autocommit=True) as conn:
+    with connect(dsn) as conn:
         ev = daily_evaluation(conn, now, write=not args.dry_run)
         try:
             history = gabora.to_frames(pd.read_csv(args.history, low_memory=False), first_season=args.first_season)
@@ -105,15 +119,20 @@ def main():
                 print(json.dumps(summary, default=str))
                 notice({**summary, "why": "dry run, nothing written"})
                 return
-            counts = write.write(conn, run, sha)
-            summary.update(counts, seconds=round(time.time() - t0))
-            write.log_run(conn, now, "ok", summary, sha, counts["model_version"])
+            with connect(dsn) as out_conn:
+                counts = write.write(out_conn, run, sha)
+                summary.update(counts, seconds=round(time.time() - t0))
+                write.log_run(out_conn, now, "ok", summary, sha, counts["model_version"])
             print(json.dumps(summary, default=str))
             notice(summary)
         except Exception as e:  # logged, then the job fails visibly
             print(f"::error title=PE predict::{type(e).__name__}: {str(e)[:500]}")
             if not args.dry_run:
-                write.log_run(conn, now, "failed", {"error": f"{type(e).__name__}: {e}", "trace": traceback.format_exc()[-3000:]}, sha)
+                try:
+                    with connect(dsn) as log_conn:
+                        write.log_run(log_conn, now, "failed", {"error": f"{type(e).__name__}: {e}", "trace": traceback.format_exc()[-3000:]}, sha)
+                except Exception as log_error:  # noqa: BLE001 - the run's own error is the one to report
+                    print(f"::warning title=PE predict::the failed run could not be logged: {type(log_error).__name__}: {str(log_error)[:300]}")
             raise
 
 
