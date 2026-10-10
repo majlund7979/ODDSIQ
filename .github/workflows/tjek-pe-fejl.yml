@@ -1,0 +1,46 @@
+# One-off, read-only check (Mads, 2026-10-10: "pe predict all jobs have failed"): the last PE predict runs as logged
+# in pe.job_run, with the Python traceback of the failed ones. Runs only on pushes to this branch.
+# Annotations carry the output because job logs cannot be downloaded from the sandbox; newlines are sent as %0A.
+
+name: Tjek PE-fejl
+
+on:
+  push:
+    branches: [tjek-pe-fejl]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pe-predict
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read the logged runs
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          body=$(curl -sS --max-time 60 -X POST -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/pe-credentials" || true)
+          url=$(printf '%s' "$body" | jq -r '.url // empty' 2>/dev/null || true)
+          if [ -z "$url" ]; then echo "::error title=Tjek PE-fejl::No database login"; exit 1; fi
+          echo "::add-mask::$url"
+          pw=$(printf '%s' "$url" | sed -E 's#^[^:]+://[^:]+:([^@]+)@.*#\1#'); [ -n "$pw" ] && echo "::add-mask::$pw"
+          export PGCONNECT_TIMEOUT=30 PGTZ=UTC PGOPTIONS='-c default_transaction_read_only=on'
+          q() { psql "$url" -v ON_ERROR_STOP=1 -At -F ' ' -c "$1"; }
+          mkdir -p out
+          q "SELECT started_at, finished_at, status, left(code_sha, 7), summary->>'error' FROM pe.job_run WHERE job = 'pe-predict' ORDER BY started_at DESC LIMIT 12" > out/runs.txt
+          q "SELECT started_at, summary->>'trace' FROM pe.job_run WHERE job = 'pe-predict' AND status = 'failed' ORDER BY started_at DESC LIMIT 3" > out/traces.txt
+          wc -c out/*.txt
+
+      - name: Report
+        run: |
+          echo "::notice title=runs::$(head -c 3900 out/runs.txt | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+          split -C 3800 -d -a 2 out/traces.txt out/t-
+          for f in $(ls out/t-* | head -9); do
+            echo "::notice title=$(basename "$f")::$(sed 's/%/%25/g' "$f" | awk '{printf "%s%%0A", $0}')"
+          done
