@@ -1,5 +1,6 @@
 # One-off, read-only check (Mads, 2026-10-10: "pe predict all jobs have failed"): the last PE predict runs as logged
-# in pe.job_run, with the Python traceback of the failed ones. Runs only on pushes to this branch.
+# in pe.job_run, with the Python traceback of the failed ones. Runs only on pushes to this branch. Pushed again after PR #84
+# merged, to see that the first run on main is logged; it waits for that run through the concurrency group.
 # Annotations carry the output because job logs cannot be downloaded from the sandbox; newlines are sent as %0A.
 
 name: Tjek PE-fejl
