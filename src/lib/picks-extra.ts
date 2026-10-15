@@ -189,6 +189,10 @@ export interface Coupon {
 }
 
 export const COUPON_MIN_ODDS = 2;
+/** Every bet on a suggested coupon needs at least these odds: lower is not worth playing (Mads, 2026-10-15). */
+export const COUPON_LEG_MIN_ODDS = 1.25;
+/** A bet the coupons may use. */
+const playable = (p: Pick) => p.row.bestOdds >= COUPON_LEG_MIN_ODDS;
 /** Raketten: each leg needs at least this chance of going home. */
 export const ROCKET_MIN_CHANCE = 0.65;
 /** Raketten takes at most this many legs, and needs at least ROCKET_MIN_LEGS. */
@@ -213,7 +217,7 @@ function coupon(picks: Pick[], kind: Coupon["kind"]): Coupon {
  * Assumes the matches are independent; left out when no pair reaches the odds.
  */
 export function oddsCoupon(pool: Pick[], n = 2, minOdds = COUPON_MIN_ODDS): Coupon | null {
-  const cands = pool.filter((p) => p.row.bestOdds > 1).sort((a, b) => b.probability - a.probability).slice(0, 25);
+  const cands = pool.filter(playable).sort((a, b) => b.probability - a.probability).slice(0, 25);
   let best: Pick[] | null = null;
   let bestP = -1;
   const walk = (start: number, chosen: Pick[]) => {
@@ -238,7 +242,7 @@ export function oddsCoupon(pool: Pick[], n = 2, minOdds = COUPON_MIN_ODDS): Coup
 /** The likeliest bet in each match, likeliest matches first: n legs, or null with fewer matches. */
 function likeliestPerMatch(pool: Pick[], n: number, keep: (p: Pick) => boolean = () => true): Pick[] {
   const chosen: Pick[] = [];
-  for (const p of pool.filter((x) => x.row.bestOdds > 1 && keep(x)).sort((a, b) => b.probability - a.probability)) {
+  for (const p of pool.filter((x) => playable(x) && keep(x)).sort((a, b) => b.probability - a.probability)) {
     if (chosen.length === n) break;
     if (!chosen.some((c) => c.row.eventId === p.row.eventId)) chosen.push(p);
   }

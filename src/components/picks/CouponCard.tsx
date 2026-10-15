@@ -1,7 +1,7 @@
 // "Dagens kuponforslag": the day's coupons, each with its bets, combined odds
 // and the chance that every bet goes in.
 
-import { COUPON_MIN_ODDS, ROCKET_MIN_CHANCE, type Coupon } from "@/lib/picks-extra";
+import { COUPON_LEG_MIN_ODDS, COUPON_MIN_ODDS, ROCKET_MIN_CHANCE, type Coupon } from "@/lib/picks-extra";
 import { dec } from "@/lib/format";
 
 const COUPON_TITLE: Record<Coupon["kind"], (n: number) => string> = {
@@ -22,7 +22,7 @@ export function CouponCard({ coupons }: { coupons: Coupon[] }) {
     <section className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-2xl font-extrabold tracking-[-0.02em]">Dagens kuponforslag</h2>
-        <span className="text-sm text-muted">Altid de mest sandsynlige bets fra vinder, over 1,5 og 2,5 mål, begge hold scorer og dobbeltchance. Alle bets på en kupon skal gå hjem</span>
+        <span className="text-sm text-muted">Altid de mest sandsynlige bets fra vinder, over 1,5 og 2,5 mål, begge hold scorer og dobbeltchance. Hvert bet har mindst odds {dec(COUPON_LEG_MIN_ODDS)}. Alle bets på en kupon skal gå hjem</span>
       </div>
       {coupons.length === 0 ? (
         <p className="rounded-[20px] border border-line bg-surface px-5 py-6 text-sm text-ink-2">Der er ikke nok kampe i dag til en kupon. Kig forbi igen senere.</p>
