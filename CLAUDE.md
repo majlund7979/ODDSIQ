@@ -8,3 +8,10 @@
 - The prediction ledger is append-only. Never add code paths that edit or delete predictions; outcomes go in `PredictionOutcome`.
 - Demo data must stay deterministic (seeded by id via `src/lib/demo/rng.ts`) and labelled DEMO DATA.
 - Before pushing: `npm run lint && npm run typecheck && npm test && npm run build`.
+
+## Claude Code setup (`.claude/`, `.mcp.json`)
+
+- Hooks: ESLint `--fix` runs on every edited TS file; edits to `.env*`, `package-lock.json` and existing migrations are blocked; cloud sessions install npm and `pe/` dependencies on start.
+- Skills: `/ny-migration <navn>` for the next numbered migration, `/skaermbilleder [before|after]` for desktop and mobile screenshots.
+- Agents: `regel-tjek` (the product rules above) and `leakage-tjek` (look-ahead leakage in `pe/`). Run the relevant one before opening a PR.
+- MCP: context7 for current Next.js 16 and Prisma 7 docs, Playwright for driving the site.
