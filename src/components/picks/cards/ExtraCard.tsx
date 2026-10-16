@@ -10,18 +10,18 @@ import { NewsBlock } from "../facts";
 export function ExtraCard({ p, rank, now, save }: { p: ExtraPick; rank: number; now: number; save: SaveTarget | null }) {
   const [home, away] = p.row.match.split(" vs ");
   return (
-    <article className="overflow-hidden rounded-[20px] border border-line bg-surface">
+    <article className="overflow-hidden rounded-card border border-line bg-surface transition-colors duration-200 hover:border-line-strong">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
           <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} probability={p.probability} now={now} />
           <MatchTitle home={home} away={away} />
-          <span className="inline-block rounded-lg bg-lime-soft px-3 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
+          <span className="inline-block rounded-field border border-accent/35 bg-accent-fill px-3.5 py-1.5 text-md font-semibold text-accent">{p.outcome}</span>
         </div>
         <div className="flex items-center gap-5">
           <Gauge p={p.probability} />
           {p.best && (
             <StatBox label="Bedste odds" value={dec(p.best.odds)} sub={p.best.book} truncate>
-              {p.best.odds * p.probability > 1 && <div className="mt-1 rounded-full bg-good/15 px-2 py-0.5 text-[10px] font-semibold text-good">Værdi</div>}
+              {p.best.odds * p.probability > 1 && <div className="mt-1 rounded-full bg-good/15 px-2 py-0.5 text-xs font-semibold text-good">Værdi</div>}
             </StatBox>
           )}
           <StatBox label="Fair odds" value={dec(p.fairOdds)} sub="spil over denne" />
@@ -40,8 +40,8 @@ export function ExtraCard({ p, rank, now, save }: { p: ExtraPick; rank: number; 
                     {Math.round(x.probability * 100)}% <span className="text-xs text-muted">· fair odds {dec(1 / Math.max(x.probability, 0.01))}</span>
                   </span>
                 </div>
-                <div className="h-1.5 rounded bg-surface-3">
-                  <div className="h-1.5 rounded bg-accent" style={{ width: `${Math.min(100, x.probability * 100)}%` }} />
+                <div className="h-1.5 overflow-hidden rounded-full bg-surface-3">
+                  <div className="grow-x h-1.5 rounded-full bg-ink/80" style={{ width: `${Math.min(100, x.probability * 100)}%` }} />
                 </div>
               </li>
             ))}

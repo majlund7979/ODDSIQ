@@ -13,7 +13,7 @@ export function BankrollInput() {
     setDraft(null);
   };
   return (
-    <label className="flex items-center gap-2 text-sm text-ink-2">
+    <label className="flex items-center gap-2 text-sm font-medium text-ink-2">
       Din pulje
       <input
         inputMode="numeric"
@@ -21,7 +21,7 @@ export function BankrollInput() {
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => e.key === "Enter" && commit()}
-        className="num w-24 rounded-[10px] border border-line-strong bg-surface px-2 py-1 text-right text-ink"
+        className="num min-h-11 w-28 rounded-field border border-line-strong bg-page px-3 text-right text-md text-ink outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-4 focus:ring-accent-fill sm:min-h-10"
         aria-label="Din pulje i kroner"
       />
       kr

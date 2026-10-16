@@ -4,6 +4,7 @@
 // installing (Chrome, Edge, Android), otherwise the steps for iPhone.
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { buttonClass } from "./ui";
 
 interface InstallEvent extends Event {
   prompt: () => Promise<void>;
@@ -37,7 +38,7 @@ export function InstallApp() {
   if (installed) return <p className="text-sm text-ink-2">Oddsanalyse er lagt på din hjemmeskærm.</p>;
   if (prompt)
     return (
-      <button type="button" onClick={() => prompt.prompt().then(() => setPrompt(null))} className="rounded-full bg-lime px-5 py-2.5 text-sm font-semibold text-accent hover:brightness-125">
+      <button type="button" onClick={() => prompt.prompt().then(() => setPrompt(null))} className={buttonClass("primary", "md")}>
         Læg på hjemmeskærmen
       </button>
     );

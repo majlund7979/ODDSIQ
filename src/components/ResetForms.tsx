@@ -10,7 +10,7 @@ export function RequestResetForm({ minutes }: { minutes: number }) {
   const [state, action, pending] = useActionState(requestReset, {});
   if (state.sent)
     return (
-      <p className="rounded-lg border border-line bg-surface-2 px-3 py-3 text-sm leading-relaxed text-ink">
+      <p className="rounded-field border border-line bg-surface-2 px-3 py-3 text-sm leading-relaxed text-ink">
         Hvis der findes en konto med <b>{state.email}</b>, har vi sendt en mail med et link. Linket virker i {minutes} minutter. Kig også i spam.
       </p>
     );

@@ -14,13 +14,16 @@ export function NewsList({ items, now, compact = false }: { items: NewsItem[]; n
   return (
     <ul className={compact ? "space-y-2.5" : "divide-y divide-line"}>
       {items.map((n) => (
-        <li key={n.link + n.title} className={compact ? "" : "px-5 py-3.5"}>
-          <a href={n.link} target="_blank" rel="noopener noreferrer" className="group block">
-            <span className={`block leading-snug group-hover:text-accent ${compact ? "text-sm" : "text-[15px] font-medium"}`}>
+        <li key={n.link + n.title}>
+          <a href={n.link} target="_blank" rel="noopener noreferrer" className={`group block transition-colors ${compact ? "rounded-field" : "px-5 py-4 hover:bg-surface-2 focus-visible:-outline-offset-2"}`}>
+            <span className={`block leading-snug group-hover:text-accent ${compact ? "text-sm" : "text-md font-medium"}`}>
               {n.title}
+              <span aria-hidden className="ml-1 inline-block text-muted transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-accent">
+                ↗
+              </span>
               <span className="sr-only"> (åbner i nyt vindue)</span>
             </span>
-            <span className="mt-0.5 block text-xs text-muted">
+            <span className="mt-1 block text-xs text-ink-2">
               {n.publisher}
               {n.published ? ` · ${ago(n.published, now)}` : ""}
             </span>

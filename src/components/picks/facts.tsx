@@ -12,21 +12,21 @@ import { Fact } from "./BetCard";
 export function NewsBlock({ home, away }: { home: string; away: string }) {
   return (
     <div className="space-y-2.5 border-t border-line pt-5 md:col-span-2">
-      <div className="text-[13px] font-semibold text-ink-2">Nyheder om holdene</div>
+      <div className="text-sm font-semibold text-ink-2">Nyheder om holdene</div>
       <TeamNews home={home} away={away} />
     </div>
   );
 }
 
 export function FormRow({ team, games }: { team: string; games: FormGame[] }) {
-  const tone = { V: "bg-good text-white", U: "bg-surface-3 text-ink-2", T: "bg-critical text-white" };
+  const tone = { V: "bg-good text-page", U: "bg-surface-3 text-ink-2", T: "bg-critical text-page" };
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="truncate text-ink-2">{team}</span>
       <span className="flex shrink-0 gap-1">
         {games.length === 0 && <span className="text-muted">ingen data</span>}
         {[...games].reverse().map((g, i) => (
-          <span key={i} title={`${g.home ? "Hjemme" : "Ude"} mod ${g.opponent}: ${g.score}`} className={`num flex h-5 w-5 items-center justify-center rounded text-[11px] font-semibold ${tone[g.result]}`}>
+          <span key={i} title={`${g.home ? "Hjemme" : "Ude"} mod ${g.opponent}: ${g.score}`} className={`num flex h-6 w-6 items-center justify-center rounded-[5px] text-xs font-semibold ${tone[g.result]}`}>
             {g.result}
           </span>
         ))}
@@ -101,7 +101,7 @@ export function AfPredictionFact({ a, home, away }: { a: AfPrediction; home: str
               <span className="text-ink-2">{COMPARISON_LABELS[c.key]}</span>
               <span className="num text-right">{pc(c.home)} %</span>
               <span className="flex h-1.5 overflow-hidden rounded-full bg-line" aria-hidden>
-                <span className="bg-accent" style={{ width: `${c.home * 100}%` }} />
+                <span className="bg-market" style={{ width: `${c.home * 100}%` }} />
               </span>
               <span className="num">{pc(c.away)} %</span>
             </li>

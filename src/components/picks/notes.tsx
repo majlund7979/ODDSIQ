@@ -8,7 +8,7 @@ import { dec, pct, shortDate, signedPct, TZ } from "@/lib/format";
 export function LearningNote({ l }: { l: CategoryLearning }) {
   const n = l.hitRate.n;
   return (
-    <div className="rounded-[20px] bg-surface-2 px-5 py-4 text-sm text-ink-2">
+    <div className="rounded-card border border-line bg-surface-2 px-5 py-4 text-sm leading-relaxed text-ink-2">
       <span className="font-semibold text-ink">Modellen lærer af sine resultater. </span>
       {l.learning ? (
         <>
@@ -24,7 +24,7 @@ export function LearningNote({ l }: { l: CategoryLearning }) {
           {n} af de {LEARN_MIN} afgjorte bets, der skal til, før denne type justeres. Indtil da vises modellens egne procenter.
         </>
       )}
-      <span className="text-xs text-muted">
+      <span className="text-xs text-ink-2/80">
         {" "}
         Historisk, {l.hitRate.periodFrom ? shortDate(l.hitRate.periodFrom) : ""}
         {l.hitRate.periodTo ? `–${shortDate(l.hitRate.periodTo)}` : ""} · {l.hitRate.source} ·{" "}
@@ -41,7 +41,7 @@ export function SharpBacktestNote() {
   const b = SHARP_BACKTEST;
   const r = SHARP_RECENT;
   return (
-    <p className="mt-3 max-w-3xl text-xs leading-relaxed text-muted">
+    <p className="max-w-3xl text-sm leading-relaxed text-ink-2">
       Historisk test ({b.source}, {b.n.toLocaleString("da-DK")} bets, {month(b.periodFrom)} til {month(b.periodTo)}, {b.modelVersion}): afkast {signedPct(b.value.roi)} (90 %-interval{" "}
       {signedPct(b.value.roiLow)} til {signedPct(b.value.roiHigh)}), {signedPct(b.value.clv)} mod Pinnacles lukkepris uden margin. Grænsen på {dec(SHARP_MIN_EV * 100, 0)} % blev valgt efter
       testen, så tallene er nok for pæne. Fra {month(r.periodFrom)} slog reglen ikke lukkeprisen ({signedPct(r.value.clv)}, {r.n} bets). Ingen dokumenteret fordel; vi følger resultaterne

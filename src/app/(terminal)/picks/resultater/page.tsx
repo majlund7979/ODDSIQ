@@ -4,6 +4,7 @@ import { byDay, resultsContext, roiLabel, ROI_MIN, summarise, type RecordedPick 
 import { brier, calibration, CALIBRATION_MIN, CALIBRATION_VERSION } from "@/lib/picks-calibration";
 import { terminal } from "@/lib/terminal";
 import { HitBars, ProfitBars, Tile } from "@/components/picks/charts";
+import { Badge, EmptyState, PageHeader } from "@/components/ui";
 import { capitalize, krFromUnits, pctOrDash, pctTight, signedPct } from "@/lib/format";
 import { CLV_VERSION } from "@/lib/real/clv";
 import { CATEGORY_LABEL } from "@/lib/pick-categories";
@@ -17,8 +18,8 @@ function dayLabel(day: string) {
 }
 
 function Mark({ r }: { r: RecordedPick["result"] }) {
-  if (r === "won") return <span className="flex h-6 w-6 items-center justify-center rounded-full bg-good/20 text-sm font-bold text-good">✓</span>;
-  if (r === "lost") return <span className="flex h-6 w-6 items-center justify-center rounded-full bg-critical/20 text-sm font-bold text-critical">✗</span>;
+  if (r === "won") return <span className="flex h-6 w-6 items-center justify-center rounded-full bg-good/15 text-sm font-bold text-good">✓</span>;
+  if (r === "lost") return <span className="flex h-6 w-6 items-center justify-center rounded-full bg-critical/15 text-sm font-bold text-critical">✗</span>;
   return <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-3 text-xs text-muted">…</span>;
 }
 
@@ -49,87 +50,112 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   const pickKr = (p: RecordedPick) => (p.result && p.odds ? krFromUnits(p.result === "won" ? p.odds - 1 : -1) : null);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <header className="space-y-5 rounded-[28px] border border-line bg-gradient-to-br from-accent/15 to-surface px-4 py-5 sm:px-10 sm:py-8">
-        <div className="space-y-2">
-          <Link href="/picks" className="text-sm text-muted hover:text-ink">
-            ← Dagens bedste bets
-          </Link>
-          <h1 className="display text-[40px] text-ink sm:text-5xl">Vores resultater</h1>
-          <p className="max-w-2xl text-[15px] text-ink-2">
-            Sådan gik vores forudsigelser de sidste 7 dage. Hvert bet tælles første gang, det blev vist, også dem der tabte.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Tile label="Gik hjem">
-            <div className="num text-3xl font-extrabold tracking-[-0.02em]">{total.settled ? pctTight(total.won / total.settled) : "—"}</div>
-            <div className="mt-1 text-sm text-ink-2">{total.settled ? `${total.won} af ${total.settled} · forventet ${pctOrDash(total.expectedRate)}` : "Ingen afgjorte endnu"}</div>
+    <div className="space-y-10 lg:space-y-12">
+      <PageHeader
+        back={{ href: "/picks", label: "Dagens bedste bets" }}
+        title="Vores resultater"
+        intro="Sådan gik vores forudsigelser de sidste 7 dage. Hvert bet tælles første gang, det blev vist, også dem der tabte."
+      />
+
+      <section aria-label={`${CATEGORY_LABEL[type]}, samlet`} className="rise space-y-3 [--i:1]">
+        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-card border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+          <Tile bare label="Gik hjem" className="bg-surface">
+            <div className="figure text-[44px]">{total.settled ? pctTight(total.won / total.settled) : "—"}</div>
+            <div className="mt-2 text-sm text-ink-2">{total.settled ? `${total.won} af ${total.settled} · forventet ${pctOrDash(total.expectedRate)}` : "Ingen afgjorte endnu"}</div>
           </Tile>
-          <Tile label="Gevinst, 100 kr pr. bet">
-            <div className={`num text-3xl font-extrabold tracking-[-0.02em] ${total.withOdds ? (total.profit >= 0 ? "text-good" : "text-serious") : "text-muted"}`}>
+          <Tile bare label="Gevinst, 100 kr pr. bet" className="bg-surface">
+            <div className={`figure text-[44px] ${total.withOdds && total.withOdds >= ROI_MIN ? (total.profit >= 0 ? "text-good" : "text-serious") : total.withOdds ? "text-ink" : "text-muted"}`}>
               {total.withOdds ? krFromUnits(total.profit) : "—"}
             </div>
-            <div className="mt-1 text-sm text-ink-2">
-              {total.withOdds ? (total.withOdds < ROI_MIN ? `${total.withOdds} bets med odds, for få til at sige noget sikkert` : `Afkast ${roiLabel(total)} på ${total.withOdds} bets`) : "Ingen bets med odds"}
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-2">
+              {total.withOdds ? (
+                total.withOdds < ROI_MIN ? (
+                  <>
+                    {total.withOdds} bets med odds <Badge tone="warning">Lille datagrundlag</Badge>
+                  </>
+                ) : (
+                  `Afkast ${roiLabel(total)} på ${total.withOdds} bets`
+                )
+              ) : (
+                "Ingen bets med odds"
+              )}
             </div>
           </Tile>
-          <Tile label="Ramte pr. dag">
+          <Tile bare label="Ramte pr. dag" className="bg-surface">
             {chartDays.length ? <HitBars days={chartDays} /> : <div className="text-sm text-ink-2">Ingen afgjorte bets endnu.</div>}
           </Tile>
-          <Tile label="Gevinst pr. dag">
+          <Tile bare label="Gevinst pr. dag" className="bg-surface">
             {chartDays.length ? <ProfitBars days={chartDays} /> : <div className="text-sm text-ink-2">Ingen afgjorte bets endnu.</div>}
           </Tile>
         </div>
-        <p className="text-xs text-muted">
-          {CATEGORY_LABEL[type]} · {context}. Søjlerne er andelen, der gik hjem pr. dag (stregen er det, vi regnede med), og gevinsten pr. dag.
+        <p className="text-xs leading-relaxed text-ink-2/80">
+          {CATEGORY_LABEL[type]} · {context}. Søjlerne er andelen, der gik hjem pr. dag (den gule streg er det, vi regnede med), og gevinsten pr. dag.
           {type === "bedste" && " Bedste bets tæller kun bets efter den nuværende regel (Pinnacles pris mod bet365 og bwin); bets efter de tidligere regler er ikke med. CLV måles mod bookmakernes median-lukkepris, ikke Pinnacles."}
         </p>
-      </header>
+      </section>
 
-      <nav aria-label="Bet-type" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-        {byCat.map(({ id, s }) => (
-          <Link
-            key={id}
-            href={`/picks/resultater?type=${id}`}
-            scroll={false}
-            aria-current={id === type ? "page" : undefined}
-            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-sm ${id === type ? "border-accent bg-accent/20 font-semibold text-ink" : "border-line bg-surface text-ink-2 hover:text-ink"}`}
-          >
-            {CATEGORY_LABEL[id]}
-            <span className="num ml-1.5 text-xs text-muted">{s.settled ? pctTight(s.won / s.settled) : "—"}</span>
-          </Link>
-        ))}
-      </nav>
+      <section aria-labelledby="typer" className="space-y-3">
+        <h2 id="typer" className="eyebrow">
+          Vælg bet-type
+        </h2>
+        <nav aria-label="Bet-type" className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 scroll-fade-x [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0 sm:[mask-image:none] lg:grid-cols-6">
+          {byCat.map(({ id, s }, k) => {
+            const rate = s.settled ? s.won / s.settled : NaN;
+            const on = id === type;
+            return (
+              <Link
+                key={id}
+                href={`/picks/resultater?type=${id}`}
+                scroll={false}
+                aria-current={on ? "page" : undefined}
+                className={`w-40 shrink-0 snap-start rounded-card border px-4 py-3.5 transition-colors sm:w-auto ${k === 0 && byCat.length % 6 === 5 ? "lg:col-span-2" : ""} ${on ? "border-accent/60 bg-accent-soft" : "border-line bg-surface hover:border-line-strong hover:bg-surface-2"}`}
+              >
+                <div className={`truncate text-sm font-semibold ${on ? "text-accent" : "text-ink"}`}>{CATEGORY_LABEL[id]}</div>
+                <div className="figure mt-2 text-3xl">{s.settled ? pctTight(rate) : "—"}</div>
+                <div className="relative mt-3 h-1 rounded-full bg-surface-3">
+                  {s.settled > 0 && <div className="grow-x absolute inset-y-0 left-0 rounded-full bg-ink/85" style={{ width: `${Math.round(rate * 100)}%` }} />}
+                  {Number.isFinite(s.expectedRate) && <div className="absolute -top-1 h-3 w-0.5 rounded bg-accent" style={{ left: `${Math.round(s.expectedRate * 100)}%` }} title="Forventet" />}
+                </div>
+                <div className="num mt-2.5 flex justify-between gap-2 text-xs">
+                  <span className="text-ink-2">{s.settled ? `${s.won}/${s.settled}` : "ingen"}</span>
+                  <span className={s.withOdds ? (s.withOdds < ROI_MIN ? "text-ink-2" : s.profit >= 0 ? "text-good" : "text-serious") : "text-ink-2"}>{s.withOdds ? krFromUnits(s.profit) : "ingen odds"}</span>
+                </div>
+              </Link>
+            );
+          })}
+        </nav>
+        <p className="text-xs leading-relaxed text-ink-2/80">
+          Bjælken er andelen, der gik hjem. Den gule streg er det, vi regnede med. Gevinst ved 100 kr pr. bet, kun bets med odds. Historisk, sidste 7 dage, {t.dataLabel}.
+        </p>
+      </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{CATEGORY_LABEL[type]}, dag for dag</h2>
+        <h2 className="display text-[34px] sm:text-[40px]">{CATEGORY_LABEL[type]}, dag for dag</h2>
         {days.length === 0 ? (
-          <div className="rounded-[20px] border border-line bg-surface px-6 py-10 text-center text-sm text-ink-2">
-            Ingen afgjorte bets endnu. Resultaterne kommer, når de første kampe er spillet.
-          </div>
+          <EmptyState title="Ingen afgjorte bets endnu" text="Resultaterne kommer, når de første kampe er spillet." />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             {days.map((day) => {
               const list = picks.filter((p) => p.day === day);
               const s = summarise(list);
               return (
-                <section key={day} className="overflow-hidden rounded-[20px] border border-line bg-surface">
-                  <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
-                    <span className="font-semibold">{dayLabel(day)}</span>
+                <section key={day} className="overflow-hidden rounded-card border border-line bg-surface">
+                  <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+                    <h3 className="font-semibold">{dayLabel(day)}</h3>
                     <span className="flex items-center gap-2 text-sm">
                       <span className="text-ink-2">{s.settled ? `${s.won} af ${s.settled}` : "afventer"}</span>
-                      {s.withOdds > 0 && <span className={`num rounded-full px-2 py-0.5 text-xs font-semibold ${s.profit >= 0 ? "bg-good/15 text-good" : "bg-critical/15 text-serious"}`}>{krFromUnits(s.profit)}</span>}
+                      {s.withOdds > 0 && <span className={`num rounded-full px-2 py-0.5 text-xs font-semibold ${s.profit >= 0 ? "bg-good/15 text-good" : "bg-critical/15 text-critical"}`}>{krFromUnits(s.profit)}</span>}
                     </span>
                   </div>
                   <ul className="divide-y divide-line">
                     {list.map((p) => {
                       const money = pickKr(p);
                       return (
-                        <li key={`${p.match}|${p.outcome}`} className="flex items-center gap-3 px-4 py-2.5">
+                        <li key={`${p.match}|${p.outcome}`} className="flex items-center gap-3 px-5 py-3">
                           <Mark r={p.result} />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-medium">{p.outcome}</span>
-                            <span className="block truncate text-xs text-muted">
+                            <span className="block truncate text-xs text-ink-2">
                               {p.match.replace(" vs ", " – ")} · {p.league}
                             </span>
                           </span>
@@ -155,42 +181,15 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
         )}
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Alle bet-typer</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {byCat.map(({ id, s }) => {
-            const rate = s.settled ? s.won / s.settled : NaN;
-            return (
-              <Link
-                key={id}
-                href={`/picks/resultater?type=${id}`}
-                scroll={false}
-                className={`rounded-[18px] border px-4 py-3 transition-colors ${id === type ? "border-accent bg-surface-2" : "border-line bg-surface hover:border-ink-2"}`}
-              >
-                <div className="truncate text-sm font-medium">{CATEGORY_LABEL[id]}</div>
-                <div className="num mt-1 text-2xl font-extrabold">{s.settled ? pctTight(rate) : "—"}</div>
-                <div className="relative mt-2 h-1.5 rounded-full bg-surface-3">
-                  {s.settled > 0 && <div className="absolute inset-y-0 left-0 rounded-full bg-accent" style={{ width: `${Math.round(rate * 100)}%` }} />}
-                  {Number.isFinite(s.expectedRate) && <div className="absolute -top-1 h-3.5 w-0.5 bg-ink" style={{ left: `${Math.round(s.expectedRate * 100)}%` }} title="Forventet" />}
-                </div>
-                <div className="num mt-2 flex justify-between gap-2 text-xs">
-                  <span className="text-muted">{s.settled ? `${s.won}/${s.settled}` : "ingen"}</span>
-                  <span className={s.withOdds ? (s.profit >= 0 ? "text-good" : "text-serious") : "text-muted"}>{s.withOdds ? krFromUnits(s.profit) : "ingen odds"}</span>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-        <p className="text-xs text-muted">Bjælken er andelen, der gik hjem. Den lodrette streg er det, vi regnede med. Gevinst ved 100 kr pr. bet, kun bets med odds. Historisk, sidste 7 dage, {t.dataLabel}.</p>
-      </section>
-
-      <details className="group rounded-[20px] border border-line bg-surface">
-        <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 [&::-webkit-details-marker]:hidden">
+      <details className="group rounded-card border border-line bg-surface">
+        <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 rounded-card px-5 py-4 transition-colors hover:bg-surface-2">
           <span>
             <span className="block font-semibold">Flere tal</span>
             <span className="block text-xs text-ink-2">Lukkeodds (CLV), hvordan modellen lærer, og om procenterne holder</span>
           </span>
-          <span className="text-muted transition-transform group-open:rotate-180">⌄</span>
+          <svg viewBox="0 0 16 16" className="h-5 w-5 shrink-0 text-ink-2 transition-transform duration-300 group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <path d="M4 6l4 4 4-4" />
+          </svg>
         </summary>
         <div className="space-y-6 border-t border-line px-5 py-5">
           <section>
@@ -274,7 +273,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
                           <td className="px-3 py-2 text-right">{pctOrDash(r.stated)}</td>
                           <td className={`px-3 py-2 text-right font-semibold ${few ? "text-muted" : Math.abs(gap) <= 0.05 ? "text-good" : "text-serious"}`}>
                             {pctOrDash(r.hitRate)}
-                            {few && <span className="block text-[10px] font-normal">for få bets</span>}
+                            {few && <span className="block text-xs font-normal">for få bets</span>}
                           </td>
                           <td className="py-2 pl-3 text-right text-ink-2">{r.withOdds ? pctOrDash(r.market) : "—"}</td>
                         </tr>
@@ -295,7 +294,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
         </div>
       </details>
 
-      <p className="text-xs text-muted">
+      <p className="text-xs leading-relaxed text-ink-2/80">
         Kilde: {t.dataLabel}. Hjørnespark, kort, frispark og 1. halvleg afgøres, når kampstatistikken er hentet, typisk et par dage efter kampen. Gevinst regnes kun for
         bets med en bookmakerodds.
       </p>

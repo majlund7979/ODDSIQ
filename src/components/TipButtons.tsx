@@ -14,6 +14,7 @@ export function TipButtons({
   odds,
   model,
   locked,
+  started = false,
   result,
 }: {
   action: (formData: FormData) => Promise<{ error?: string }>;
@@ -22,6 +23,8 @@ export function TipButtons({
   odds: Record<Side, number | null>;
   model: Record<Side, number> | null;
   locked: boolean;
+  /** The match has kicked off: its live odds can no longer be used, so they are not shown. */
+  started?: boolean;
   result: Side | null;
 }) {
   const [shown, setShown] = useOptimistic(pick);
@@ -55,12 +58,12 @@ export function TipButtons({
               ? "border-good bg-good/15 text-good"
               : mine
                 ? "border-critical/60 bg-critical/10 text-critical"
-                : "border-line bg-surface-2 text-muted"
+                : "border-line bg-surface-2 text-ink-2"
             : mine
-              ? "border-accent bg-accent text-page"
+              ? "border-accent bg-accent text-on-accent shadow-[var(--shadow-glow)]"
               : locked
-                ? "border-line bg-surface-2 text-muted"
-                : "border-line-strong bg-surface-2 text-ink hover:border-accent";
+                ? "border-line bg-surface-2 text-ink-2"
+                : "border-line-strong bg-surface-2 text-ink hover:-translate-y-px hover:border-accent/70 hover:bg-surface-3";
           return (
             <button
               key={s}
@@ -68,18 +71,22 @@ export function TipButtons({
               disabled={locked}
               onClick={() => choose(s)}
               aria-pressed={mine}
-              aria-label={`Tip ${SIDE_LABEL[s]}${odds[s] ? `, odds ${dec(odds[s]!)}` : ""}`}
-              className={`flex flex-col items-center rounded-xl border px-2 py-2 transition-colors disabled:cursor-default ${tone}`}
+              aria-label={`Tip ${SIDE_LABEL[s]}${odds[s] && !started ? `, odds ${dec(odds[s]!)}` : ""}`}
+              className={`flex min-h-16 flex-col items-center justify-center rounded-field border px-2 py-2 transition-[background-color,border-color,translate,box-shadow] duration-150 active:scale-[0.97] disabled:cursor-default ${tone}`}
             >
-              <span className="text-lg leading-none font-bold">{SIDE_LABEL[s]}</span>
-              <span className={`num mt-1 text-xs ${mine && !result ? "text-page/80" : ""}`}>{odds[s] ? dec(odds[s]!) : "—"}</span>
-              {model && <span className={`num text-[10px] ${mine && !result ? "text-page/70" : "text-muted"}`}>{Math.round(model[s] * 100)} %</span>}
+              <span className="figure text-xl">{SIDE_LABEL[s]}</span>
+              {!started && (
+                <>
+                  <span className={`num mt-1 text-sm font-semibold ${mine && !result ? "text-on-accent" : ""}`}>{odds[s] ? dec(odds[s]!) : "—"}</span>
+                  {model && <span className={`num text-xs ${mine && !result ? "text-on-accent/75" : "text-ink-2"}`}>{Math.round(model[s] * 100)}&nbsp;%</span>}
+                </>
+              )}
             </button>
           );
         })}
       </div>
       {error && (
-        <p role="status" className="mt-2 text-xs text-serious">
+        <p role="status" className="mt-2 text-xs text-critical">
           {error}
         </p>
       )}

@@ -1,10 +1,11 @@
 "use client";
 
-// Top right of the header: how many have signed up (left out below 360 px, where the
-// header has no room for it), and a button that e-mails a friend an invite.
+// Top right of the header: how many have signed up (from 640 px, where the header has
+// room for it), and a button that e-mails a friend an invite.
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { inviteFriend, type InviteState } from "@/app/invite-actions";
+import { buttonClass, fieldBase } from "./ui";
 
 const people = (
   <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -37,47 +38,42 @@ export function InviteBar({ count }: { count: number | null }) {
     };
   }, [open]);
 
-  const input = "w-full rounded-xl border border-line-strong bg-surface-2 px-3 py-2 text-sm outline-none placeholder:text-muted focus:border-accent";
   return (
     <div ref={box} className="relative">
-      <div className="flex h-10 items-center gap-1 rounded-full border border-line bg-surface-2 p-1 pl-3">
+      <div className="flex items-center gap-2">
         {count !== null && (
-          <span className="hidden items-center gap-1.5 pr-1 text-sm text-ink-2 min-[360px]:flex" title={`Live tal: ${count} konti oprettet i alt, fra vores database.`}>
+          <span className="hidden items-center gap-1.5 text-sm text-ink-2 sm:flex" title={`Live tal: ${count} konti oprettet i alt, fra vores database.`}>
             {people}
             <span className="num font-semibold text-ink">{count}</span>
             <span className="sr-only"> tilmeldt</span>
           </span>
         )}
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          className="rounded-full bg-lime px-3 py-1.5 text-sm font-semibold text-accent hover:brightness-125"
-        >
-          Invitér
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="dialog" className={buttonClass("ghost", "sm", "max-sm:w-11 max-sm:px-0")}>
+          <span className="sm:hidden">{people}</span>
+          <span className="max-sm:sr-only">Invitér</span>
         </button>
       </div>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-line-strong bg-surface p-4 shadow-2xl shadow-black/40">
-          <div className="font-bold">Invitér en ven</div>
-          <p className="mt-1 text-xs leading-snug text-muted">Vi sender en mail med et link til at oprette en gratis konto. Din vens adresse bruges kun til den ene mail.</p>
-          <form ref={form} action={action} className="mt-3 space-y-2">
-            <input name="name" placeholder="Navn (valgfrit)" aria-label="Navn" maxLength={60} className={input} />
-            <input name="email" type="email" required placeholder="vens@email.dk" aria-label="Email" className={input} autoFocus />
-            <button type="submit" disabled={pending} className="w-full rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60">
+        <div role="dialog" aria-label="Invitér en ven" className="rise absolute right-0 top-full z-50 mt-3 w-[min(21rem,calc(100vw-2rem))] rounded-card border border-line-strong bg-surface-2 p-5 shadow-[var(--shadow-pop)] [--i:0] max-sm:-right-12">
+          <div className="text-lg font-semibold">Invitér en ven</div>
+          <p className="mt-1 text-sm leading-snug text-ink-2">Vi sender en mail med et link til at oprette en gratis konto. Din vens adresse bruges kun til den ene mail.</p>
+          <form ref={form} action={action} className="mt-4 space-y-3">
+            <input name="name" placeholder="Navn (valgfrit)" aria-label="Navn" maxLength={60} className={fieldBase} />
+            <input name="email" type="email" required placeholder="vens@email.dk" aria-label="Email" className={fieldBase} autoFocus />
+            <button type="submit" disabled={pending} aria-busy={pending || undefined} className={buttonClass("primary", "md", "w-full")}>
               {pending ? "Sender…" : "Send invitation"}
             </button>
           </form>
-          {state.ok && <p className="mt-2 text-sm text-good">{state.ok}</p>}
-          {state.error && <p className="mt-2 text-sm text-serious">{state.error}</p>}
+          {state.ok && <p role="status" className="mt-2 text-sm text-good">{state.ok}</p>}
+          {state.error && <p role="alert" className="mt-2 text-sm text-critical">{state.error}</p>}
           {state.link && (
             <div className="mt-2 flex items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded-lg bg-surface-2 px-2 py-1.5 text-xs">{state.link}</code>
+              <code className="min-w-0 flex-1 truncate rounded-field bg-page px-2.5 py-2 text-xs">{state.link}</code>
               <button
                 type="button"
                 onClick={() => navigator.clipboard?.writeText(state.link!).then(() => setCopied(true))}
-                className="shrink-0 rounded-full border border-line-strong px-3 py-1 text-xs font-semibold hover:border-accent"
+                className={buttonClass("secondary", "sm")}
               >
                 {copied ? "Kopieret" : "Kopiér"}
               </button>

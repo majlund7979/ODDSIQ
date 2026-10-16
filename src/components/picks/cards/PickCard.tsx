@@ -16,13 +16,13 @@ function BookTable({ quotes, fairOdds, marketOnly, reference }: { quotes: Pick["
   const pctDiff = Math.round(c.bestOverMedian * 1000) / 10;
   return (
     <Fact label="Odds hos bookmakerne">
-      <ul className="divide-y divide-line rounded-lg border border-line">
+      <ul className="divide-y divide-line rounded-field border border-line">
         {c.rows.map((r) => (
-          <li key={r.book} className={`flex items-center justify-between gap-3 px-3 py-1.5 ${r.best ? "bg-lime-soft" : ""}`}>
+          <li key={r.book} className={`flex items-center justify-between gap-3 px-3 py-2 ${r.best ? "bg-accent-soft" : ""}`}>
             <span className="truncate">{r.book}</span>
             <span className="flex shrink-0 items-center gap-2">
-              {r.best && <span className="text-[11px] font-semibold text-accent">Bedst</span>}
-              {r.value && !marketOnly && !reference && <span className="rounded-full border border-good/40 bg-good/10 px-1.5 text-[10px] font-semibold text-good">Værdi</span>}
+              {r.best && <span className="text-xs font-semibold text-accent">Bedst</span>}
+              {r.value && !marketOnly && !reference && <span className="rounded-full border border-good/40 bg-good/10 px-1.5 text-xs font-semibold text-good">Værdi</span>}
               <span className={`num ${r.best ? "font-semibold" : ""}`}>{dec(r.odds)}</span>
             </span>
           </li>
@@ -86,17 +86,17 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
   const i = p.insights;
   const maxPp = Math.max(4, ...p.factors.map((f) => Math.abs(f.pp ?? 0)));
   return (
-    <div className="grid gap-6 border-t border-line px-5 py-5 md:grid-cols-2">
+    <div className="grid gap-8 border-t border-line bg-page/40 px-5 py-6 sm:px-6 md:grid-cols-2">
       <div className="space-y-2 md:col-span-2">
-        <div className="text-[13px] font-semibold text-ink-2">Hvorfor dette bet</div>
+        <div className="eyebrow">Hvorfor dette bet</div>
         {explainPick(p).map((s, k) => (
-          <p key={k} className="text-[15px] leading-relaxed text-ink-2">
+          <p key={k} className="text-md leading-relaxed text-ink-2">
             {s}
           </p>
         ))}
       </div>
       <div className="space-y-3">
-        <div className="text-[13px] font-semibold text-ink-2">Sådan er procenten regnet ud</div>
+        <div className="eyebrow">Sådan er procenten regnet ud</div>
         <ul className="space-y-3">
           {p.factors.map((f) => (
             <li key={f.label} className="space-y-1">
@@ -119,7 +119,7 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
         </ul>
         <div className="flex items-baseline justify-between border-t border-line pt-3 text-sm">
           <span className="font-semibold">Samlet chance</span>
-          <span className="num font-semibold text-accent">{Math.round(p.probability * 100)}%</span>
+          <span className="num text-lg font-bold text-ink">{Math.round(p.probability * 100)}&nbsp;%</span>
         </div>
       </div>
 
@@ -180,24 +180,24 @@ function Analysis({ p, home, away }: { p: Pick; home: string; away: string }) {
 export function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: number; save: SaveTarget | null }) {
   const [home, away] = p.row.match.split(" vs ");
   return (
-    <article className="overflow-hidden rounded-[20px] border border-line bg-surface">
-      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+    <article className="overflow-hidden rounded-card border border-line bg-surface transition-colors duration-200 hover:border-line-strong">
+      <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
         <div className="min-w-0 flex-1 space-y-3">
           <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} probability={p.probability} now={now} />
           <MatchTitle home={home} away={away} />
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted">Vores bud</span>
-            <span className="rounded-full bg-lime-soft px-3.5 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
-            {p.value && <span className="rounded-full border border-good/40 bg-good/10 px-2 py-0.5 text-[11px] font-semibold text-good">Værdi</span>}
+            <span className="eyebrow">Vores bud</span>
+            <span className="rounded-field border border-accent/35 bg-accent-fill px-3.5 py-1.5 text-md font-semibold text-accent">{p.outcome}</span>
+            {p.value && <span className="rounded-full border border-good/40 bg-good/10 px-2 py-0.5 text-xs font-semibold text-good">Værdi</span>}
             <OddsMoveTag row={p.row} />
             {p.lineupsConfirmed ? (
-              <span className="rounded-full border border-good/40 bg-good/10 px-2 py-0.5 text-[11px] font-semibold text-good">Opstilling bekræftet</span>
+              <span className="rounded-full border border-good/40 bg-good/10 px-2 py-0.5 text-xs font-semibold text-good">Opstilling bekræftet</span>
             ) : (
-              <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2" title="Procenten bliver mere præcis, når holdopstillingerne er meldt, typisk en time før kampstart">
+              <span className="rounded-full border border-line-strong px-2 py-0.5 text-xs text-ink-2" title="Procenten bliver mere præcis, når holdopstillingerne er meldt, typisk en time før kampstart">
                 Afventer opstilling
               </span>
             )}
-            {p.marketOnly && <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-2" title={badgeTitle(p)}>{badgeText(p)}</span>}
+            {p.marketOnly && <span className="rounded-full border border-line-strong px-2 py-0.5 text-xs text-ink-2" title={badgeTitle(p)}>{badgeText(p)}</span>}
           </div>
         </div>
         <div className="flex items-center gap-5">
@@ -206,13 +206,13 @@ export function PickCard({ p, rank, now, save }: { p: Pick; rank: number; now: n
         </div>
       </div>
       {isSharp(p) && (
-        <div className="border-t border-line bg-surface-2 px-5 py-2.5 text-sm text-ink-2">
+        <div className="border-t border-line bg-surface-2 px-5 py-3 text-sm leading-relaxed text-ink-2 sm:px-6">
           {p.reference}s fair pris {dec(p.fairOdds)} · {p.row.bestBook} {dec(p.row.bestOdds)} ({p.ev >= 0 ? "+" : ""}
           {dec(p.ev * 100, 1)} %) · <span className="font-semibold text-ink">spil kun til mindst {dec(p.minOdds)}</span> · odds hentet kl. {clock(p.pricedAt)}
         </div>
       )}
       {p.instead && (
-        <div className="border-t border-line bg-surface-2 px-5 py-2.5 text-sm text-ink-2">
+        <div className="border-t border-line bg-surface-2 px-5 py-3 text-sm leading-relaxed text-ink-2 sm:px-6">
           Går oftere hjem til næsten samme odds: <span className="font-semibold text-ink">{p.instead.outcome}</span> · {Math.round(p.instead.probability * 100)} % · odds {dec(p.instead.odds)}
         </div>
       )}

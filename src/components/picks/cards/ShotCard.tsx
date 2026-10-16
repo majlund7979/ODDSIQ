@@ -18,19 +18,19 @@ export function ShotCard({ p, rank, now }: { p: ShotPick; rank: number; now: num
       </span>
     );
   return (
-    <article className="overflow-hidden rounded-[20px] border border-line bg-surface">
+    <article className="overflow-hidden rounded-card border border-line bg-surface transition-colors duration-200 hover:border-line-strong">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
           <CardTop rank={rank} league={p.league} kickoff={p.kickoff} probability={p.probability} now={now} />
           <div>
-            <h2 className="text-xl font-bold leading-tight tracking-[-0.01em] sm:text-[22px]">{p.player}</h2>
+            <h2 className="text-balance text-[22px] font-bold leading-tight tracking-[-0.015em] sm:text-2xl">{p.player}</h2>
             <div className="mt-1 text-sm text-ink-2">
               {p.team} mod {p.opponent}
               {p.position && <span className="text-muted"> · {POSITION_LABEL[p.position] ?? p.position}</span>}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-lime-soft px-3.5 py-1.5 text-[15px] font-semibold text-accent">Mindst 1 skud på mål</span>
+            <span className="rounded-field border border-accent/35 bg-accent-fill px-3.5 py-1.5 text-md font-semibold text-accent">Mindst 1 skud på mål</span>
             {start}
           </div>
         </div>

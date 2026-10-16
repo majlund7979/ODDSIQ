@@ -8,6 +8,8 @@ import { useActionState, useEffect } from "react";
 import { playCoupon, type PlayState } from "@/app/friends-actions";
 import { dec, pct } from "@/lib/format";
 import { couponMath } from "@/lib/my-coupon";
+import { buttonClass } from "@/components/ui";
+import { fieldClass } from "@/components/forms";
 import { clearLegs, removeLeg, useLegs } from "./coupon-store";
 
 /** `canPlay`: signed in, so "Spil kupon" can save it to the friends' league. */
@@ -21,7 +23,7 @@ export function MyCoupon({ canPlay = false }: { canPlay?: boolean }) {
   if (!m) {
     if (!state.ok) return null;
     return (
-      <div role="status" className="sticky bottom-24 z-20 ml-auto flex w-full max-w-md items-center gap-3 rounded-full border border-good/40 bg-surface-2/95 px-4 py-2 text-sm shadow-lg backdrop-blur xl:bottom-4">
+      <div role="status" className="rise sticky bottom-24 z-20 ml-auto flex w-full max-w-md items-center gap-3 rounded-card border border-good/40 bg-surface-2/95 px-4 py-3 text-sm shadow-[var(--shadow-pop)] backdrop-blur-xl xl:bottom-4">
         <span className="text-good">✓</span>
         <span className="min-w-0 flex-1 truncate">Kuponen er spillet</span>
         <Link href="/picks/liga" className="shrink-0 font-semibold text-accent hover:underline">
@@ -36,9 +38,9 @@ export function MyCoupon({ canPlay = false }: { canPlay?: boolean }) {
     clearLegs();
   };
   return (
-    <details className="group sticky bottom-24 z-20 ml-auto w-full max-w-md overflow-hidden rounded-full border border-line-strong bg-surface-2/95 shadow-lg backdrop-blur open:rounded-[20px] xl:bottom-4">
-      <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-2 text-sm">
-        <span className="num flex h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-bold text-white">{m.legs}</span>
+    <details className="rise group sticky bottom-24 z-20 ml-auto w-full max-w-md overflow-hidden rounded-card border border-accent/40 bg-surface-2/95 shadow-[var(--shadow-pop)] backdrop-blur-xl xl:bottom-4">
+      <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-2 text-sm">
+        <span className="num flex h-7 min-w-7 items-center justify-center rounded-full bg-accent px-1.5 text-sm font-bold text-on-accent">{m.legs}</span>
         <span className="font-semibold">Din kupon</span>
         <span className="num ml-auto flex items-center gap-3 text-ink-2">
           <span title="Chance for at alle går hjem">{pct(m.probability)}</span>
@@ -72,29 +74,29 @@ export function MyCoupon({ canPlay = false }: { canPlay?: boolean }) {
       {canPlay && m.legs >= 2 && (
         <form action={play} className="flex flex-wrap items-end gap-2 border-t border-line px-4 py-2.5">
           <input type="hidden" name="legs" value={JSON.stringify(legs.map((l) => ({ eventId: l.eventId, category: l.category })))} />
-          <label className="w-24 space-y-0.5 text-[11px] text-muted">
+          <label className="w-28 text-xs font-medium text-ink-2">
             Indsats (kr)
-            <input name="stake" inputMode="decimal" required placeholder="fx 50" className="num block w-full rounded-[10px] border border-line-strong bg-surface px-2 py-1 text-sm text-ink" />
+            <input name="stake" inputMode="decimal" required placeholder="fx 50" className={`num ${fieldClass}`} />
           </label>
-          <label className="w-24 space-y-0.5 text-[11px] text-muted">
+          <label className="w-28 text-xs font-medium text-ink-2">
             Samlet odds
-            <input name="odds" inputMode="decimal" key={m.odds ?? 0} defaultValue={m.odds && !m.missingOdds ? dec(m.odds) : ""} placeholder="fx 3,40" className="num block w-full rounded-[10px] border border-line-strong bg-surface px-2 py-1 text-sm text-ink" />
+            <input name="odds" inputMode="decimal" key={m.odds ?? 0} defaultValue={m.odds && !m.missingOdds ? dec(m.odds) : ""} placeholder="fx 3,40" className={`num ${fieldClass}`} />
           </label>
-          <button type="submit" disabled={pending} className="ml-auto rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60">
+          <button type="submit" disabled={pending} aria-busy={pending || undefined} className={buttonClass("primary", "lg", "ml-auto")}>
             {pending ? "Gemmer…" : "Spil kupon"}
           </button>
-          {state.error && <p className="basis-full text-xs text-serious">{state.error}</p>}
-          <p className="basis-full text-[11px] text-muted">Gemmes som ét bet under Vennernes bets, så dine venner kan se den. Den går kun hjem, hvis alle bets gør. Vi placerer ikke spillet hos en bookmaker.</p>
+          {state.error && <p role="alert" className="basis-full text-xs text-critical">{state.error}</p>}
+          <p className="basis-full text-xs text-ink-2">Gemmes som ét bet under Vennernes bets, så dine venner kan se den. Den går kun hjem, hvis alle bets gør. Vi placerer ikke spillet hos en bookmaker.</p>
         </form>
       )}
-      {canPlay && m.legs < 2 && <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Læg mindst 2 bets på for at spille kuponen.</p>}
-      <div className="flex items-start gap-3 border-t border-line px-4 py-2 text-[11px] text-muted">
+      {canPlay && m.legs < 2 && <p className="border-t border-line px-4 py-2 text-xs text-muted">Læg mindst 2 bets på for at spille kuponen.</p>}
+      <div className="flex items-start gap-3 border-t border-line px-4 py-2.5 text-xs text-ink-2">
         <p className="flex-1">
           {pct(m.probability)} chance for at alle går hjem · samlet odds {m.odds ? dec(m.odds) : "—"}
           {m.missingOdds ? ` (${m.missingOdds} uden odds)` : ""}
           {ret !== null ? ` · snit ${ret} kr pr. 100 kr` : ""}. Fair samlet odds efter vores procenter: {dec(m.fairOdds)}. Skøn, ikke garantier.
         </p>
-        <button type="button" onClick={clear} className="-my-1.5 -mr-2 shrink-0 px-2 py-1.5 text-xs font-medium text-ink-2 hover:text-ink">
+        <button type="button" onClick={clear} className="-my-2 -mr-2 min-h-11 shrink-0 rounded-field px-3 text-sm font-medium text-ink-2 hover:bg-surface-3 hover:text-ink">
           Ryd
         </button>
       </div>
