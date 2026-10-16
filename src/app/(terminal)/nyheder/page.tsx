@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { chipClass, EmptyState, PageHeader } from "@/components/ui";
 import { NewsList } from "@/components/NewsList";
 import { requireFriend } from "@/lib/auth/friends";
 import { wallClock } from "@/lib/data";
@@ -17,34 +18,30 @@ export default async function NewsPage({ searchParams }: { searchParams: Promise
     const q = new URLSearchParams({ ...(l !== "alle" && { liga: l }), ...(t !== "alle" && { emne: t }) }).toString();
     return q ? `/nyheder?${q}` : "/nyheder";
   };
-  const chip = (active: boolean) =>
-    `shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm ${active ? "border-lime bg-lime font-semibold text-accent" : "border-line bg-surface text-ink-2 hover:border-line-strong hover:text-ink"}`;
+  const chip = (active: boolean) => chipClass(active);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <header className="space-y-2">
-        <h1 className="display text-[40px] text-ink sm:text-5xl">Nyheder</h1>
-        <p className="text-[15px] text-ink-2">Skader og klubskifter fra ligaerne, vi analyserer. Tryk på en overskrift for at læse hele artiklen.</p>
-      </header>
-      <nav aria-label="Emne" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
+    <div className="mx-auto max-w-3xl space-y-6">
+      <PageHeader title="Nyheder" intro="Skader og klubskifter fra ligaerne, vi analyserer. Tryk på en overskrift for at læse hele artiklen." className="mb-8" />
+      <nav aria-label="Emne" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scroll-fade-x [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 sm:[mask-image:none]">
         {NEWS_TOPICS.map((t) => (
           <Link key={t.id} href={href(league.id, t.id)} scroll={false} aria-current={t.id === topic.id ? "page" : undefined} className={chip(t.id === topic.id)}>
             {t.label}
           </Link>
         ))}
       </nav>
-      <nav aria-label="Liga" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
+      <nav aria-label="Liga" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scroll-fade-x [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 sm:[mask-image:none]">
         {NEWS_LEAGUES.map((l) => (
           <Link key={l.id} href={href(l.id, topic.id)} scroll={false} aria-current={l.id === league.id ? "page" : undefined} className={chip(l.id === league.id)}>
             {l.label}
           </Link>
         ))}
       </nav>
-      <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
+      <section className="overflow-hidden rounded-card border border-line bg-surface">
         {items.length ? (
           <NewsList items={items} now={now} />
         ) : (
-          <p className="px-5 py-10 text-center text-sm text-ink-2">Ingen nyheder om skader eller klubskifter lige nu. Prøv igen om lidt.</p>
+          <EmptyState className="m-4" title="Ingen nyheder lige nu" text="Ingen nyheder om skader eller klubskifter lige nu. Prøv igen om lidt." />
         )}
       </section>
       <p className="text-xs text-muted">Kilde: Google News, opdateres hver halve time. Overskrifter og links går til de oprindelige medier.</p>

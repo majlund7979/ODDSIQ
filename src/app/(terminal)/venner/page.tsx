@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import { buttonClass, PageHeader } from "@/components/ui";
 import { removeFriend } from "@/app/auth-actions";
 import { FriendForm } from "@/components/FriendForm";
 import { PendingButton } from "@/components/forms";
@@ -18,25 +19,26 @@ export default async function FriendsPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <header className="space-y-2">
-        <h1 className="display text-[40px] text-ink sm:text-5xl">Venner</h1>
-        <p className="text-[15px] text-ink-2">
-          {inviteOnly()
+      <PageHeader
+        className="mb-8"
+        title="Venner"
+        intro={
+          inviteOnly()
             ? "Kun dem på listen kan oprette en konto og se bets. Skriv din vens email herunder, og send vedkommende linket."
-            : "Lige nu kan alle oprette en konto, så listen bruges ikke. Sæt INVITE_ONLY=true på Vercel, hvis kun dem på listen skal kunne komme ind."}
-        </p>
-      </header>
+            : "Lige nu kan alle oprette en konto, så listen bruges ikke. Sæt INVITE_ONLY=true på Vercel, hvis kun dem på listen skal kunne komme ind."
+        }
+      />
 
-      <section className="space-y-4 rounded-[20px] border border-line bg-surface p-5">
+      <section className="space-y-4 rounded-card border border-line bg-surface p-5">
         <FriendForm />
-        <div className="rounded-xl bg-surface-2 px-4 py-3 text-sm">
+        <div className="rounded-field bg-surface-2 px-4 py-3 text-sm">
           <div className="text-ink-2">Link til din ven:</div>
           <div className="num mt-0.5 break-all font-medium text-accent">{site}/signup</div>
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
-        <h2 className="border-b border-line px-5 py-3 text-sm font-semibold">
+      <section className="overflow-hidden rounded-card border border-line bg-surface">
+        <h2 className="border-b border-line px-5 py-4 text-md font-semibold">
           Inviterede <span className="font-normal text-muted">· {friends.length + fromEnv.length}</span>
         </h2>
         {friends.length + fromEnv.length === 0 ? (
@@ -54,7 +56,7 @@ export default async function FriendsPage() {
                 </div>
                 <form action={removeFriend}>
                   <input type="hidden" name="email" value={f.email} />
-                  <PendingButton className="rounded-lg border border-line-strong px-3 py-1.5 text-xs text-ink-2 hover:border-critical/60 hover:text-serious" confirm={`Fjern adgangen for ${f.email}?`}>
+                  <PendingButton className={buttonClass("secondary", "sm", "hover:border-critical/60 hover:text-critical")} confirm={`Fjern adgangen for ${f.email}?`}>
                     Fjern
                   </PendingButton>
                 </form>

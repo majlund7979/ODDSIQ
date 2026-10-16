@@ -8,6 +8,7 @@ import { SHOTS_MODEL_VERSION, type ShotPick } from "@/lib/player-shots";
 import type { ShotBoard } from "@/lib/real/player-shots";
 import { SHARP_MAX_AGE_MS, SHARP_MAX_ODDS, SHARP_MIN_EV, SHARP_MIN_ODDS } from "@/lib/sharp";
 import { dec } from "@/lib/format";
+import { EmptyState } from "@/components/ui";
 import type { TabId } from "@/lib/picks-tabs";
 import type { SaveTarget } from "./Advice";
 import { kickoffLabel } from "./BetCard";
@@ -16,13 +17,11 @@ import { ExtraCard } from "./cards/ExtraCard";
 import { PickCard } from "./cards/PickCard";
 import { ShotCard } from "./cards/ShotCard";
 
-function Empty({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="rounded-[20px] bg-surface-2 px-6 py-12 text-center">
-      <div className="text-lg font-semibold">{title}</div>
-      <p className="mx-auto mt-2 max-w-md text-sm text-ink-2">{text}</p>
-    </div>
-  );
+const Empty = EmptyState;
+
+/** Why Bedste bets is empty. The page shows it as one quiet line above the coupons instead of a box under them. */
+export function sharpEmptyReason() {
+  return `I kampene de næste 24 timer betaler hverken bet365 eller bwin mindst ${dec(SHARP_MIN_EV * 100, 0)} % over Pinnacles (ellers Betfair Exchanges) fair pris ved odds ${dec(SHARP_MIN_ODDS)}–${dec(SHARP_MAX_ODDS)}, eller vi mangler deres odds fra samme opdatering inden for ${SHARP_MAX_AGE_MS / 3_600_000} timer.`;
 }
 
 export function TabBody({
@@ -52,9 +51,9 @@ export function TabBody({
   if (extraPicks) {
     if (extraPicks.length === 0) return <Empty title="Ingen kampe at vise lige nu" text="Der er ingen fodboldkampe med en analyse de næste 24 timer. Kig forbi igen senere." />;
     return (
-      <ol className="space-y-4">
+      <ol className="space-y-5">
         {extraPicks.map((p, i) => (
-          <li key={p.row.eventId}>
+          <li key={p.row.eventId} className="rise" style={{ ["--i" as string]: Math.min(i, 6) }}>
             <ExtraCard p={p} rank={i + 1} now={now} save={saveFor(p.row.eventId)} />
           </li>
         ))}
@@ -77,14 +76,14 @@ export function TabBody({
     }
     return (
       <>
-        <ol className="space-y-4">
+        <ol className="space-y-5">
           {shotPicks.map((p, i) => (
-            <li key={`${p.eventId}|${p.player}`}>
+            <li key={`${p.eventId}|${p.player}`} className="rise" style={{ ["--i" as string]: Math.min(i, 6) }}>
               <ShotCard p={p} rank={i + 1} now={now} />
             </li>
           ))}
         </ol>
-        <p className="px-1 text-xs text-muted">
+        <p className="px-1 text-xs leading-relaxed text-ink-2">
           Estimeret, model {SHOTS_MODEL_VERSION}: spillerens skud på mål pr. 90 minutter i sæsonen {shots.season}/{String((shots.season + 1) % 100).padStart(2, "0")}, trukket mod det
           typiske for positionen, gange forventede minutter og holdets forventede mål i kampen. Højst tre spillere pr. hold. {shots.covered} af {shots.matches} kampe de næste 24 timer har
           spillerdata · kilde: {DEMO_MODE ? "DEMO DATA" : `API-Football${shots.fetchedAt ? `, hentet ${kickoffLabel(shots.fetchedAt, now).toLowerCase()}` : ""}`}. Bookmakerne har ikke
@@ -113,9 +112,9 @@ export function TabBody({
       );
     }
     return (
-      <ol className="space-y-4">
+      <ol className="space-y-5">
         {countPicks.map((p, i) => (
-          <li key={p.row.eventId}>
+          <li key={p.row.eventId} className="rise" style={{ ["--i" as string]: Math.min(i, 6) }}>
             <CountCard p={p} rank={i + 1} now={now} save={saveFor(p.row.eventId)} />
           </li>
         ))}
@@ -123,14 +122,8 @@ export function TabBody({
     );
   }
 
-  if (picks.length === 0 && tab === "bedste") {
-    return (
-      <Empty
-        title="Ingen bets lige nu"
-        text={`I kampene de næste 24 timer betaler hverken bet365 eller bwin mindst ${dec(SHARP_MIN_EV * 100, 0)} % over Pinnacles (ellers Betfair Exchanges) fair pris ved odds ${dec(SHARP_MIN_ODDS)}–${dec(SHARP_MAX_ODDS)}, eller vi mangler deres odds fra samme opdatering inden for ${SHARP_MAX_AGE_MS / 3_600_000} timer. Se de andre faner for de mest sandsynlige bets.`}
-      />
-    );
-  }
+  // The page says why above the coupons, so the empty state is not shown twice.
+  if (picks.length === 0 && tab === "bedste") return null;
   if (picks.length === 0) {
     return (
       <Empty
@@ -140,9 +133,9 @@ export function TabBody({
     );
   }
   return (
-    <ol className="space-y-4">
+    <ol className="space-y-5">
       {picks.map((p, i) => (
-        <li key={p.row.selectionId} id={tab === "bedste" ? `bet-${i + 1}` : undefined} className="scroll-mt-20">
+        <li key={p.row.selectionId} id={tab === "bedste" ? `bet-${i + 1}` : undefined} className="rise scroll-mt-20" style={{ ["--i" as string]: Math.min(i, 6) }}>
           <PickCard p={p} rank={i + 1} now={now} save={saveFor(p.row.eventId)} />
         </li>
       ))}

@@ -31,10 +31,10 @@ const FAMILY: Record<string, string> = {
 
 function Tile({ label, value, hint }: { label: string; value: React.ReactNode; hint: React.ReactNode }) {
   return (
-    <div className="rounded-[20px] bg-surface-2 px-5 py-4">
-      <div className="text-[13px] font-semibold text-muted">{label}</div>
+    <div className="rounded-card bg-surface-2 px-5 py-4">
+      <div className="text-sm font-semibold text-muted">{label}</div>
       <div className="num mt-1.5 text-2xl font-extrabold tracking-[-0.02em] text-ink">{value}</div>
-      <p className="mt-1 text-[11px] leading-relaxed text-muted">{hint}</p>
+      <p className="mt-1 text-xs leading-relaxed text-muted">{hint}</p>
     </div>
   );
 }
@@ -47,10 +47,10 @@ function Status({ data }: { data: PanelData }) {
   const dot = { good: "bg-good", warning: "bg-warning", critical: "bg-critical", neutral: "bg-muted" }[s.tone];
   const v = model?.validation;
   return (
-    <section className={`rounded-[20px] border ${tone} bg-surface p-5`}>
+    <section className={`rounded-card border ${tone} bg-surface p-5`}>
       <div className="flex items-start gap-3">
         <span aria-hidden className={`mt-1.5 h-3 w-3 shrink-0 rounded-full ${dot}`} />
-        <p className="text-[15px] font-semibold text-ink">{s.text}</p>
+        <p className="text-md font-semibold text-ink">{s.text}</p>
       </div>
       {model && (
         <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -153,10 +153,10 @@ function Evaluation({ e }: { e: PanelEvaluation | null }) {
           <span className="text-sm font-semibold text-ink">Regel for at gå live</span>
           {e.eligible ? <Badge tone="good">Opfyldt: klar til dit ja</Badge> : <Badge tone="warning">Ikke opfyldt</Badge>}
         </div>
-        <p className="text-[12px] leading-relaxed text-muted">Motoren må foreslås til Dagens bedste bets, når én af to betingelser holder: {e.rule}.</p>
+        <p className="text-xs leading-relaxed text-muted">Motoren må foreslås til Dagens bedste bets, når én af to betingelser holder: {e.rule}.</p>
         <Progress label="Afgjorte 1X2-kampe (log loss skal være under markedet)" have={m1?.matches ?? 0} need={e.minMatches} ok={llOk} />
         <Progress label="Godkendte bets (CLV skal være over 0)" have={bets?.n ?? 0} need={e.minBets} ok={clvOk} />
-        <p className="text-[12px] leading-relaxed text-muted">
+        <p className="text-xs leading-relaxed text-muted">
           Backtesten (trin 5) bestod ikke reglen. Selv når reglen er opfyldt live, ændres Dagens bedste bets kun, hvis du siger ja.
         </p>
       </div>
@@ -168,7 +168,7 @@ function Probability({ s }: { s: PanelSelection }) {
   return (
     <div className="num leading-tight">
       <div className="font-semibold text-ink">{pct(s.p)}</div>
-      <div className="text-[11px] text-muted">
+      <div className="text-xs text-muted">
         model {pct(s.pModel)} · marked {pct(s.pMarket)}
       </div>
     </div>
@@ -183,7 +183,7 @@ function MatchRow({ m }: { m: PanelMatch }) {
         <div className="font-semibold text-ink">
           {m.home} – {m.away}
         </div>
-        <div className="text-[11px] text-muted">
+        <div className="text-xs text-muted">
           {m.competition} · {when(m.kickoff)}
         </div>
       </td>
@@ -191,7 +191,7 @@ function MatchRow({ m }: { m: PanelMatch }) {
         const s = sel(k);
         return <td key={k} className="px-3 py-3">{s ? <Probability s={s} /> : <span className="text-muted">—</span>}</td>;
       })}
-      <td className="px-3 py-3 text-[11px] whitespace-nowrap text-muted">
+      <td className="px-3 py-3 text-xs whitespace-nowrap text-muted">
         {STAGE[m.stage] ?? m.stage}
         <br />
         data {when(m.dataAsOf)}
@@ -231,13 +231,13 @@ function ValueTable({ matches }: { matches: PanelMatch[] }) {
                 <div className="whitespace-nowrap text-ink">
                   {m.home} – {m.away}
                 </div>
-                <div className="text-[11px] text-muted">
+                <div className="text-xs text-muted">
                   {SELECTION_LABEL[s.selection] ?? s.selection} · {when(m.kickoff)}
                 </div>
               </td>
               <td className="num px-3 py-2.5 text-right whitespace-nowrap">
                 {dec(s.odds)}
-                {s.book && <div className="text-[11px] text-muted">{s.book}</div>}
+                {s.book && <div className="text-xs text-muted">{s.book}</div>}
               </td>
               <td className="num px-3 py-2.5 text-right">{pct(s.p, 1)}</td>
               <td className="num px-3 py-2.5 text-right">{signedPct(s.edge)}</td>
@@ -247,7 +247,7 @@ function ValueTable({ matches }: { matches: PanelMatch[] }) {
                 {s.isBet ? (
                   <Badge tone="good">Godkendt · {pct(s.stake, 1)} af bank</Badge>
                 ) : (
-                  <span className="text-[12px] text-ink-2">Afvist: {s.rejected || "—"}</span>
+                  <span className="text-xs text-ink-2">Afvist: {s.rejected || "—"}</span>
                 )}
               </td>
             </tr>
@@ -287,7 +287,7 @@ function Runs({ data }: { data: PanelData }) {
               <td className="num px-3 py-2.5 text-right">{r.predictions ?? "—"}</td>
               <td className="num px-3 py-2.5 text-right">{r.approved ?? "—"}</td>
               <td className="num px-3 py-2.5 text-right whitespace-nowrap">{r.seconds == null ? "—" : `${Math.round(r.seconds / 60)} min`}</td>
-              <td className="px-3 py-2.5 text-[12px] text-ink-2">
+              <td className="px-3 py-2.5 text-xs text-ink-2">
                 {r.note}
                 {r.unmapped.length > 0 && <>Ukendte holdnavne: {r.unmapped.join(", ")}</>}
               </td>
@@ -321,8 +321,8 @@ export default async function ModelPanelPage() {
         <Link href="/admin" className="text-sm text-muted hover:text-accent">
           ← Admin
         </Link>
-        <h1 className="display mt-2 text-[40px] text-ink sm:text-5xl">Modelpanel</h1>
-        <p className="mt-2 max-w-3xl text-[15px] text-ink-2">
+        <h1 className="display mt-2 text-[44px] text-ink sm:text-[64px]">Modelpanel</h1>
+        <p className="mt-2 max-w-3xl text-md text-ink-2">
           Kun du kan se denne side. Den viser, hvad den nye prediction engine regner ud hver dag. Motoren kører i skyggetilstand: intet herfra
           bruges på Dagens bedste bets, før du siger ja.
         </p>
@@ -374,7 +374,7 @@ export default async function ModelPanelPage() {
                 </table>
               </div>
             )}
-            <p className="border-t border-line px-5 py-3 text-[11px] text-muted">
+            <p className="border-t border-line px-5 py-3 text-xs text-muted">
               Det store tal er motorens endelige sandsynlighed. Under står modellens egen og markedets (fair, uden margin). Med vægt 0 på modellen er
               det endelige tal lig markedets.
             </p>
@@ -407,8 +407,8 @@ export default async function ModelPanelPage() {
       <Panel title="Backtest" right="historisk, 10 testsæsoner">
         <div className="grid gap-3 p-4 sm:grid-cols-2">
           {BACKTEST.map((b) => (
-            <div key={b.label} className="rounded-[20px] bg-surface-2 px-5 py-4">
-              <div className="text-[13px] font-semibold text-muted">
+            <div key={b.label} className="rounded-card bg-surface-2 px-5 py-4">
+              <div className="text-sm font-semibold text-muted">
                 <Tip text={b.m.definition}>{b.label}</Tip>
               </div>
               <div className="num mt-1.5 text-2xl font-extrabold tracking-[-0.02em] text-ink">{b.m.value}</div>
@@ -416,7 +416,7 @@ export default async function ModelPanelPage() {
             </div>
           ))}
         </div>
-        <p className="border-t border-line px-5 py-3 text-[11px] text-muted">
+        <p className="border-t border-line px-5 py-3 text-xs text-muted">
           Ingen strategi tjente penge i backtesten. Live-tallene står under Live-evaluering.
         </p>
       </Panel>

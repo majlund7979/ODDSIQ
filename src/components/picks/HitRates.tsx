@@ -14,10 +14,10 @@ export function HitRates({ learning, labels, current, period, source, versions, 
   if (!rows.length) return null;
   rows.sort((a, b) => b.rate - a.rate || b.n - a.n);
   return (
-    <section className="overflow-hidden rounded-[20px] border border-line bg-surface px-4 py-3">
-      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold">Træfprocent og afkast pr. bet-type</h2>
-        <span className="text-xs text-muted">
+    <section className="overflow-hidden rounded-card border border-line bg-surface px-4 py-4">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-md font-semibold">Træfprocent og afkast pr. bet-type</h2>
+        <span className="text-xs text-ink-2">
           Historisk · {period} · {source}
           {versions.map((v) => (
             <Fragment key={v}>
@@ -33,13 +33,13 @@ export function HitRates({ learning, labels, current, period, source, versions, 
             <Link
               href={`/picks/resultater?type=${r.id}`}
               title={`${r.n} afgjorte bets${r.ret?.withOdds ? `, afkast ${roiLabel(r.ret)} på ${r.ret.withOdds} bets med odds` : ""}`}
-              className={`num inline-flex shrink-0 items-baseline gap-1.5 whitespace-nowrap rounded-lg border px-2.5 py-1 text-sm ${r.id === current ? "border-accent/60 bg-lime-soft" : "border-line hover:border-line-strong"}`}
+              className={`num inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-field border px-3 text-sm transition-colors ${r.id === current ? "border-accent/60 bg-accent-soft" : "border-line hover:border-line-strong"}`}
             >
               <span className="font-sans text-ink-2">{r.label}</span>
-              <span className="font-semibold">{Math.round(r.rate * 100)} %</span>
-              <span className="text-[11px] text-muted">({r.n})</span>
+              <span className="font-semibold">{Math.round(r.rate * 100)}&nbsp;%</span>
+              <span className="text-xs text-ink-2">({r.n})</span>
               {r.ret?.withOdds ? (
-                <span className={`text-[11px] ${r.ret.withOdds < ROI_MIN ? "text-muted" : r.ret.roi >= 0 ? "text-good" : "text-serious"}`}>
+                <span className={`text-xs ${r.ret.withOdds < ROI_MIN ? "text-ink-2" : r.ret.roi >= 0 ? "text-good" : "text-serious"}`}>
                   {r.ret.withOdds < ROI_MIN ? "afkast: for få" : roiLabel(r.ret)}
                 </span>
               ) : null}

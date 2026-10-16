@@ -1,5 +1,6 @@
 "use client";
 
+import { buttonClass } from "@/components/ui";
 import { toggleLeg, useLegs, MAX_LEGS, type Leg } from "./coupon-store";
 
 /** "+ Kupon": adds the bet to the visitor's own coupon. */
@@ -13,9 +14,11 @@ export function AddLeg({ leg }: { leg: Leg }) {
       onClick={() => toggleLeg(leg)}
       disabled={full}
       title={full ? `Højst ${MAX_LEGS} bets på en kupon` : inCoupon ? "Fjern fra din kupon" : "Læg på din kupon"}
-      className={`rounded-full border px-3.5 py-1 text-sm font-semibold disabled:opacity-50 ${inCoupon ? "border-lime bg-lime text-accent" : "border-accent/30 text-accent hover:bg-lime-soft"}`}
+      aria-pressed={inCoupon}
+      className={buttonClass(inCoupon ? "primary" : "ghost", "sm")}
     >
-      {inCoupon ? "✓ På kupon" : "+ Kupon"}
+      <span aria-hidden>{inCoupon ? "✓" : "+"}</span>
+      {inCoupon ? "På kupon" : "Kupon"}
     </button>
   );
 }

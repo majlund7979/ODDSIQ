@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { buttonClass, chipClass, EmptyState, fieldBase, PageHeader } from "@/components/ui";
 import { requireFriend } from "@/lib/auth/friends";
 import { DEMO_MODE } from "@/lib/data";
 import { db } from "@/lib/db";
@@ -24,7 +25,7 @@ const FORM_TEXT = { over: "Over sit snit", under: "Under sit snit", same: "Som s
 
 /** Green arrow up over the player's own average, red arrow down under it, a flat line around it. */
 function Form({ f, text = false }: { f: Leader["form"]; text?: boolean }) {
-  if (!f) return <span className="text-[11px] text-muted">—</span>;
+  if (!f) return <span className="text-xs text-muted">—</span>;
   const tone = f === "over" ? "text-good" : f === "under" ? "text-critical" : "text-muted";
   return (
     <span className={`inline-flex items-center gap-1 ${tone}`} title={FORM_TEXT[f]}>
@@ -40,16 +41,16 @@ function Form({ f, text = false }: { f: Leader["form"]; text?: boolean }) {
 
 function CategoryCard({ label, short, leaders, link }: { label: string; short: string; leaders: Leader[]; link: (playerId: number) => string }) {
   return (
-    <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
+    <section className="overflow-hidden rounded-card border border-line bg-surface">
       <div className="flex items-baseline gap-2 border-b border-line px-4 py-3">
-        <span className="rounded-full bg-lime px-2 py-0.5 text-[11px] font-bold text-accent">{short}</span>
+        <span className="rounded-full bg-accent-fill px-2 py-0.5 text-xs font-bold text-accent">{short}</span>
         <h2 className="font-bold">{label}</h2>
       </div>
       {leaders.length === 0 ? (
         <p className="px-4 py-6 text-sm text-ink-2">Ingen spillere med tal i den kategori endnu.</p>
       ) : (
         <ol className="divide-y divide-line">
-          <li className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-1.5 text-[10px] text-muted">
+          <li className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-1.5 text-xs text-muted">
             <span>Spiller · spilletid</span>
             <span className="w-[4.5rem] text-right">Sæson</span>
             <span className="w-20 text-right">Sidste {RECENT_MATCHES}</span>
@@ -63,14 +64,14 @@ function CategoryCard({ label, short, leaders, link }: { label: string; short: s
                     {l.name}
                   </Link>
                 </span>
-                <span className="block truncate pl-6 text-[11px] text-muted">
+                <span className="block truncate pl-6 text-xs text-muted">
                   {l.position ? `${POSITION_LABEL[l.position] ?? l.position} · ` : ""}
                   {min(l.minutes)} i {l.appearances} kampe
                 </span>
               </span>
               <span className="w-[4.5rem] text-right">
                 <span className="num block text-lg font-bold leading-tight">{l.value}</span>
-                <span className="num block whitespace-nowrap text-[10px] text-muted">{l.per90 === null ? "få min." : `${dec(l.per90)} pr. 90`}</span>
+                <span className="num block whitespace-nowrap text-xs text-muted">{l.per90 === null ? "få min." : `${dec(l.per90)} pr. 90`}</span>
               </span>
               <span className="w-20 text-right">
                 {l.recent ? (
@@ -79,10 +80,10 @@ function CategoryCard({ label, short, leaders, link }: { label: string; short: s
                       <Form f={l.form} />
                       {l.recent.value}
                     </span>
-                    <span className="num block text-[10px] text-muted">på {min(l.recent.minutes)}</span>
+                    <span className="num block text-xs text-muted">på {min(l.recent.minutes)}</span>
                   </>
                 ) : (
-                  <span className="text-[11px] text-muted">ikke spillet</span>
+                  <span className="text-xs text-muted">ikke spillet</span>
                 )}
               </span>
             </li>
@@ -96,8 +97,8 @@ function CategoryCard({ label, short, leaders, link }: { label: string; short: s
 function PlayerCardView({ card, back }: { card: PlayerCard; back: string }) {
   const p = card.player;
   return (
-    <section id="kort" className="scroll-mt-24 overflow-hidden rounded-[24px] border border-accent/40 bg-surface">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line bg-gradient-to-br from-accent/15 to-surface px-5 py-4">
+    <section id="kort" className="scroll-mt-24 overflow-hidden rounded-sheet border border-accent/40 bg-surface">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line bg-accent-soft px-5 py-4">
         <div className="min-w-0">
           <div className="text-xs font-medium text-muted">Spillerkort</div>
           <h3 className="display truncate text-2xl">{p.name}</h3>
@@ -122,14 +123,14 @@ function PlayerCardView({ card, back }: { card: PlayerCard; back: string }) {
             </div>
             <div className="mt-1.5 grid grid-cols-2 gap-3">
               <div>
-                <div className="text-[10px] text-muted">Sæson</div>
+                <div className="text-xs text-muted">Sæson</div>
                 <div className="num text-2xl font-extrabold leading-tight">{r.season}</div>
-                <div className="num whitespace-nowrap text-[11px] text-muted">{r.per90 === null ? "få minutter" : `${dec(r.per90)} pr. 90`}</div>
+                <div className="num whitespace-nowrap text-xs text-muted">{r.per90 === null ? "få minutter" : `${dec(r.per90)} pr. 90`}</div>
               </div>
               <div>
-                <div className="text-[10px] text-muted">Sidste {card.played} kampe</div>
+                <div className="text-xs text-muted">Sidste {card.played} kampe</div>
                 <div className="num text-2xl font-extrabold leading-tight text-ink-2">{r.recent ?? "—"}</div>
-                <div className="num whitespace-nowrap text-[11px] text-muted">{r.recent === null ? "ikke spillet" : r.recentPer90 === null ? "få minutter" : `${dec(r.recentPer90)} pr. 90`}</div>
+                <div className="num whitespace-nowrap text-xs text-muted">{r.recent === null ? "ikke spillet" : r.recentPer90 === null ? "få minutter" : `${dec(r.recentPer90)} pr. 90`}</div>
               </div>
             </div>
           </div>
@@ -139,7 +140,7 @@ function PlayerCardView({ card, back }: { card: PlayerCard; back: string }) {
         <div className="overflow-x-auto border-t border-line">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-[11px] text-muted">
+              <tr className="text-left text-xs text-muted">
                 <th className="px-5 py-2 font-normal">Kamp</th>
                 <th className="px-2 py-2 text-right font-normal">Min</th>
                 <th className="px-2 py-2 text-right font-normal"><abbr title="Skud på mål">SOT</abbr></th>
@@ -165,7 +166,7 @@ function PlayerCardView({ card, back }: { card: PlayerCard; back: string }) {
           </table>
         </div>
       )}
-      <p className="border-t border-line px-5 py-3 text-[11px] text-muted">
+      <p className="border-t border-line px-5 py-3 text-xs text-muted">
         Grøn pil op: over sit eget sæsonsnit pr. 90 de sidste kampe (mere end 20 % over). Rød pil ned: mere end 20 % under. Flad streg: omkring snittet. Historiske tal, ikke en forudsigelse.
       </p>
     </section>
@@ -222,44 +223,44 @@ export default async function TeamSearchPage({ searchParams }: { searchParams: S
   const playerHref = (id: number) => `${teamHref}&spiller=${id}#kort`;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <header className="space-y-5 rounded-[28px] border border-line bg-gradient-to-br from-accent/15 to-surface px-4 py-5 sm:px-10 sm:py-8">
-        <Link href="/picks" className="text-sm text-muted hover:text-ink">
-          ← Dagens bedste bets
-        </Link>
-        <div>
-          <h1 className="display text-[40px] text-ink sm:text-5xl">Holdsøgning</h1>
-          <p className="mt-2 max-w-2xl text-[15px] text-ink-2">
-            Søg et hold og se de spillere, der laver flest skud på mål, mål, assists og frispark. Hver spiller har sæsonen, de sidste {RECENT_MATCHES} kampe og om formen er over eller under spillerens eget snit. Tryk på en spiller for spillerkortet.
-          </p>
-        </div>
-        <form action="/picks/spillere" className="flex max-w-xl gap-2">
+    <div className="space-y-10">
+      <PageHeader
+        back={{ href: "/picks", label: "Dagens bedste bets" }}
+        title="Holdsøgning"
+        intro={`Søg et hold og se de spillere, der laver flest skud på mål, mål, assists og frispark. Hver spiller har sæsonen, de sidste ${RECENT_MATCHES} kampe og om formen er over eller under spillerens eget snit. Tryk på en spiller for spillerkortet.`}
+      />
+      <section aria-label="Søg hold" className="rise space-y-5 rounded-sheet border border-line bg-surface p-5 [--i:1] sm:p-8">
+        <form action="/picks/spillere" role="search" className="flex max-w-2xl gap-2">
+          <label htmlFor="hold-q" className="sr-only">
+            Holdnavn
+          </label>
           <input
+            id="hold-q"
+            type="search"
             name="q"
             defaultValue={q.q ?? ""}
             placeholder="Fx Brøndby, Liverpool eller Danmark"
-            aria-label="Holdnavn"
             minLength={3}
-            className="min-w-0 flex-1 rounded-full border border-line-strong bg-surface-2 px-4 py-2.5 text-[15px] outline-none placeholder:text-muted focus:border-accent"
+            className={`${fieldBase} min-w-0 flex-1`}
           />
-          <button type="submit" className="rounded-full bg-accent px-5 py-2.5 text-[15px] font-semibold text-white hover:brightness-110">
+          <button type="submit" className={buttonClass("primary", "lg", "min-h-12")}>
             Søg
           </button>
         </form>
         {q.q && !query && <p className="text-sm text-warning">Skriv mindst 3 bogstaver.</p>}
         {links.length > 0 ? (
           <div>
-            <div className="mb-2 text-xs font-medium text-muted">{query ? `Hold der matcher "${query}"` : DEMO_MODE ? "Hold i demo-kampene" : "Hold der spiller de næste 2 dage"}</div>
+            <div className="eyebrow mb-3">{query ? `Hold der matcher "${query}"` : DEMO_MODE ? "Hold i demo-kampene" : "Hold der spiller de næste 2 dage"}</div>
             <div className="flex flex-wrap gap-2">
               {links.map((l) => (
                 <Link
                   key={l.key}
                   href={href(l)}
                   aria-current={l.key === q.hold ? "page" : undefined}
-                  className={`rounded-full border px-3.5 py-1.5 text-sm font-medium ${l.key === q.hold ? "border-lime bg-lime text-accent" : "border-line bg-surface text-ink-2 hover:border-accent hover:text-ink"}`}
+                  className={chipClass(l.key === q.hold)}
                 >
                   {l.name}
-                  {l.sub && <span className="ml-1.5 text-xs text-muted">{l.sub}</span>}
+                  {l.sub && <span className="text-xs font-normal text-muted">{l.sub}</span>}
                 </Link>
               ))}
             </div>
@@ -267,12 +268,12 @@ export default async function TeamSearchPage({ searchParams }: { searchParams: S
         ) : (
           query && <p className="text-sm text-ink-2">Ingen hold fundet. Prøv holdets navn på engelsk, fx &quot;Denmark&quot; eller &quot;Copenhagen&quot;.</p>
         )}
-      </header>
+      </section>
 
       {squad && leaders && (
         <>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="display text-3xl">{teamName || "Holdet"}</h2>
+            <h2 className="display text-[40px]">{teamName || "Holdet"}</h2>
             <span className="text-xs text-muted">
               Historisk · sæson {seasonLabel(season)} · {new Set(squad.players.map((p) => p.playerId)).size} spillere · {squad.competitions ?? 1} {squad.competitions === 1 ? "turnering" : "turneringer"}
               {squad.recentKickoffs.length > 0 && ` · sidste ${squad.recentKickoffs.length} kampe ${shortDate(squad.recentKickoffs.at(-1)!)}–${shortDate(squad.recentKickoffs[0])}`} · {source}
@@ -281,9 +282,7 @@ export default async function TeamSearchPage({ searchParams }: { searchParams: S
           </div>
           {card && <PlayerCardView card={card} back={teamHref} />}
           {squad.players.length === 0 ? (
-            <div className="rounded-[20px] bg-surface-2 px-6 py-10 text-center text-sm text-ink-2">
-              {squad.error ? "Spillertallene kunne ikke hentes lige nu. Prøv igen om lidt." : "Der er ingen spillertal for holdet i denne eller sidste sæson."}
-            </div>
+            <EmptyState title="Ingen spillertal" text={squad.error ? "Spillertallene kunne ikke hentes lige nu. Prøv igen om lidt." : "Der er ingen spillertal for holdet i denne eller sidste sæson."} />
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {LEADER_CATEGORIES.map((c) => (

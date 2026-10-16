@@ -12,8 +12,8 @@ function Table({ rows, me, empty }: { rows: Standing[]; me?: string; empty: stri
   return (
     <table className="w-full text-sm">
       <thead>
-        <tr className="text-left text-xs text-muted">
-          <th className="w-8 px-4 py-2 font-normal">#</th>
+        <tr className="text-left text-xs text-ink-2">
+          <th className="w-8 px-4 py-2.5 font-medium">#</th>
           <th className="px-1 py-2 font-normal">Navn</th>
           <th className="px-2 py-2 text-right font-normal">Tips</th>
           <th className="px-2 py-2 text-right font-normal">Rigtige</th>
@@ -25,8 +25,8 @@ function Table({ rows, me, empty }: { rows: Standing[]; me?: string; empty: stri
           const model = r.userId === MODEL_ID;
           if (!model) place++;
           return (
-            <tr key={r.userId} className={`border-t border-line ${r.userId === me ? "bg-lime-soft/60" : ""} ${model ? "text-ink-2" : ""}`}>
-              <td className="px-4 py-2 text-muted">{model ? "" : place}</td>
+            <tr key={r.userId} className={`border-t border-line ${r.userId === me ? "bg-accent-soft/60" : ""} ${model ? "text-ink-2" : ""}`}>
+              <td className="px-4 py-2.5">{model ? "" : <span className={`figure text-lg ${place === 1 ? "text-accent" : "text-muted"}`}>{place}</span>}</td>
               <td className="max-w-[9rem] truncate px-1 py-2 font-sans font-medium">
                 {model ? <span className="italic">Modellen</span> : r.name}
                 {r.userId === me && <span className="ml-1.5 text-xs font-normal text-muted">(dig)</span>}
@@ -62,18 +62,18 @@ export function TipsStandings({ tips, modelWeek, week, previous, now, me, source
     <div className="grid items-start gap-5 md:grid-cols-2">
       <div className="space-y-5">
         {shownWinner && (
-          <section className="rounded-2xl border border-warning/40 bg-warning/10 p-5">
-            <div className="text-[13px] font-semibold text-warning">Ugens vinder · {label(shownWinner.week)}</div>
-            <div className="mt-2 text-2xl font-semibold">{shownWinner.winners.map((w) => w.name).join(" og ")}</div>
+          <section className="rounded-card border border-accent/35 bg-accent-soft p-5">
+            <div className="eyebrow text-accent">Ugens vinder · {label(shownWinner.week)}</div>
+            <div className="display mt-3 text-[36px]">{shownWinner.winners.map((w) => w.name).join(" og ")}</div>
             <div className="mt-1 text-sm text-ink-2">
               {shownWinner.winners[0].points.toFixed(1).replace(".", ",")} point · {shownWinner.winners[0].correct} rigtige af {shownWinner.winners[0].settled}
             </div>
           </section>
         )}
 
-        <section id="stilling" className="scroll-mt-20 overflow-hidden rounded-[20px] border border-line bg-surface">
-          <div className="flex items-baseline justify-between border-b border-line px-4 py-3">
-            <h3 className="text-sm font-semibold">Stillingen i tipsspillet</h3>
+        <section id="stilling" className="scroll-mt-20 overflow-hidden rounded-card border border-line bg-surface">
+          <div className="flex items-baseline justify-between border-b border-line px-4 py-3.5">
+            <h3 className="text-md font-semibold">Stillingen i tipsspillet</h3>
             <span className="text-xs text-muted">{weekLabel(week)}</span>
           </div>
           <Table rows={table} me={me} empty="Ingen har tippet i denne uge endnu." />
@@ -85,12 +85,12 @@ export function TipsStandings({ tips, modelWeek, week, previous, now, me, source
 
       <div className="space-y-5">
         {stats.length > 0 && (
-          <section className="rounded-[20px] border border-line bg-surface">
-            <h3 className="border-b border-line px-4 py-3 text-sm font-semibold">Sjove stats</h3>
+          <section className="rounded-card border border-line bg-surface">
+            <h3 className="border-b border-line px-4 py-3.5 text-md font-semibold">Sjove stats</h3>
             <ul className="divide-y divide-line">
               {stats.map((s) => (
-                <li key={s.id} className="px-4 py-2.5">
-                  <div className="text-xs text-muted">{s.title}</div>
+                <li key={s.id} className="space-y-1 px-4 py-3">
+                  <div className="eyebrow">{s.title}</div>
                   <div className="text-sm">
                     <span className="font-semibold">{s.name}</span> <span className="text-ink-2">· {s.detail}</span>
                   </div>
@@ -101,8 +101,8 @@ export function TipsStandings({ tips, modelWeek, week, previous, now, me, source
           </section>
         )}
 
-        <section className="overflow-hidden rounded-[20px] border border-line bg-surface">
-          <h3 className="border-b border-line px-4 py-3 text-sm font-semibold">Tipsspillet, hele tiden</h3>
+        <section className="overflow-hidden rounded-card border border-line bg-surface">
+          <h3 className="border-b border-line px-4 py-3.5 text-md font-semibold">Tipsspillet, hele tiden</h3>
           <Table rows={allTime} me={me} empty="Ingen tips endnu." />
           {winners.length > 0 && (
             <p className="border-t border-line px-4 py-2.5 text-xs text-muted">

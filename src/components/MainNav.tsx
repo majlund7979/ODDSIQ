@@ -41,9 +41,9 @@ const ICONS: Record<NavItem["icon"], React.ReactNode> = {
   ),
 };
 
-function Icon({ name }: { name: NavItem["icon"] }) {
+export function NavIcon({ name, className = "h-5 w-5" }: { name: NavItem["icon"]; className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       {ICONS[name]}
     </svg>
   );
@@ -55,47 +55,58 @@ function activeHref(pathname: string, items: NavItem[]) {
 }
 
 /**
- * The menu in the header from 1280 px. The owner's longer menu packs its items closer so the header fits the page
- * width; should it still not fit, the menu scrolls sideways instead of widening the page.
+ * The menu in the header from 1280 px: plain words with a signal-coloured rule under the page you are on, like the
+ * markings on a pitch. Should the owner's longer menu not fit, it scrolls sideways instead of widening the page.
  */
 export function TopNav({ items }: { items: NavItem[] }) {
   const active = activeHref(usePathname(), items);
   const long = items.length > SIMPLE_NAV.length;
   return (
-    <nav aria-label="Menu" className={`scroll-fade-x hidden min-w-0 items-center overflow-x-auto rounded-full bg-surface-2 p-1 [scrollbar-width:none] xl:flex ${long ? "" : "gap-1"}`}>
-      {items.map((i) => (
-        <Link
-          key={i.href}
-          href={i.href}
-          aria-current={i.href === active ? "page" : undefined}
-          className={`whitespace-nowrap rounded-full py-2 text-sm font-semibold transition-colors ${long ? "px-2" : "px-3"} ${i.href === active ? "bg-lime text-accent" : "text-ink-2 hover:bg-surface-3 hover:text-ink"}`}
-        >
-          {i.label}
-        </Link>
-      ))}
+    <nav aria-label="Menu" className="scroll-fade-x hidden h-16 min-w-0 items-stretch overflow-x-auto [scrollbar-width:none] xl:flex">
+      {items.map((i) => {
+        const on = i.href === active;
+        return (
+          <Link
+            key={i.href}
+            href={i.href}
+            aria-current={on ? "page" : undefined}
+            className={`group relative flex items-center whitespace-nowrap text-sm font-semibold transition-colors focus-visible:outline-offset-[-14px] ${long ? "px-2.5" : "px-3.5"} ${on ? "text-ink" : "text-ink-2 hover:text-ink"}`}
+          >
+            {i.label}
+            <span
+              aria-hidden
+              className={`absolute inset-x-2.5 bottom-0 h-[3px] rounded-t-full bg-accent transition-[scale,opacity] duration-300 ease-[var(--ease-out)] ${on ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0 group-hover:scale-x-50 group-hover:opacity-40"}`}
+            />
+          </Link>
+        );
+      })}
     </nav>
   );
 }
 
-/** App-style tab bar at the bottom of the screen on phones. */
+/** App-style tab bar at the bottom of the screen on phones: at most five items, each a full-height touch target. */
 export function BottomNav({ items }: { items: NavItem[] }) {
   const active = activeHref(usePathname(), items);
   return (
-    <nav aria-label="Menu" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-page pb-[env(safe-area-inset-bottom)] xl:hidden">
+    <nav aria-label="Menu" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-page/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl backdrop-saturate-150 xl:hidden">
       <div className="mx-auto flex max-w-md">
-        {items.filter((i) => i.mobile !== false).map((i) => (
-          <Link
-            key={i.href}
-            href={i.href}
-            aria-current={i.href === active ? "page" : undefined}
-            className={`flex flex-1 flex-col items-center gap-1 py-2 text-[11px] font-semibold ${i.href === active ? "text-accent" : "text-muted"}`}
-          >
-            <span className={`flex h-8 w-12 items-center justify-center rounded-full ${i.href === active ? "bg-lime" : ""}`}>
-              <Icon name={i.icon} />
-            </span>
-            {i.short}
-          </Link>
-        ))}
+        {items
+          .filter((i) => i.mobile !== false)
+          .map((i) => {
+            const on = i.href === active;
+            return (
+              <Link
+                key={i.href}
+                href={i.href}
+                aria-current={on ? "page" : undefined}
+                className={`relative flex min-h-16 flex-1 flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors focus-visible:-outline-offset-4 ${on ? "text-ink" : "text-muted hover:text-ink-2"}`}
+              >
+                <span aria-hidden className={`absolute top-0 h-[3px] w-8 rounded-b-full bg-accent transition-[scale,opacity] duration-300 ${on ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0"}`} />
+                <NavIcon name={i.icon} className={`h-[22px] w-[22px] transition-colors ${on ? "text-accent" : ""}`} />
+                {i.short}
+              </Link>
+            );
+          })}
       </div>
     </nav>
   );

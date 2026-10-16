@@ -19,8 +19,8 @@ export default async function NewPasswordPage({ searchParams }: { searchParams: 
   return (
     <div className="space-y-6">
       <Logo />
-      <div className="rounded-[28px] border border-line bg-surface p-6">
-        <h1 className="text-lg font-semibold text-ink">Ny adgangskode</h1>
+      <div className="rounded-sheet border border-line bg-surface p-6 shadow-[var(--shadow-pop)] sm:p-7">
+        <h1 className="text-2xl font-bold tracking-[-0.01em] text-ink">Ny adgangskode</h1>
         {check.ok ? (
           <>
             <p className="mt-1 mb-5 text-sm text-ink-2">

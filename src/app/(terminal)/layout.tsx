@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FOOTER_LINE } from "@/components/footer-line";
-import { Logo } from "@/components/Logo";
-import { BottomNav, TopNav } from "@/components/MainNav";
+import { Logo, LogoMark } from "@/components/Logo";
+import { BottomNav, NavIcon, TopNav } from "@/components/MainNav";
 import { ACCOUNT_NAV, ADMIN_NAV, FRIENDS_NAV, SIMPLE_NAV } from "@/components/nav";
 import { InviteBar } from "@/components/InviteBar";
 import { Badge } from "@/components/ui";
@@ -29,18 +29,29 @@ export default async function TerminalLayout({ children }: Readonly<{ children: 
   const count = user ? await memberCount() : null;
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-30 border-b border-line bg-page">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
+      <a href="#indhold" className="sr-only z-50 rounded-field bg-accent px-4 py-2 font-semibold text-on-accent focus:not-sr-only focus:fixed focus:top-3 focus:left-3">
+        Spring til indhold
+      </a>
+      <header className="sticky top-0 z-30 border-b border-line bg-page/80 backdrop-blur-xl backdrop-saturate-150">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
           <Logo badge={DEMO_MODE ? <Badge tone="warning" className="whitespace-nowrap">DEMO DATA</Badge> : null} />
-          <div className="ml-auto flex min-w-0 items-center gap-2 xl:gap-3">
+          <div className="ml-auto flex min-w-0 items-center gap-2 xl:gap-4">
             <TopNav items={items.filter((i) => i !== ACCOUNT_NAV)} />
+            <Link
+              href="/nyheder"
+              aria-label="Nyheder"
+              title="Nyheder"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink xl:hidden"
+            >
+              <NavIcon name="news" />
+            </Link>
             {user && <InviteBar count={count} />}
             {user && (
               <Link
                 href="/account"
                 title={user.email}
                 aria-label={`Min konto (${user.email})`}
-                className="hidden h-10 w-10 items-center justify-center rounded-full border border-line-strong bg-surface-2 text-sm font-bold text-ink hover:border-accent xl:flex"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line-strong bg-surface-2 text-sm font-bold text-ink transition-colors hover:border-accent hover:text-accent"
               >
                 {initial}
               </Link>
@@ -48,9 +59,16 @@ export default async function TerminalLayout({ children }: Readonly<{ children: 
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-8 md:pt-8 xl:pb-16">{children}</main>
-      <footer className="mx-auto w-full max-w-6xl border-t border-line px-4 pt-6 pb-28 text-xs text-muted xl:py-8 xl:text-sm">
-        {FOOTER_LINE}
+      <main id="indhold" className="mx-auto w-full max-w-6xl flex-1 px-4 pt-8 pb-10 sm:px-6 md:pt-12 xl:pb-20">
+        {children}
+      </main>
+      <footer className="border-t border-line">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 pt-6 pb-28 text-xs leading-relaxed text-ink-2 sm:px-6 xl:flex-row xl:items-center xl:justify-between xl:py-8 xl:text-sm">
+          <span className="flex items-center gap-2.5 font-semibold text-ink">
+            <LogoMark className="h-5 w-5" /> Oddsanalyse
+          </span>
+          <span className="max-w-[70ch]">{FOOTER_LINE}</span>
+        </div>
       </footer>
       <BottomNav items={items} />
     </div>

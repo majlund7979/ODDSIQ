@@ -5,15 +5,23 @@
 
 import { useSyncExternalStore, type MouseEvent, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
+import { buttonClass, fieldClass } from "./ui";
 
-export const fieldClass =
-  "mt-1.5 w-full rounded-[10px] border border-line-strong bg-surface px-3.5 py-3 text-[15px] outline-none transition-colors placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-lime";
+/** Re-exported for the client forms; server components import it from ./ui (a "use client" module only hands them references). */
+export { fieldClass };
 
 /** The form's one button; it says "Et øjeblik…" while the action runs. */
 export function SubmitButton({ pending, children }: { pending: boolean; children: ReactNode }) {
   return (
-    <button type="submit" disabled={pending} className="w-full rounded-full bg-lime px-3 py-3 text-[16px] font-semibold text-accent transition-colors hover:brightness-125 disabled:opacity-60">
-      {pending ? "Et øjeblik…" : children}
+    <button type="submit" disabled={pending} aria-busy={pending || undefined} className={buttonClass("primary", "lg", "w-full")}>
+      {pending ? (
+        <>
+          <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none" />
+          Et øjeblik…
+        </>
+      ) : (
+        children
+      )}
     </button>
   );
 }
@@ -63,7 +71,7 @@ export function PendingButton({ children, className = "", confirm, "aria-label":
 /** The action's error message, announced to screen readers; nothing when there is none. */
 export function FormError({ error }: { error?: string }) {
   return error ? (
-    <p role="alert" className="rounded-lg bg-critical/10 px-3 py-2 text-sm text-serious">
+    <p role="alert" className="rounded-field border border-critical/30 bg-critical/10 px-3 py-2.5 text-sm text-critical">
       {error}
     </p>
   ) : null;

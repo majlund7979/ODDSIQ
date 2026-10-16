@@ -13,13 +13,13 @@ export function CountCard({ p, rank, now, save }: { p: CountPick; rank: number; 
   const leagueAvg = f.league.homeMean + f.league.awayMean;
   const vs = Math.round(f.suggestion.vsLeague * 100);
   return (
-    <article className="overflow-hidden rounded-[20px] border border-line bg-surface">
+    <article className="overflow-hidden rounded-card border border-line bg-surface transition-colors duration-200 hover:border-line-strong">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
           <CardTop rank={rank} league={p.row.league} kickoff={p.row.kickoff} probability={p.probability} now={now} />
           <MatchTitle home={home} away={away} />
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-lime-soft px-3.5 py-1.5 text-[15px] font-semibold text-accent">{p.outcome}</span>
+            <span className="rounded-field border border-accent/35 bg-accent-fill px-3.5 py-1.5 text-md font-semibold text-accent">{p.outcome}</span>
             <span className="text-sm text-ink-2">
               Forventet <span className="num font-semibold text-ink">{dec(f.expected.total, 1)}</span> · {vs === 0 ? "som ligasnittet" : `${Math.abs(vs)} % ${vs > 0 ? "over" : "under"} ligasnittet`} ·{" "}
               <span className="whitespace-nowrap">50/50-linjen {lineLabel(f.fairLine)}</span>

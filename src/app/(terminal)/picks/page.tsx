@@ -16,8 +16,9 @@ import type { SaveTarget } from "@/components/picks/Advice";
 import { CouponCard } from "@/components/picks/CouponCard";
 import { HitRates } from "@/components/picks/HitRates";
 import { LearningNote, SharpBacktestNote } from "@/components/picks/notes";
-import { TabBody } from "@/components/picks/TabBody";
-import { TabNav } from "@/components/picks/TabNav";
+import { sharpEmptyReason, TabBody } from "@/components/picks/TabBody";
+import { Notice, PageHeader } from "@/components/ui";
+import { PickControls, TabNav } from "@/components/picks/TabNav";
 import { DEMO_MODE } from "@/lib/data";
 import { demoShotBoard } from "@/lib/demo/player-shots";
 import { topShotPicks } from "@/lib/player-shots";
@@ -83,68 +84,117 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
   const stripTabs = TABS.filter((x) => x.id !== "straffe");
   const stripPeriod = hitRatePeriod(stripTabs.flatMap((x) => hit(x.id) ?? []));
 
+  const noSharp = tab === "bedste" && picks.length === 0;
+  const overview = (className: string) => (
+    <Overview
+      className={className}
+      top={
+        first && isSharp(first)
+          ? {
+              outcome: first.outcome,
+              match: first.row.match,
+              league: first.row.league,
+              kickoff: first.row.kickoff,
+              probability: first.probability,
+              odds: first.row.bestOdds,
+              headline: { value: signedPct(first.ev), caption: `over ${first.reference}s fair pris · chance ${Math.round(first.probability * 100)} %` },
+              note: `${first.row.bestBook} betaler ${dec(first.ev * 100, 1)} % mere end ${first.reference}s odds uden margin. Spil kun til mindst ${dec(first.minOdds)}. Ingen dokumenteret fordel.`,
+            }
+          : null
+      }
+      topLabel="Største prisforskel"
+      version={SHARP_VERSION}
+      matches={scope.matches}
+      leagues={scope.leagues}
+      nextKickoff={nextKickoff}
+      feedTime={t.feedTime}
+      live={t.live}
+      week={week}
+      source={t.dataLabel}
+    />
+  );
+
   return (
-    <div className="space-y-6 lg:space-y-8">
-      <header className="rounded-[28px] border border-line bg-gradient-to-br from-accent/15 to-surface px-4 py-5 sm:px-10 sm:py-10">
-        <div className="text-sm font-medium text-muted">{capitalize(today)}</div>
-        <h1 className="display mt-2 text-[36px] text-ink sm:text-6xl">{tab === "bedste" ? "Dagens bedste bets" : tabLabel}</h1>
-        <p className="mt-3 max-w-2xl text-[16px] leading-relaxed text-ink-2 sm:mt-4 sm:text-[17px]">
-          {tab === "bedste"
-            ? `Forsøg: vinder-bets i kampene de næste 24 timer, hvor bet365 eller bwin betaler mindst ${dec(SHARP_MIN_EV * 100, 0)} % mere end Pinnacles odds uden margin (ellers Betfair Exchanges), ved odds ${dec(SHARP_MIN_ODDS)}–${dec(SHARP_MAX_ODDS)}. Vi henter odds hver 5.–6. time, så tjek prisen hos bookmakeren, før du spiller. Øverst er den største forskel.`
-            : "De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det mest sandsynlige."}
-        </p>
-        {tab === "bedste" ? (
-          <div className="mt-4 sm:mt-6">
-            <Overview
-              top={
-                first && isSharp(first)
-                  ? {
-                      outcome: first.outcome,
-                      match: first.row.match,
-                      league: first.row.league,
-                      kickoff: first.row.kickoff,
-                      probability: first.probability,
-                      odds: first.row.bestOdds,
-                      headline: { value: signedPct(first.ev), caption: `over ${first.reference}s fair pris · chance ${Math.round(first.probability * 100)} %` },
-                      note: `${first.row.bestBook} betaler ${dec(first.ev * 100, 1)} % mere end ${first.reference}s odds uden margin. Spil kun til mindst ${dec(first.minOdds)}. Ingen dokumenteret fordel.`,
-                    }
-                  : null
-              }
-              topLabel="Største prisforskel"
-              version={SHARP_VERSION}
-              empty={scope.matches ? "Ingen bets lige nu." : "Ingen kampe de næste 24 timer."}
-              matches={scope.matches}
-              leagues={scope.leagues}
-              nextKickoff={nextKickoff}
-              feedTime={t.feedTime}
-              live={t.live}
-              week={week}
-              source={t.dataLabel}
-            />
-          </div>
-        ) : (
-          <p className="mt-3 text-sm text-muted">
-            <span className="num">{scope.matches}</span> kampe i <span className="num">{scope.leagues}</span> {scope.leagues === 1 ? "liga" : "ligaer"} analyseret · odds opdateret kl.{" "}
-            <span className="num">{clock(t.feedTime)}</span>
+    <div className="space-y-8 lg:space-y-14">
+      <PageHeader
+        eyebrow={capitalize(today)}
+        title={tab === "bedste" ? "Dagens bedste bets" : tabLabel}
+        intro={
+          tab === "bedste"
+            ? `Vinder-bets de næste 24 timer, hvor bet365 eller bwin betaler mindst ${dec(SHARP_MIN_EV * 100, 0)} % mere end Pinnacles fair pris. Og hver dag de mest sandsynlige kuponer.`
+            : "De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det mest sandsynlige."
+        }
+      >
+        {tab !== "bedste" && (
+          <p className="mt-4 text-sm text-ink-2">
+            <span className="num font-semibold text-ink">{scope.matches}</span> kampe i <span className="num font-semibold text-ink">{scope.leagues}</span> {scope.leagues === 1 ? "liga" : "ligaer"} analyseret · odds opdateret kl.{" "}
+            <span className="num font-semibold text-ink">{clock(t.feedTime)}</span>
           </p>
         )}
-        {tab === "bedste" && <SharpBacktestNote />}
-        <p className="mt-4 text-xs text-muted">Procenterne bliver mere præcise, når holdopstillingen er meldt, typisk en time før kampstart.</p>
-      </header>
+        <details className="group mt-5 max-w-3xl">
+          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-field text-sm font-semibold text-accent">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full border border-accent/40 text-xs transition-transform duration-300 group-open:rotate-45" aria-hidden>
+              +
+            </span>
+            Sådan vælger vi
+          </summary>
+          <div className="mt-3 space-y-3 border-l-2 border-accent/40 pl-4">
+            {tab === "bedste" && (
+              <p className="text-sm leading-relaxed text-ink-2">
+                Forsøg: vinder-bets i kampene de næste 24 timer, hvor bet365 eller bwin betaler mindst {dec(SHARP_MIN_EV * 100, 0)} % mere end Pinnacles odds uden margin (ellers Betfair
+                Exchanges), ved odds {dec(SHARP_MIN_ODDS)}–{dec(SHARP_MAX_ODDS)}. Vi henter odds hver 5.–6. time, så tjek prisen hos bookmakeren, før du spiller. Øverst er den største
+                forskel.
+              </p>
+            )}
+            {tab === "bedste" && <SharpBacktestNote />}
+            <p className="text-sm leading-relaxed text-ink-2">Procenterne bliver mere præcise, når holdopstillingen er meldt, typisk en time før kampstart.</p>
+          </div>
+        </details>
+      </PageHeader>
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10">
+      {tab === "bedste" && overview("rise hidden lg:grid [--i:1]")}
+
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-12">
         <TabNav tab={tab} count={count} hit={hit} hitPeriod={hitPeriod} source={t.dataLabel} />
 
-        <div className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-8">
           {flash && (
-            <div role="status" className={`rounded-[20px] border px-4 py-3 text-sm ${gemt === "ok" ? "border-good/40 bg-good/10 text-good" : "border-warning/40 bg-warning/10 text-warning"}`}>
-              {flash} {gemt === "ok" && <Link href="/picks/liga" className="underline">Se vennerligaen</Link>}
-            </div>
+            <Notice role="status" tone={gemt === "ok" ? "good" : "warning"}>
+              {flash}{" "}
+              {gemt === "ok" && (
+                <Link href="/picks/liga" className="font-semibold text-accent underline underline-offset-2">
+                  Se vennerligaen
+                </Link>
+              )}
+            </Notice>
           )}
 
           {tab === "bedste" && <LiveNow type={tab} initial={live} source={liveSource} />}
 
-          {tab === "bedste" && <CouponCard coupons={coupons(couponPool)} />}
+          {tab === "bedste" && (
+            <CouponCard
+              coupons={coupons(couponPool)}
+              lead={
+                noSharp ? (
+                  <Notice className="mt-3">
+                    <details className="group">
+                      <summary className="cursor-pointer list-none">
+                        <span className="font-semibold text-ink">{scope.matches ? "Ingen prisforskelle lige nu." : "Ingen kampe de næste 24 timer."}</span>{" "}
+                        {scope.matches ? "Her er dagens mest sandsynlige kuponer. " : ""}
+                        <span className="whitespace-nowrap font-semibold text-accent underline-offset-2 group-hover:underline">
+                          <span className="group-open:hidden">Hvorfor?</span>
+                          <span className="hidden group-open:inline">Skjul</span>
+                        </span>
+                      </summary>
+                      <p className="mt-2 text-ink-2">{sharpEmptyReason()}</p>
+                    </details>
+                  </Notice>
+                ) : null
+              }
+            />
+          )}
+
+          {tab === "bedste" && overview("lg:hidden")}
 
           {tab === "bedste" && (
             <GoodSingles
@@ -170,13 +220,13 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
           {tab !== "bedste" && <LiveNow type={tab} initial={live} source={liveSource} />}
 
           {tab === "bedste" && picks.length > 0 && (
-            <div className="flex flex-wrap items-baseline justify-between gap-2 pt-2">
-              <h2 className="text-2xl font-extrabold tracking-[-0.02em]">
-                {picks.length === 1 ? "1 enkeltbet med analyse" : `Alle ${picks.length} enkeltbets med analyse`}
-              </h2>
-              <span className="text-sm text-muted">Tryk &quot;Hvorfor?&quot; for begrundelsen</span>
+            <div className="flex flex-wrap items-end justify-between gap-2 pt-2">
+              <h2 className="display text-[34px] sm:text-[40px]">{picks.length === 1 ? "1 enkeltbet med analyse" : `Alle ${picks.length} enkeltbets med analyse`}</h2>
+              <span className="text-sm text-ink-2">Tryk &quot;Hvorfor?&quot; for begrundelsen</span>
             </div>
           )}
+
+          <PickControls tab={tab} count={count} className="lg:hidden" />
 
           <TabBody
             tab={tab}
@@ -195,24 +245,29 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
           {/* Bedste bets' chance is the reference price without margin and is never adjusted. */}
           {learned && tab !== "straffe" && tab !== "bedste" && <LearningNote l={learned} />}
 
-          <section className="grid gap-5 rounded-[28px] bg-surface-2 p-6 text-sm leading-relaxed text-ink-2 md:grid-cols-3">
-            <div>
-              <div className="mb-1 font-semibold text-ink">Hvad vi analyserer</div>
-              Kampresultater og holdstyrke (Elo), forventede mål, xG-form, skader og karantæner, startopstillinger, form, indbyrdes opgør, bookmakernes odds,
-              hjørnespark, kort og frispark for hvert hold, dommerens kortstatistik og målene i 1. halvleg.
+          <section aria-labelledby="metode" className="rounded-sheet border border-line bg-surface p-6 sm:p-8">
+            <h2 id="metode" className="eyebrow mb-6">
+              Om tallene
+            </h2>
+            <div className="grid gap-8 text-sm leading-relaxed text-ink-2 md:grid-cols-3">
+              <div>
+                <div className="mb-2 text-md font-semibold text-ink">Hvad vi analyserer</div>
+                Kampresultater og holdstyrke (Elo), forventede mål, xG-form, skader og karantæner, startopstillinger, form, indbyrdes opgør, bookmakernes odds, hjørnespark, kort og
+                frispark for hvert hold, dommerens kortstatistik og målene i 1. halvleg.
+              </div>
+              <div>
+                <div className="mb-2 text-md font-semibold text-ink">Hvad &quot;Værdi&quot; betyder</div>
+                Oddsen betaler mere, end vores procent siger den burde. Høj procent giver ofte lav odds, så værdi er ikke det samme som et sikkert bet.
+              </div>
+              <div>
+                <div className="mb-2 text-md font-semibold text-ink">Husk</div>
+                Procenterne er skøn, ikke garantier. Selv 80&nbsp;% taber hver femte gang. Spil kun for penge, du har råd til at tabe. 18+.
+              </div>
             </div>
-            <div>
-              <div className="mb-1 font-semibold text-ink">Hvad &quot;Værdi&quot; betyder</div>
-              Oddsen betaler mere, end vores procent siger den burde. Høj procent giver ofte lav odds, så værdi er ikke det samme som et sikkert bet.
-            </div>
-            <div>
-              <div className="mb-1 font-semibold text-ink">Husk</div>
-              Procenterne er skøn, ikke garantier. Selv 80 % taber hver femte gang. Spil kun for penge, du har råd til at tabe. 18+.
-            </div>
-            <p className="text-xs text-muted md:col-span-3">
-              Kilde: {t.dataLabel}. Bookmakernes odds vejer halvdelen, fordi de rummer nyheder og rygter. Skader og xG-form flytter de forventede mål efter en fast
-              tommelfingerregel. Form og indbyrdes opgør indgår allerede i resultatmodellen og vises som baggrund. Hjørnespark, kort og frispark: holdenes seneste 20 kampe fra
-              football-data.co.uk sammenlignet med ligasnittet; vi tipper over, når kampen ventes over snittet, ellers under, og vælger linjen ét trin fra 50/50-linjen, så tippet oftere går hjem.
+            <p className="mt-8 border-t border-line pt-5 text-xs leading-relaxed text-ink-2/80">
+              Kilde: {t.dataLabel}. Bookmakernes odds vejer halvdelen, fordi de rummer nyheder og rygter. Skader og xG-form flytter de forventede mål efter en fast tommelfingerregel. Form
+              og indbyrdes opgør indgår allerede i resultatmodellen og vises som baggrund. Hjørnespark, kort og frispark: holdenes seneste 20 kampe fra football-data.co.uk sammenlignet med
+              ligasnittet; vi tipper over, når kampen ventes over snittet, ellers under, og vælger linjen ét trin fra 50/50-linjen, så tippet oftere går hjem.
             </p>
           </section>
         </div>

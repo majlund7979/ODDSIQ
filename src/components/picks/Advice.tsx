@@ -2,6 +2,7 @@
 
 import { oddsMove, riskOf, stakeAdvice, type RiskLevel } from "@/lib/picks-advice";
 import type { MarketRow } from "@/lib/demo/store";
+import { buttonClass } from "@/components/ui";
 import { AddLeg } from "./AddLeg";
 import type { Leg } from "./coupon-store";
 import { SaveBet } from "./SaveBet";
@@ -16,7 +17,7 @@ const RISK_TONE: Record<RiskLevel, { pill: string; dot: string }> = {
 export function RiskBadge({ p, className = "" }: { p: number; className?: string }) {
   const r = riskOf(p);
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${RISK_TONE[r.level].pill} ${className}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold leading-4 ${RISK_TONE[r.level].pill} ${className}`}>
       <span className={`h-2 w-2 rounded-full ${RISK_TONE[r.level].dot}`} aria-hidden />
       {r.label}
     </span>
@@ -30,7 +31,7 @@ export function OddsMoveTag({ row }: { row: MarketRow }) {
   return (
     <span
       title={`${m.fact} ${m.maybe}`}
-      className={`num inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${m.direction === "down" ? "border-accent/40 text-accent" : "border-line-strong text-ink-2"}`}
+      className={`num inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold leading-4 ${m.direction === "down" ? "border-accent/40 text-accent" : "border-line-strong text-ink-2"}`}
     >
       {m.direction === "down" ? "↓" : "↑"} odds {Math.round(m.size * 100)} %
     </span>
@@ -50,7 +51,7 @@ export interface SaveTarget {
 export function AdviceRow({ p, odds, eventId, save, leg }: { p: number; odds: number | null; eventId: string; save: SaveTarget | null; leg?: Omit<Leg, "probability" | "odds" | "eventId"> }) {
   const s = stakeAdvice(p, odds);
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-line px-5 py-2.5">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line px-5 py-3">
       <StakeHint share={s.share} note={s.note} reason={s.reason} />
       {leg && (
         <span className="ml-auto">
@@ -61,7 +62,7 @@ export function AdviceRow({ p, odds, eventId, save, leg }: { p: number; odds: nu
         (save.signedIn ? (
           <SaveBet eventId={eventId} category={save.category} odds={odds} share={s.share} back={save.back} saved={save.saved} />
         ) : (
-          <a href={`/login?next=${encodeURIComponent(save.back)}`} className="rounded-full border border-accent/30 px-3.5 py-1 text-sm font-semibold text-accent hover:bg-lime-soft">
+          <a href={`/login?next=${encodeURIComponent(save.back)}`} className={buttonClass("ghost", "sm")}>
             Log ind for at gemme
           </a>
         ))}

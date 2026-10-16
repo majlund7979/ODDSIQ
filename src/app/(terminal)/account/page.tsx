@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { buttonClass, cardClass, Notice, PageHeader } from "@/components/ui";
 import { InstallApp } from "@/components/InstallApp";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -23,43 +24,43 @@ export default async function AccountPage({ searchParams }: { searchParams: Sear
   const notice = lookup(NOTICE, one((await searchParams).billing));
   const plan = PLANS.find((p) => p.id === user.plan) ?? PLANS[0];
   const pro = PLANS.find((p) => p.id === "pro")!;
-  const btn = "rounded-xl border border-line-strong px-4 py-2.5 text-sm font-medium hover:bg-surface-2";
+  const btn = buttonClass("secondary", "md");
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <h1 className="display text-[40px] text-ink sm:text-5xl">Min konto</h1>
-      {notice && <p className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink-2">{notice}</p>}
+      <PageHeader title="Min konto" className="mb-8" />
+      {notice && <Notice role="status">{notice}</Notice>}
 
-      <section className="flex items-center gap-4 rounded-[20px] border border-line bg-surface p-5">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-lime-soft text-lg font-semibold text-accent">{user.email.charAt(0).toUpperCase()}</span>
+      <section className="flex items-center gap-4 rounded-card border border-line bg-surface p-5">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent text-xl font-bold text-on-accent">{user.email.charAt(0).toUpperCase()}</span>
         <div className="min-w-0">
           <div className="truncate font-medium">{user.email}</div>
-          <div className="text-sm text-muted">{isOwner(user.email) ? "Ejer af siden" : inviteOnly() ? "Inviteret ven" : "Medlem"}</div>
+          <div className="text-sm text-ink-2">{isOwner(user.email) ? "Ejer af siden" : inviteOnly() ? "Inviteret ven" : "Medlem"}</div>
         </div>
       </section>
 
       {isOwner(user.email) && (
-        <Link href="/admin" className="flex items-center justify-between rounded-[20px] border border-line bg-surface p-5 hover:bg-surface-2">
+        <Link href="/admin" className={`group flex items-center justify-between p-5 ${cardClass({ interactive: true })}`}>
           <span>
             <span className="block font-medium">Admin</span>
             <span className="text-sm text-ink-2">Se alle tilmeldte og deres e-mail.</span>
           </span>
-          <span aria-hidden className="text-ink-2">→</span>
+          <span aria-hidden className="text-ink-2 transition-transform group-hover:translate-x-0.5 group-hover:text-accent">→</span>
         </Link>
       )}
 
       {inviteOnly() && isOwner(user.email) && (
-        <Link href="/venner" className="flex items-center justify-between rounded-[20px] border border-line bg-surface p-5 hover:bg-surface-2">
+        <Link href="/venner" className={`group flex items-center justify-between p-5 ${cardClass({ interactive: true })}`}>
           <span>
             <span className="block font-medium">Venner</span>
             <span className="text-sm text-ink-2">Inviter venner eller fjern deres adgang.</span>
           </span>
-          <span aria-hidden className="text-ink-2">→</span>
+          <span aria-hidden className="text-ink-2 transition-transform group-hover:translate-x-0.5 group-hover:text-accent">→</span>
         </Link>
       )}
 
       {BILLING_ENABLED && (
-        <section className="space-y-3 rounded-[20px] border border-line bg-surface p-5 text-sm">
+        <section className="space-y-3 rounded-card border border-line bg-surface p-5 text-sm">
           <div className="font-medium">Abonnement: {plan.name}</div>
           {user.plan === "pro" && (
             <p className="text-xs text-muted">
@@ -83,7 +84,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Sear
         </section>
       )}
 
-      <section className="space-y-3 rounded-[20px] border border-line bg-surface p-5">
+      <section className="space-y-3 rounded-card border border-line bg-surface p-5">
         <div>
           <div className="font-medium">App på telefonen</div>
           <p className="text-sm text-ink-2">Læg Oddsanalyse på hjemmeskærmen, så den åbner som en app.</p>
@@ -91,8 +92,8 @@ export default async function AccountPage({ searchParams }: { searchParams: Sear
         <InstallApp />
       </section>
 
-      <form action={signOut}>
-        <button type="submit" className={btn}>
+      <form action={signOut} className="pt-2">
+        <button type="submit" className={buttonClass("quiet", "md", "-ml-4")}>
           Log ud
         </button>
       </form>
