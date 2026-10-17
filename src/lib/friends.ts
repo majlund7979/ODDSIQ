@@ -90,8 +90,14 @@ export function parseNumber(v: FormDataEntryValue | null): number | null {
 export const MAX_STAKE = 100_000;
 export const LEAGUE_PERIODS = [
   { id: "maaned", label: "Denne måned" },
-  { id: "alt", label: "Hele tiden" },
+  { id: "alt", label: "Hele sæsonen" },
 ] as const;
+
+/**
+ * Vennerligaen's stats (bet league and tipping game) count from the season's start. Mads restarted them on
+ * 2026-10-17; older bets and tips stay stored, they just no longer count. Demo data ignores the season.
+ */
+export const SEASON = { number: 2, start: Date.UTC(2026, 9, 16, 22) }; // 17 October 2026, midnight in Copenhagen
 
 /** Start of the current month in Copenhagen time, as epoch ms. */
 export function monthStart(now: number): number {

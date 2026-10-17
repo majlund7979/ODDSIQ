@@ -19,7 +19,7 @@ Tag skærmbilleder af siderne i demo-tilstand og gem dem i mappen `$ARGUMENTS` (
 | resultater | /picks/resultater |
 | liga | /picks/liga |
 | spillere | /picks/spillere |
-| tips | /tips |
+| tips | /picks/liga?fane=stilling |
 | nyheder | /nyheder |
 | konto | /account |
 | login | /login |

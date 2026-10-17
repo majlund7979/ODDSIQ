@@ -9,10 +9,14 @@ const RETIRED = ["/", "/dashboard", "/markets", "/matches", "/value-scanner", "/
 
 const nextConfig: NextConfig = {
   async redirects() {
-    return RETIRED.flatMap((path) => [
-      { source: path, destination: "/picks", permanent: false },
-      ...(path === "/" ? [] : [{ source: `${path}/:rest*`, destination: "/picks", permanent: false }]),
-    ]);
+    return [
+      ...RETIRED.flatMap((path) => [
+        { source: path, destination: "/picks", permanent: false },
+        ...(path === "/" ? [] : [{ source: `${path}/:rest*`, destination: "/picks", permanent: false }]),
+      ]),
+      // The tipping game moved into Vennerligaen (2026-10-17); ?dag= carries over.
+      { source: "/tips", destination: "/picks/liga", permanent: false },
+    ];
   },
 };
 
