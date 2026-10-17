@@ -5,7 +5,7 @@ import { clock, dayKey, dec, TZ } from "@/lib/format";
 import { emailShell, escapeHtml } from "@/lib/mail";
 import type { Pick } from "@/lib/picks";
 import { oddsMove, riskOf, stakeAdvice, type RiskLevel } from "@/lib/picks-advice";
-import { SHARP_MAX_ODDS, SHARP_MIN_EV, SHARP_MIN_ODDS } from "@/lib/sharp";
+import { BEDSTE_MIN_ODDS } from "@/lib/picks";
 
 export const MORNING_COUNT = 5;
 const RISK_COLOR: Record<RiskLevel, string> = { green: "#0ca30c", yellow: "#c98a00", red: "#d03b3b" };
@@ -22,13 +22,10 @@ export function morningSubject(picks: Pick[], now: number): string {
   return picks.length ? `Dagens top ${picks.length}, ${day}` : `Ingen bets i dag, ${day}`;
 }
 
-const MIN_EV = `${Math.round(SHARP_MIN_EV * 100)} %`;
-/** Why there is nothing to send: no matches at all, or no price that clears the rule (or no prices from one run). */
+/** Why there is nothing to send: no matches at all, or no bet at the minimum odds. */
 const none = (matches: number) =>
-  matches
-    ? `Ingen bets i dag: i kampene de næste 24 timer betaler hverken bet365 eller bwin mindst ${MIN_EV} over Pinnacles (ellers Betfair Exchanges) fair pris ved odds ${dec(SHARP_MIN_ODDS)}–${dec(SHARP_MAX_ODDS)}, eller vi mangler deres odds fra samme opdatering.`
-    : "Ingen bets i dag: der er ingen kampe de næste 24 timer.";
-const INTRO = `Forsøg: bets, hvor bet365 eller bwin betaler mindst ${MIN_EV} mere end Pinnacles odds uden margin. Vi henter odds hver 5.–6. time, så tjek prisen, før du spiller. Den historiske test viste ingen sikker fordel.`;
+  matches ? `Ingen bets i dag: intet bet i kampene de næste 24 timer har odds på mindst ${dec(BEDSTE_MIN_ODDS)}.` : "Ingen bets i dag: der er ingen kampe de næste 24 timer.";
+const INTRO = `De bets med størst chance for at gå hjem i kampene de næste 24 timer, ét pr. kamp, ved odds på mindst ${dec(BEDSTE_MIN_ODDS)}.`;
 /** " (hentet kl. 06.15) · spil kun til mindst 2,15" on a Dagens bedste bets pick. */
 const priceNote = (p: Pick) => `${p.pricedAt !== undefined ? ` (hentet kl. ${clock(p.pricedAt)})` : ""}${p.minOdds !== undefined ? ` · spil kun til mindst ${dec(p.minOdds)}` : ""}`;
 

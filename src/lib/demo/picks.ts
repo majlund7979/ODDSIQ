@@ -196,7 +196,7 @@ function computeRecorded(now: number, t: number, days: number): RecordedPick[] {
   const out: RecordedPick[] = [];
   for (let d = 1; d <= days; d++) {
     const at = Math.floor((t - d * 86_400_000) / 86_400_000) * 86_400_000 + 10 * 3_600_000;
-    const drafts = allPickDrafts(marketRows(at), at, 10, memoContext((id) => demoPickContext(id, at)), DEMO_SHARP_BOOKS);
+    const drafts = allPickDrafts(marketRows(at), at, 10, memoContext((id) => demoPickContext(id, at)));
     for (const p of drafts) {
       if (p.row.kickoff > t - 2 * 3_600_000) continue;
       const o = demoLeague(p.row.leagueId, now).outcomes.get(p.row.eventId);
@@ -231,7 +231,7 @@ function liveDrafts(at: number): PickDraft[] {
   const hit = liveCache.get(at);
   if (hit) return hit;
   if (liveCache.size > 5) liveCache.clear();
-  const drafts = allPickDrafts(marketRows(at), at, 10, memoContext((id) => demoPickContext(id, at)), DEMO_SHARP_BOOKS);
+  const drafts = allPickDrafts(marketRows(at), at, 10, memoContext((id) => demoPickContext(id, at)));
   liveCache.set(at, drafts);
   return drafts;
 }

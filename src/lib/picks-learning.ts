@@ -9,8 +9,8 @@
 
 import { dec, pct, shortDate } from "@/lib/format";
 import { metric, periodOf, type Metric } from "@/lib/metrics/metric";
-import { SHARP_VERSION } from "@/lib/sharp";
 import type { RecordedPick } from "./picks-extra";
+import { BEDSTE_VERSION } from "./pick-categories";
 import { strengthOf, type Pick } from "./picks";
 
 /** Settled picks a bet type needs before it adjusts at all. */
@@ -23,10 +23,10 @@ export const LEARN_MAX_SHIFT = 0.5;
 export const LEARN_DAYS = 90;
 export const LEARNING_VERSION = "picks-calibration-v1";
 
-/** The version behind a bet type's record: Bedste bets follow the price comparison, which the learning never adjusts. */
-export const recordVersion = (category: string) => (category === "bedste" ? SHARP_VERSION : LEARNING_VERSION);
+/** The version behind a bet type's record: Bedste bets name their own selection rule. */
+export const recordVersion = (category: string) => (category === "bedste" ? BEDSTE_VERSION : LEARNING_VERSION);
 /** Both versions, for the line under the hit rates of several bet types. */
-export const RECORD_VERSIONS = [LEARNING_VERSION, `Bedste bets: ${SHARP_VERSION}`] as const;
+export const RECORD_VERSIONS = [LEARNING_VERSION, `Bedste bets: ${BEDSTE_VERSION}`] as const;
 
 const logit = (p: number) => Math.log(p / (1 - p));
 const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));

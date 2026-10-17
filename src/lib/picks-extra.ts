@@ -7,8 +7,7 @@ import type { MarketRow } from "@/lib/demo/store";
 import { shortDate } from "@/lib/format";
 import { periodOf } from "@/lib/metrics/metric";
 import { DEFAULT_HT_SHARE } from "@/lib/model/match-stats";
-import { analysePick, COUNT_CATEGORIES, countPicks, GOAL_CATEGORIES, marketPicks, PICK_WINDOW_MS, sharpPicks, strengthOf, type Pick, type PickContext } from "@/lib/picks";
-import type { SharpBooks } from "@/lib/sharp";
+import { analysePick, bestChancePicks, COUNT_CATEGORIES, countPicks, GOAL_CATEGORIES, marketPicks, PICK_WINDOW_MS, strengthOf, type Pick, type PickContext } from "@/lib/picks";
 
 export interface ExtraPick {
   row: MarketRow;
@@ -425,11 +424,11 @@ export interface PickDraft {
   odds: number | null;
 }
 
-export function allPickDrafts(rows: MarketRow[], now: number, count: number, context: Ctx, books: SharpBooks): PickDraft[] {
+export function allPickDrafts(rows: MarketRow[], now: number, count: number, context: Ctx): PickDraft[] {
   const goal = (category: string, picks: Pick[]) => picks.map((p) => ({ row: p.row, category, outcome: p.outcome, spec: goalSpec(p.row), probability: p.probability, odds: p.row.bestOdds }));
   const extra = (picks: ExtraPick[]) => picks.map((p) => ({ row: p.row, category: p.category, outcome: p.outcome, spec: p.spec, probability: p.probability, odds: p.best?.odds ?? null }));
   return [
-    ...goal("bedste", sharpPicks(rows, now, count, context, books)),
+    ...goal("bedste", bestChancePicks(rows, now, count, context)),
     ...GOAL_CATEGORIES.flatMap((c) => goal(c.id, marketPicks(rows, now, count, c.market, context))),
     ...extra(doubleChancePicks(rows, now, count, context)),
     ...extra(correctScorePicks(rows, now, count, context)),

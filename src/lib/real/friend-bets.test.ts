@@ -21,7 +21,7 @@ const t: Terminal = {
 
 describe("finding the page's picks again", () => {
   it("finds every coupon leg from one list, as one search per leg would", () => {
-    const drafts = allPickDrafts(t.marketRows(), t.now, 50, t.pickContext, t.sharpBooks);
+    const drafts = allPickDrafts(t.marketRows(), t.now, 50, t.pickContext);
     const categories = [...new Set(drafts.map((d) => d.category))];
     expect(categories.length).toBeGreaterThan(5);
     const legs = [

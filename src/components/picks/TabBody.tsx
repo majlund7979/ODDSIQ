@@ -6,8 +6,6 @@ import type { COUNT_CATEGORIES, CountPick, Pick } from "@/lib/picks";
 import type { ExtraPick } from "@/lib/picks-extra";
 import { SHOTS_MODEL_VERSION, type ShotPick } from "@/lib/player-shots";
 import type { ShotBoard } from "@/lib/real/player-shots";
-import { SHARP_MAX_AGE_MS, SHARP_MAX_ODDS, SHARP_MIN_EV, SHARP_MIN_ODDS } from "@/lib/sharp";
-import { dec } from "@/lib/format";
 import { EmptyState } from "@/components/ui";
 import type { TabId } from "@/lib/picks-tabs";
 import type { SaveTarget } from "./Advice";
@@ -18,11 +16,6 @@ import { PickCard } from "./cards/PickCard";
 import { ShotCard } from "./cards/ShotCard";
 
 const Empty = EmptyState;
-
-/** Why Bedste bets is empty. The page shows it as one quiet line above the coupons instead of a box under them. */
-export function sharpEmptyReason() {
-  return `I kampene de næste 24 timer betaler hverken bet365 eller bwin mindst ${dec(SHARP_MIN_EV * 100, 0)} % over Pinnacles (ellers Betfair Exchanges) fair pris ved odds ${dec(SHARP_MIN_ODDS)}–${dec(SHARP_MAX_ODDS)}, eller vi mangler deres odds fra samme opdatering inden for ${SHARP_MAX_AGE_MS / 3_600_000} timer.`;
-}
 
 export function TabBody({
   tab,
@@ -122,7 +115,7 @@ export function TabBody({
     );
   }
 
-  // The page says why above the coupons, so the empty state is not shown twice.
+  // The page says so above the coupons, so the empty state is not shown twice.
   if (picks.length === 0 && tab === "bedste") return null;
   if (picks.length === 0) {
     return (

@@ -15,7 +15,7 @@ const SETTLE_AFTER_MS = 2 * 3_600_000;
 /** The picks the page shows for these matches and bet types, in order; null where one is not open (or has no bet type). */
 export function findDrafts(t: Terminal, legs: { eventId: string; category: string }[]): (PickDraft | null)[] {
   const drafts = new Map<string, PickDraft>();
-  for (const d of allPickDrafts(t.marketRows(), t.now, DRAFT_COUNT, t.pickContext, t.sharpBooks)) {
+  for (const d of allPickDrafts(t.marketRows(), t.now, DRAFT_COUNT, t.pickContext)) {
     const key = `${d.row.eventId}|${d.category}`;
     if (!drafts.has(key)) drafts.set(key, d);
   }
