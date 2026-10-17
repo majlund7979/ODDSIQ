@@ -27,6 +27,7 @@ export function TabBody({
   shots,
   shotPicks,
   saveFor,
+  stakeNote = true,
 }: {
   tab: TabId;
   now: number;
@@ -40,6 +41,8 @@ export function TabBody({
   shots: ShotBoard | null;
   shotPicks: ShotPick[];
   saveFor: (eventId: string) => SaveTarget | null;
+  /** False when the page states the stake note once above the cards. */
+  stakeNote?: boolean;
 }) {
   if (extraPicks) {
     if (extraPicks.length === 0) return <Empty title="Ingen kampe at vise lige nu" text="Der er ingen fodboldkampe med en analyse de næste 24 timer. Kig forbi igen senere." />;
@@ -129,7 +132,7 @@ export function TabBody({
     <ol className="space-y-5">
       {picks.map((p, i) => (
         <li key={p.row.selectionId} id={tab === "bedste" ? `bet-${i + 1}` : undefined} className="rise scroll-mt-20" style={{ ["--i" as string]: Math.min(i, 6) }}>
-          <PickCard p={p} rank={i + 1} now={now} save={saveFor(p.row.eventId)} />
+          <PickCard p={p} rank={i + 1} now={now} save={saveFor(p.row.eventId)} stakeNote={stakeNote} />
         </li>
       ))}
     </ol>

@@ -5,7 +5,7 @@ import { brier, calibration, CALIBRATION_MIN, CALIBRATION_VERSION } from "@/lib/
 import { terminal } from "@/lib/terminal";
 import { HitBars, ProfitBars, Tile } from "@/components/picks/charts";
 import { Badge, EmptyState, PageHeader } from "@/components/ui";
-import { capitalize, krFromUnits, pctOrDash, pctTight, signedPct } from "@/lib/format";
+import { capitalize, krFromUnits, pct, pctOrDash, signedPct } from "@/lib/format";
 import { CLV_VERSION } from "@/lib/real/clv";
 import { CATEGORY_LABEL } from "@/lib/pick-categories";
 import { lookup, one, type SearchParams } from "@/lib/url";
@@ -60,7 +60,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
       <section aria-label={`${CATEGORY_LABEL[type]}, samlet`} className="rise space-y-3 [--i:1]">
         <div className="grid grid-cols-1 gap-px overflow-hidden rounded-card border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
           <Tile bare label="Gik hjem" className="bg-surface">
-            <div className="figure text-[44px]">{total.settled ? pctTight(total.won / total.settled) : "—"}</div>
+            <div className="figure text-[44px]">{total.settled ? pct(total.won / total.settled) : "—"}</div>
             <div className="mt-2 text-sm text-ink-2">{total.settled ? `${total.won} af ${total.settled} · forventet ${pctOrDash(total.expectedRate)}` : "Ingen afgjorte endnu"}</div>
           </Tile>
           <Tile bare label="Gevinst, 100 kr pr. bet" className="bg-surface">
@@ -111,7 +111,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
                 className={`w-40 shrink-0 snap-start rounded-card border px-4 py-3.5 transition-colors sm:w-auto ${k === 0 && byCat.length % 6 === 5 ? "lg:col-span-2" : ""} ${on ? "border-accent/60 bg-accent-soft" : "border-line bg-surface hover:border-line-strong hover:bg-surface-2"}`}
               >
                 <div className={`truncate text-sm font-semibold ${on ? "text-accent" : "text-ink"}`}>{CATEGORY_LABEL[id]}</div>
-                <div className="figure mt-2 text-3xl">{s.settled ? pctTight(rate) : "—"}</div>
+                <div className="figure mt-2 text-3xl">{s.settled ? pct(rate) : "—"}</div>
                 <div className="relative mt-3 h-1 rounded-full bg-surface-3">
                   {s.settled > 0 && <div className="grow-x absolute inset-y-0 left-0 rounded-full bg-ink/85" style={{ width: `${Math.round(rate * 100)}%` }} />}
                   {Number.isFinite(s.expectedRate) && <div className="absolute -top-1 h-3 w-0.5 rounded bg-accent" style={{ left: `${Math.round(s.expectedRate * 100)}%` }} title="Forventet" />}

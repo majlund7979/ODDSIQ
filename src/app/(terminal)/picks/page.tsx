@@ -10,7 +10,8 @@ import { db } from "@/lib/db";
 import { livePicksFor } from "@/lib/live/feed";
 import { LiveNow } from "@/components/picks/LiveNow";
 import { MyCoupon } from "@/components/picks/MyCoupon";
-import { GoodSingles, Overview } from "@/components/picks/Overview";
+import { Overview } from "@/components/picks/Overview";
+import { stakeAdvice } from "@/lib/picks-advice";
 import { openBetKeys } from "@/lib/real/friend-bets";
 import type { SaveTarget } from "@/components/picks/Advice";
 import { CouponCard } from "@/components/picks/CouponCard";
@@ -60,8 +61,8 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
     learned,
   );
   const first = picks[0];
-  // The coupons draw from the same pool as the list, with the model's own chances.
-  const couponPool = tab === "bedste" ? couponCandidates(rows, t.now, t.pickContext) : [];
+  // The coupons draw from the same pool as the list, with the same learned adjustment, so a bet shows one chance on the whole page.
+  const couponPool = tab === "bedste" ? applyLearning(couponCandidates(rows, t.now, t.pickContext), learned) : [];
   const cPicks = applyLearning(countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [], learned);
   const extra = EXTRA[tab];
   const xPicks = extra ? applyLearning(extra(rows, t.now, count, t.pickContext), learned) : null;
@@ -87,6 +88,9 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
   const stripPeriod = hitRatePeriod(stripTabs.flatMap((x) => hit(x.id) ?? []));
 
   const noBets = tab === "bedste" && picks.length === 0;
+  // When every card would repeat the same stake note, the list says it once instead.
+  const stakeNotes = new Set(picks.map((p) => stakeAdvice(p.probability, p.row.bestOdds).note));
+  const sharedNote = tab === "bedste" && stakeNotes.size === 1 ? [...stakeNotes][0] : null;
   const overview = (className: string) => (
     <Overview
       className={className}
@@ -113,6 +117,36 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
       week={week}
       source={t.dataLabel}
     />
+  );
+
+  // Bedste bets puts the cards first, so each bet is shown once before the coupons; the other tabs keep the list last.
+  const list = (
+    <>
+      {tab === "bedste" && picks.length > 0 && (
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <h2 className="display text-[34px] sm:text-[40px]">{picks.length === 1 ? "1 enkeltbet" : `${picks.length} enkeltbets`}</h2>
+            <span className="text-sm text-ink-2">Højest chance først · tryk &quot;Hvorfor?&quot; for begrundelsen</span>
+          </div>
+          {sharedNote && <p className="text-sm text-ink-2">Indsatsforslag på alle bets: {sharedNote}.</p>}
+        </div>
+      )}
+
+      <PickControls tab={tab} count={count} className="lg:hidden" />
+
+      <TabBody
+        tab={tab}
+        now={t.now}
+        picks={picks}
+        extraPicks={xPicks}
+        countCat={countCat}
+        countPicks={cPicks}
+        shots={shots}
+        shotPicks={sPicks}
+        saveFor={saveFor}
+        stakeNote={!sharedNote}
+      />
+    </>
   );
 
   return (
@@ -170,22 +204,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
 
           {tab === "bedste" && <LiveNow type={tab} initial={live} source={liveSource} />}
 
-          {tab === "bedste" && (
-            <GoodSingles
-              rows={picks.slice(0, 5).map((p) => ({
-                key: p.row.selectionId,
-                eventId: p.row.eventId,
-                outcome: p.outcome,
-                match: p.row.match,
-                league: p.row.league,
-                kickoff: p.row.kickoff,
-                probability: p.probability,
-                odds: p.row.bestOdds,
-                value: p.value,
-              }))}
-              subtitle="Højest chance først"
-            />
-          )}
+          {tab === "bedste" && list}
 
           {tab === "bedste" && (
             <CouponCard
@@ -208,26 +227,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
 
           {tab !== "bedste" && <LiveNow type={tab} initial={live} source={liveSource} />}
 
-          {tab === "bedste" && picks.length > 0 && (
-            <div className="flex flex-wrap items-end justify-between gap-2 pt-2">
-              <h2 className="display text-[34px] sm:text-[40px]">{picks.length === 1 ? "1 enkeltbet med analyse" : `Alle ${picks.length} enkeltbets med analyse`}</h2>
-              <span className="text-sm text-ink-2">Tryk &quot;Hvorfor?&quot; for begrundelsen</span>
-            </div>
-          )}
-
-          <PickControls tab={tab} count={count} className="lg:hidden" />
-
-          <TabBody
-            tab={tab}
-            now={t.now}
-            picks={picks}
-            extraPicks={xPicks}
-            countCat={countCat}
-            countPicks={cPicks}
-            shots={shots}
-            shotPicks={sPicks}
-            saveFor={saveFor}
-          />
+          {tab !== "bedste" && list}
 
           <MyCoupon canPlay={ACCOUNTS_ENABLED && !!user} />
 

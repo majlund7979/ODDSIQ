@@ -16,14 +16,12 @@ export const dateDa = (t: number) => new Date(t).toLocaleDateString("da-DK", { d
 
 /** "1,50" */
 export const dec = (x: number, d = 2) => x.toFixed(d).replace(".", ",");
-/** "57 %" */
-export const pct = (x: number) => `${Math.round(x * 100)} %`;
+/** "57 %", with a no-break space so the sign never wraps onto its own line. */
+export const pct = (x: number) => `${Math.round(x * 100)}\u00a0%`;
 /** "57 %", or "—" when there is nothing to divide by. */
 export const pctOrDash = (x: number) => (Number.isFinite(x) ? pct(x) : "—");
-/** "57%": big headline numbers read better without the space. */
-export const pctTight = (x: number) => `${Math.round(x * 100)}%`;
 /** "+3,4 %" or "−3,4 %" */
-export const signedPct = (x: number, d = 1) => `${x >= 0 ? "+" : "−"}${dec(Math.abs(x) * 100, d)} %`;
+export const signedPct = (x: number, d = 1) => `${x >= 0 ? "+" : "−"}${dec(Math.abs(x) * 100, d)}\u00a0%`;
 /** Profit in units at 100 kr a bet: "+50 kr" or "−100 kr". */
 export const krFromUnits = (units: number) => `${units >= 0 ? "+" : "−"}${Math.round(Math.abs(units) * 100)} kr`;
 

@@ -29,12 +29,12 @@ const pick = (o: Partial<Pick> = {}): Pick => ({
 describe("explainPick", () => {
   it("explains a pick from its facts in plain Danish", () => {
     const text = explainPick(pick()).join(" ");
-    expect(text).toContain('Vi giver "Arsenal vinder" 55 % chance');
+    expect(text).toContain('Vi giver "Arsenal vinder" 55\u00a0% chance');
     expect(text).toContain("1,7 mål til Arsenal og 1,0 til Chelsea");
     expect(text).toContain("Arsenal ventes at skabe mest");
     expect(text).toContain("I de seneste 3 indbyrdes opgør vandt Arsenal 2, Chelsea 0, og 1 endte uafgjort, med 2,7 mål i snit.");
     expect(text).toContain("Chelsea mangler 2");
-    expect(text).toContain("mindre optimistiske end resultatmodellen (50 % mod 60 %)");
+    expect(text).toContain("mindre optimistiske end resultatmodellen (50\u00a0% mod 60\u00a0%)");
     expect(text).toContain("Oddsen er faldet 5 %");
     expect(text).toContain("hver 2. gang");
   });
