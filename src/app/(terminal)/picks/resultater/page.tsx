@@ -90,7 +90,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
         </div>
         <p className="text-xs leading-relaxed text-ink-2/80">
           {CATEGORY_LABEL[type]} · {context}. Søjlerne er andelen, der gik hjem pr. dag (den gule streg er det, vi regnede med), og gevinsten pr. dag.
-          {type === "bedste" && " Bedste bets tæller kun bets efter den nuværende regel (højeste chance ved odds på mindst 1,25, fra 17. oktober); bets efter de tidligere regler er ikke med. CLV måles mod bookmakernes median-lukkepris."}
+          {type === "bedste" && " Bedste bets tæller kun bets efter den nuværende regel (højeste chance ved odds på mindst 1,40, fra 17. oktober); bets efter de tidligere regler er ikke med. CLV måles mod bookmakernes median-lukkepris."}
         </p>
       </section>
 

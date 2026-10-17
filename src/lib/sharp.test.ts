@@ -193,10 +193,11 @@ describe("SHARP_BACKTEST", () => {
 
 describe("recorded category", () => {
   it("keeps the current rule's picks apart from the earlier rules' bedste picks", () => {
-    expect(recordedCategory("bedste")).toBe("bedste-hoejeste-chance-v1");
+    expect(recordedCategory("bedste")).toBe("bedste-hoejeste-chance-v2");
     expect(shownCategory(recordedCategory("bedste"))).toBe("bedste");
     expect(shownCategory("bedste")).not.toBe("bedste");
     expect(shownCategory("bedste-pinnacle-pris-v1")).toBe("bedste-tidligere");
+    expect(shownCategory("bedste-hoejeste-chance-v1")).toBe("bedste-tidligere");
     expect(recordedCategory("vinder")).toBe("vinder");
     expect(shownCategory("vinder")).toBe("vinder");
   });

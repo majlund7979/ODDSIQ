@@ -533,8 +533,8 @@ export function sharpPicks(rows: MarketRow[], now: number, count: number, contex
     });
 }
 
-/** Every bet on Dagens bedste bets pays at least this (Mads, 2026-10-05). */
-export const BEDSTE_MIN_ODDS = 1.25;
+/** Every bet on Dagens bedste bets pays at least this (Mads, 2026-10-17; 1,25 before that). */
+export const BEDSTE_MIN_ODDS = 1.4;
 
 /**
  * "Dagens bedste bets" since 2026-10-17 (Mads chose "Højeste chance"): in each match of the next 24 hours, the single bet

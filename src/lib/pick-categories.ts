@@ -17,13 +17,13 @@ export const CATEGORY_LABEL: Record<string, string> = {
 export const TAB_EXTRA_LABEL = { skud: "Skud på mål", straffe: "Straffespark" };
 
 /**
- * Dagens bedste bets has followed four rules: the most probable bet, then the prediction engine's value bets
- * (2026-10-06), then the Pinnacle price comparison (sharp.ts, 2026-10-07), and now the highest chance at odds of at
- * least 1,25 (2026-10-17). Its picks are recorded under an id that names the rule, so the results board, the learning
+ * Dagens bedste bets has followed five rules: the most probable bet, then the prediction engine's value bets
+ * (2026-10-06), then the Pinnacle price comparison (sharp.ts, 2026-10-07), then the highest chance at odds of at
+ * least 1,25 (v1, 2026-10-17), and now the same at odds of at least 1,40 (v2, 2026-10-17). Its picks are recorded under an id that names the rule, so the results board, the learning
  * and the live scores for "bedste" only count the current rule's bets.
  */
 /** The rule behind Dagens bedste bets now (bestChancePicks in picks.ts). */
-export const BEDSTE_VERSION = "hoejeste-chance-v1";
+export const BEDSTE_VERSION = "hoejeste-chance-v2";
 export const BEDSTE_RECORD = `bedste-${BEDSTE_VERSION}`;
 /** Earlier rules' "bedste" picks: kept in the database, shown nowhere. */
 const BEDSTE_EARLIER = "bedste-tidligere";
