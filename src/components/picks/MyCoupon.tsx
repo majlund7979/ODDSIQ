@@ -4,22 +4,45 @@
 // Sticks to the bottom of the screen while it has bets in it.
 
 import Link from "next/link";
-import { useActionState, useEffect } from "react";
-import { playCoupon, type PlayState } from "@/app/friends-actions";
+import { useActionState, useEffect, useState } from "react";
+import { checkCoupon, playCoupon, type PlayState } from "@/app/friends-actions";
 import { dec, pct } from "@/lib/format";
-import { couponMath } from "@/lib/my-coupon";
+import { couponMath, type LegCheck } from "@/lib/my-coupon";
 import { buttonClass } from "@/components/ui";
 import { fieldClass } from "@/components/forms";
-import { clearLegs, removeLeg, useLegs } from "./coupon-store";
+import { clearLegs, removeLeg, removeLegs, updateLegOdds, useLegs, type Leg } from "./coupon-store";
+
+const legsJson = (legs: Leg[]) => JSON.stringify(legs.map((l) => ({ key: l.key, eventId: l.eventId, category: l.category, outcome: l.outcome, odds: l.odds })));
 
 /** `canPlay`: signed in, so "Spil kupon" can save it to the friends' league. */
 export function MyCoupon({ canPlay = false }: { canPlay?: boolean }) {
   const legs = useLegs();
   const m = couponMath(legs);
-  const [state, play, pending] = useActionState<PlayState, FormData>(playCoupon, {});
+  // Per leg: closed, now another outcome, or new odds. Filled when the coupon is shown and when "Spil kupon" is refused.
+  const [checks, setChecks] = useState<Record<string, LegCheck>>({});
+  const apply = (list: LegCheck[]) => {
+    setChecks((old) => ({ ...old, ...Object.fromEntries(list.map((c) => [c.key, c])) }));
+    updateLegOdds(list.filter((c) => c.status === "odds").map((c) => ({ key: c.key, odds: c.odds ?? null })));
+  };
+  const [state, play, pending] = useActionState<PlayState, FormData>(async (prev, formData) => {
+    const next = await playCoupon(prev, formData);
+    if (next.checks) apply(next.checks);
+    return next;
+  }, {});
   useEffect(() => {
     if (state.ok) clearLegs();
   }, [state]);
+  const legKeys = legs.map((l) => l.key).join(",");
+  useEffect(() => {
+    if (!canPlay || !legKeys) return;
+    let live = true;
+    checkCoupon(legsJson(legs)).then((list) => live && apply(list));
+    return () => {
+      live = false;
+    };
+    // Only when legs are added or removed; new odds alone do not need another look.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canPlay, legKeys]);
   if (!m) {
     if (!state.ok) return null;
     return (
@@ -33,6 +56,10 @@ export function MyCoupon({ canPlay = false }: { canPlay?: boolean }) {
     );
   }
   const ret = m.expectedReturn === null ? null : Math.round(m.expectedReturn * 100);
+  const isClosed = (l: Leg) => checks[l.key]?.status === "closed" || checks[l.key]?.status === "changed";
+  const closed = legs.filter(isClosed);
+  // The refusal stays only while a bet it named is still on the coupon.
+  const showError = state.error && (!state.checks || state.checks.some((c) => c.status !== "ok" && legs.some((l) => l.key === c.key)));
   const clear = () => {
     if (!window.confirm("Ryd hele kuponen?")) return;
     clearLegs();
@@ -56,24 +83,41 @@ export function MyCoupon({ canPlay = false }: { canPlay?: boolean }) {
         </span>
       </summary>
       <ul className="max-h-48 divide-y divide-line overflow-y-auto border-t border-line">
-        {legs.map((l) => (
-          <li key={l.key} className="flex items-center gap-3 px-4 py-1.5 text-sm">
-            <span className="min-w-0 flex-1 truncate">
-              <span className="font-medium">{l.outcome}</span> <span className="text-xs text-muted">{l.match.replace(" vs ", " – ")}</span>
-            </span>
-            <span className="num shrink-0 text-xs text-ink-2">
-              {pct(l.probability)}
-              {l.odds ? ` · ${dec(l.odds)}` : ""}
-            </span>
-            <button type="button" onClick={() => removeLeg(l.key)} aria-label={`Fjern ${l.outcome}`} className="-my-2 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center text-muted hover:text-critical">
-              ×
-            </button>
-          </li>
-        ))}
+        {legs.map((l) => {
+          const c = checks[l.key];
+          const gone = isClosed(l);
+          const newOdds = !gone && l.prevOdds !== undefined && l.prevOdds !== l.odds;
+          return (
+            <li key={l.key} className={`flex items-center gap-3 px-4 py-1.5 text-sm ${gone ? "bg-critical/10" : ""}`}>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">
+                  <span className={`font-medium ${gone ? "text-muted line-through" : ""}`}>{l.outcome}</span> <span className="text-xs text-muted">{l.match.replace(" vs ", " – ")}</span>
+                </span>
+                {gone && (
+                  <span className="block text-xs font-semibold text-critical">
+                    Lukket{c?.status === "changed" && c.outcome ? ` · vores bud er nu ${c.outcome}` : " · kan ikke spilles længere"}
+                  </span>
+                )}
+                {newOdds && (
+                  <span className="block text-xs font-semibold text-warning">
+                    Ny odds{l.prevOdds ? `: før ${dec(l.prevOdds)}` : ""}
+                  </span>
+                )}
+              </span>
+              <span className="num shrink-0 text-xs text-ink-2">
+                {pct(l.probability)}
+                {l.odds ? ` · ${dec(l.odds)}` : ""}
+              </span>
+              <button type="button" onClick={() => removeLeg(l.key)} aria-label={`Fjern ${l.outcome}`} className="-my-2 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center text-muted hover:text-critical">
+                ×
+              </button>
+            </li>
+          );
+        })}
       </ul>
       {canPlay && m.legs >= 2 && (
         <form action={play} className="flex flex-wrap items-end gap-2 border-t border-line px-4 py-2.5">
-          <input type="hidden" name="legs" value={JSON.stringify(legs.map((l) => ({ eventId: l.eventId, category: l.category })))} />
+          <input type="hidden" name="legs" value={legsJson(legs)} />
           <label className="w-28 text-xs font-medium text-ink-2">
             Indsats (kr)
             <input name="stake" inputMode="decimal" required placeholder="fx 50" className={`num ${fieldClass}`} />
@@ -82,10 +126,15 @@ export function MyCoupon({ canPlay = false }: { canPlay?: boolean }) {
             Samlet odds
             <input name="odds" inputMode="decimal" key={m.odds ?? 0} defaultValue={m.odds && !m.missingOdds ? dec(m.odds) : ""} placeholder="fx 3,40" className={`num ${fieldClass}`} />
           </label>
-          <button type="submit" disabled={pending} aria-busy={pending || undefined} className={buttonClass("primary", "lg", "ml-auto")}>
+          {closed.length > 0 && (
+            <button type="button" onClick={() => removeLegs(closed.map((l) => l.key))} className={buttonClass("ghost", "lg", "ml-auto")}>
+              Fjern {closed.length === 1 ? "det lukkede bet" : `${closed.length} lukkede bets`}
+            </button>
+          )}
+          <button type="submit" disabled={pending || closed.length > 0} aria-busy={pending || undefined} className={buttonClass("primary", "lg", closed.length ? "" : "ml-auto")}>
             {pending ? "Gemmer…" : "Spil kupon"}
           </button>
-          {state.error && <p role="alert" className="basis-full text-xs text-critical">{state.error}</p>}
+          {showError && <p role="alert" className="basis-full text-xs text-critical">{state.error}</p>}
           <p className="basis-full text-xs text-ink-2">Gemmes som ét bet under Vennernes bets, så dine venner kan se den. Den går kun hjem, hvis alle bets gør. Vi placerer ikke spillet hos en bookmaker.</p>
         </form>
       )}

@@ -6,6 +6,7 @@ import { requireFriend, signedInFriend } from "@/lib/auth/friends";
 import { safeNext } from "@/lib/auth/redirect";
 import { db } from "@/lib/db";
 import { MAX_STAKE, parseNumber } from "@/lib/friends";
+import { checkLeg, legProblems, type LegCheck } from "@/lib/my-coupon";
 import type { PickDraft } from "@/lib/picks-extra";
 import { deleteFriendBet, findDraft, findDrafts, saveFriendBet } from "@/lib/real/friend-bets";
 import { couponTotals, deleteFriendCoupon, MAX_COUPON_LEGS, MIN_COUPON_LEGS, saveFriendCoupon } from "@/lib/real/friend-coupons";
@@ -47,6 +48,39 @@ export async function deleteBet(formData: FormData): Promise<void> {
 export interface PlayState {
   ok?: string;
   error?: string;
+  /** Per leg, when one is closed or has new odds, so the coupon can mark it. */
+  checks?: LegCheck[];
+}
+
+type LegInput = { key: string; eventId: string; category: string; outcome: string; odds: number | null };
+
+function parseLegs(value: unknown, max: number): LegInput[] {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(String(value ?? "[]"));
+  } catch {
+    raw = [];
+  }
+  return (Array.isArray(raw) ? raw : []).slice(0, max).map((l) => ({
+    key: String(l?.key ?? ""),
+    eventId: String(l?.eventId ?? ""),
+    category: String(l?.category ?? ""),
+    outcome: String(l?.outcome ?? ""),
+    odds: typeof l?.odds === "number" && Number.isFinite(l.odds) ? l.odds : null,
+  }));
+}
+
+/** Looks every leg up again, so the coupon can show which bets are closed or have new odds before it is played. */
+export async function checkCoupon(legsJson: string): Promise<LegCheck[]> {
+  try {
+    if (!(await signedInFriend())) return [];
+    const legs = parseLegs(legsJson, MAX_COUPON_LEGS);
+    const drafts = findDrafts(await terminal(), legs);
+    return legs.map((l, i) => checkLeg(l, drafts[i]));
+  } catch (e) {
+    console.error(e);
+    return [];
+  }
 }
 
 /** "Spil kupon": saves the coupon to the friends' league as one bet; every leg is looked up again on the server. */
@@ -54,13 +88,7 @@ export async function playCoupon(_: PlayState, formData: FormData): Promise<Play
   try {
     const user = await signedInFriend();
     if (!user) return { error: "Log ind for at spille kuponen." };
-    let raw: unknown;
-    try {
-      raw = JSON.parse(String(formData.get("legs") ?? "[]"));
-    } catch {
-      raw = [];
-    }
-    const legs = (Array.isArray(raw) ? raw : []).slice(0, MAX_COUPON_LEGS + 1).map((l) => ({ eventId: String(l?.eventId ?? ""), category: String(l?.category ?? "") }));
+    const legs = parseLegs(formData.get("legs"), MAX_COUPON_LEGS + 1);
     if (legs.length < MIN_COUPON_LEGS) return { error: `En kupon skal have mindst ${MIN_COUPON_LEGS} bets.` };
     if (legs.length > MAX_COUPON_LEGS) return { error: `Højst ${MAX_COUPON_LEGS} bets på en kupon.` };
     if (new Set(legs.map((l) => l.eventId)).size !== legs.length) return { error: "Kun ét bet pr. kamp på en kupon." };
@@ -70,7 +98,10 @@ export async function playCoupon(_: PlayState, formData: FormData): Promise<Play
     if (odds !== null && (odds < 1.01 || odds > 100_000)) return { error: "Tjek den samlede odds." };
     const t = await terminal();
     const drafts = findDrafts(t, legs);
-    if (drafts.some((d) => !d)) return { error: "Et af bettene er ikke åbent længere. Fjern det og prøv igen." };
+    // A pick that is gone, now names another outcome or has new odds stops the coupon, and each leg says which.
+    const checks = legs.map((l, i) => checkLeg(l, drafts[i]));
+    const problem = legProblems(checks);
+    if (problem) return { error: problem, checks };
     const found = drafts as PickDraft[];
     await saveFriendCoupon(db(), user.id, found, odds ?? couponTotals(found).odds, Math.round(stake));
     revalidatePath("/picks/liga");

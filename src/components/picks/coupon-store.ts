@@ -15,6 +15,8 @@ export interface Leg {
   kickoff: number;
   /** Bet type tab the leg came from, so "Spil kupon" can find the pick again on the server. */
   category?: string;
+  /** The odds the leg had before the server found new ones, so the coupon can show the change. */
+  prevOdds?: number | null;
 }
 
 const KEY = "oddsiq-kupon";
@@ -55,6 +57,17 @@ export function toggleLeg(leg: Leg) {
 }
 
 export const removeLeg = (key: string) => write(read().filter((l) => l.key !== key));
+export const removeLegs = (keys: string[]) => write(read().filter((l) => !keys.includes(l.key)));
+
+/** New odds from the server; the old ones are kept the first time, so the coupon can show what changed. */
+export function updateLegOdds(changes: { key: string; odds: number | null }[]) {
+  const legs = read();
+  if (!changes.some((c) => legs.some((l) => l.key === c.key && l.odds !== c.odds))) return;
+  write(legs.map((l) => {
+    const c = changes.find((x) => x.key === l.key);
+    return !c || c.odds === l.odds ? l : { ...l, odds: c.odds, prevOdds: l.prevOdds === undefined ? l.odds : l.prevOdds };
+  }));
+}
 export const clearLegs = () => write([]);
 
 function subscribe(cb: () => void) {
