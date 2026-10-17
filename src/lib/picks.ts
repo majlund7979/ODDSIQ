@@ -533,6 +533,26 @@ export function sharpPicks(rows: MarketRow[], now: number, count: number, contex
     });
 }
 
+/** Every bet on Dagens bedste bets pays at least this (Mads, 2026-10-05). */
+export const BEDSTE_MIN_ODDS = 1.25;
+
+/**
+ * "Dagens bedste bets" since 2026-10-17 (Mads chose "Højeste chance"): in each match of the next 24 hours, the single bet
+ * with the highest chance among the coupon markets (who wins, double chance, over/under 1,5 and 2,5, begge hold scorer)
+ * at odds of at least BEDSTE_MIN_ODDS. One bet per match; the likeliest first.
+ */
+export function bestChancePicks(rows: MarketRow[], now: number, count: number, context: (eventId: string) => PickContext | null = () => null): Pick[] {
+  const seen = new Set<string>();
+  const out: Pick[] = [];
+  for (const p of couponCandidates(rows, now, context)) {
+    if (!(p.row.bestOdds >= BEDSTE_MIN_ODDS) || seen.has(p.row.eventId)) continue;
+    seen.add(p.row.eventId);
+    out.push(p);
+    if (out.length >= count) break;
+  }
+  return out;
+}
+
 /** Markets the coupons draw from: who wins, over/under 1,5 and 2,5, begge hold scorer, and double chance (Mads, 2026-10-05). */
 const COUPON_MARKETS: ReadonlySet<string> = new Set(["1X2", "OU15", "OU25", "BTTS"]);
 

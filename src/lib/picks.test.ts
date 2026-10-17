@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MarketRow } from "@/lib/demo/store";
 import type { TeamNews } from "@/lib/stats/news";
-import { absences, analysePick, bothScore, countPicks, couponCandidates, dailyPicks, isNationalTeams, marketPicks, goalsProbability, headToHead, MARKET_WEIGHT, outcomeLabel, recentForm, strengthOf } from "./picks";
+import { absences, analysePick, BEDSTE_MIN_ODDS, bestChancePicks, bothScore, countPicks, couponCandidates, dailyPicks, isNationalTeams, marketPicks, goalsProbability, headToHead, MARKET_WEIGHT, outcomeLabel, recentForm, strengthOf } from "./picks";
 
 const now = Date.UTC(2026, 9, 2, 12);
 const row = (o: Partial<MarketRow>): MarketRow =>
@@ -191,6 +191,30 @@ describe("couponCandidates", () => {
     expect(dc.value).toBe(true);
     // Sorted by chance; begge hold scorer is left out without five scoring matches in a row for both teams.
     expect(c.map((p) => p.row.selectionId)).toEqual(["x", "o", "h", "d", "a"]);
+  });
+});
+
+describe("bestChancePicks", () => {
+  const match = (eventId: string, home: number, dcOdds: number, overOdds: number, kickoff = now + 3_600_000) => [
+    row({ eventId, selectionId: `${eventId}h`, side: "home", modelProbability: home, marketProbability: home, bestOdds: 1 / home, kickoff }),
+    row({ eventId, selectionId: `${eventId}d`, side: "draw", selection: "Draw", modelProbability: 0.25, marketProbability: 0.25, bestOdds: 3.6, kickoff }),
+    row({ eventId, selectionId: `${eventId}a`, side: "away", selection: "Chelsea", modelProbability: 0.75 - home, marketProbability: 0.75 - home, bestOdds: 1 / (0.75 - home), kickoff }),
+    row({ eventId, selectionId: `${eventId}x`, marketType: "DC", side: "1x", modelProbability: null, marketProbability: home + 0.25, bestOdds: dcOdds, kickoff }),
+    row({ eventId, selectionId: `${eventId}o`, marketType: "OU25", side: "over", modelProbability: 0.6, marketProbability: 0.6, bestOdds: overOdds, kickoff }),
+  ];
+
+  it("takes the likeliest bet per match at odds of at least 1,25, likeliest match first", () => {
+    // e1: double chance (75 %) pays only 1,20, so its next likeliest bet, over 2,5 at 60 %, is taken.
+    // e2: double chance (80 %) at 1,30 is taken.
+    const p = bestChancePicks([...match("e1", 0.5, 1.2, 1.7), ...match("e2", 0.55, 1.3, 1.8)], now, 10);
+    expect(p.map((x) => x.row.selectionId)).toEqual(["e2x", "e1o"]);
+    expect(p.every((x) => x.row.bestOdds >= BEDSTE_MIN_ODDS)).toBe(true);
+  });
+
+  it("stops at the count and leaves out matches outside the next 24 hours", () => {
+    const rows = [...match("e1", 0.5, 1.3, 1.7), ...match("e2", 0.55, 1.3, 1.8), ...match("e3", 0.6, 1.3, 1.8, now + 30 * 3_600_000)];
+    expect(bestChancePicks(rows, now, 1).map((x) => x.row.eventId)).toEqual(["e2"]);
+    expect(bestChancePicks(rows, now, 10).map((x) => x.row.eventId)).toEqual(["e2", "e1"]);
   });
 });
 

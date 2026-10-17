@@ -8,7 +8,7 @@ import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { db, DATABASE_CONFIGURED } from "@/lib/db";
 import { MAIL_CONFIGURED, sendMails } from "@/lib/mail";
 import { MORNING_COUNT, morningDay, morningHtml, morningSubject, morningText, recipients } from "@/lib/morning";
-import { analysedMatches, sharpPicks } from "@/lib/picks";
+import { analysedMatches, bestChancePicks } from "@/lib/picks";
 import { terminal } from "@/lib/terminal";
 
 export const maxDuration = 60;
@@ -28,7 +28,7 @@ export async function GET(req: Request): Promise<Response> {
   const to = recipients(users, process.env.MORNING_EMAIL_TO);
   if (!to.length) return Response.json({ ok: false, error: "No recipients: nobody has the morning e-mail on and MORNING_EMAIL_TO is empty." }, { status: 503 });
 
-  const picks = sharpPicks(t.marketRows(), t.now, MORNING_COUNT, t.pickContext, t.sharpBooks);
+  const picks = bestChancePicks(t.marketRows(), t.now, MORNING_COUNT, t.pickContext);
   const site = (process.env.APP_URL || `https://${req.headers.get("host")}`).replace(/\/$/, "");
   const { matches } = analysedMatches(t.marketRows(), t.now);
   const subject = morningSubject(picks, t.now);

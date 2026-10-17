@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { analysedMatches, COUNT_CATEGORIES, countPicks, couponCandidates, GOAL_CATEGORIES, isSharp, marketPicks, PICK_COUNTS, sharpPicks } from "@/lib/picks";
+import { analysedMatches, BEDSTE_MIN_ODDS, bestChancePicks, COUNT_CATEGORIES, countPicks, couponCandidates, GOAL_CATEGORIES, marketPicks, PICK_COUNTS } from "@/lib/picks";
 import { requireFriend } from "@/lib/auth/friends";
 import { applyLearning, applyLearningToPicks, hitRatePeriod, LEARN_DAYS, learn, RECORD_VERSIONS } from "@/lib/picks-learning";
 import { coupons, summarise } from "@/lib/picks-extra";
@@ -15,16 +15,16 @@ import { openBetKeys } from "@/lib/real/friend-bets";
 import type { SaveTarget } from "@/components/picks/Advice";
 import { CouponCard } from "@/components/picks/CouponCard";
 import { HitRates } from "@/components/picks/HitRates";
-import { LearningNote, SharpBacktestNote } from "@/components/picks/notes";
-import { sharpEmptyReason, TabBody } from "@/components/picks/TabBody";
+import { LearningNote } from "@/components/picks/notes";
+import { TabBody } from "@/components/picks/TabBody";
 import { Notice, PageHeader } from "@/components/ui";
 import { PickControls, TabNav } from "@/components/picks/TabNav";
 import { DEMO_MODE } from "@/lib/data";
 import { demoShotBoard } from "@/lib/demo/player-shots";
 import { topShotPicks } from "@/lib/player-shots";
 import { realShotBoard } from "@/lib/real/player-shots";
-import { SHARP_MAX_ODDS, SHARP_MIN_EV, SHARP_MIN_ODDS, SHARP_VERSION } from "@/lib/sharp";
-import { capitalize, clock, dec, signedPct, TZ } from "@/lib/format";
+import { BEDSTE_VERSION } from "@/lib/pick-categories";
+import { capitalize, clock, dec, TZ } from "@/lib/format";
 import { lookup, one, type SearchParams } from "@/lib/url";
 
 export const metadata = { title: "Dagens bedste bets · Oddsanalyse" };
@@ -55,10 +55,12 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
   ]);
   const allLearning = learn(history, t.dataLabel);
   const learned = allLearning.get(tab);
-  // The price comparison's probability is Pinnacle's price without margin, so the per-type learning is not applied on top.
-  const picks = tab === "bedste" ? sharpPicks(rows, t.now, count, t.pickContext, t.sharpBooks) : applyLearningToPicks(goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [], learned);
+  const picks = applyLearningToPicks(
+    tab === "bedste" ? bestChancePicks(rows, t.now, count, t.pickContext) : goalCat ? marketPicks(rows, t.now, count, goalCat.market, t.pickContext) : [],
+    learned,
+  );
   const first = picks[0];
-  // The coupons pick the likeliest bets; "bedste"'s record now follows the price comparison, so its learning does not fit them.
+  // The coupons draw from the same pool as the list, with the model's own chances.
   const couponPool = tab === "bedste" ? couponCandidates(rows, t.now, t.pickContext) : [];
   const cPicks = applyLearning(countCat ? countPicks(rows, t.now, count, countCat.stat, t.pickContext) : [], learned);
   const extra = EXTRA[tab];
@@ -84,12 +86,12 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
   const stripTabs = TABS.filter((x) => x.id !== "straffe");
   const stripPeriod = hitRatePeriod(stripTabs.flatMap((x) => hit(x.id) ?? []));
 
-  const noSharp = tab === "bedste" && picks.length === 0;
+  const noBets = tab === "bedste" && picks.length === 0;
   const overview = (className: string) => (
     <Overview
       className={className}
       top={
-        first && isSharp(first)
+        first
           ? {
               outcome: first.outcome,
               match: first.row.match,
@@ -97,13 +99,12 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
               kickoff: first.row.kickoff,
               probability: first.probability,
               odds: first.row.bestOdds,
-              headline: { value: signedPct(first.ev), caption: `over ${first.reference}s fair pris · chance ${Math.round(first.probability * 100)} %` },
-              note: `${first.row.bestBook} betaler ${dec(first.ev * 100, 1)} % mere end ${first.reference}s odds uden margin. Spil kun til mindst ${dec(first.minOdds)}. Ingen dokumenteret fordel.`,
+              note: `Estimeret chance fra modellen og bookmakernes odds${first.row.bestBook ? `, odds hos ${first.row.bestBook}` : ""}. Ikke en garanti.`,
             }
           : null
       }
-      topLabel="Største prisforskel"
-      version={SHARP_VERSION}
+      topLabel="Højeste chance i dag"
+      version={BEDSTE_VERSION}
       matches={scope.matches}
       leagues={scope.leagues}
       nextKickoff={nextKickoff}
@@ -121,7 +122,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
         title={tab === "bedste" ? "Dagens bedste bets" : tabLabel}
         intro={
           tab === "bedste"
-            ? `Vinder-bets de næste 24 timer, hvor bet365 eller bwin betaler mindst ${dec(SHARP_MIN_EV * 100, 0)} % mere end Pinnacles fair pris. Og hver dag de mest sandsynlige kuponer.`
+            ? `Det bet med størst chance for at gå hjem i hver kamp de næste 24 timer, ved odds på mindst ${dec(BEDSTE_MIN_ODDS)}. Øverst er det mest sandsynlige.`
             : "De udfald med størst chance for at gå hjem i kampene de næste 24 timer. Øverst er det mest sandsynlige."
         }
       >
@@ -141,12 +142,10 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
           <div className="mt-3 space-y-3 border-l-2 border-accent/40 pl-4">
             {tab === "bedste" && (
               <p className="text-sm leading-relaxed text-ink-2">
-                Forsøg: vinder-bets i kampene de næste 24 timer, hvor bet365 eller bwin betaler mindst {dec(SHARP_MIN_EV * 100, 0)} % mere end Pinnacles odds uden margin (ellers Betfair
-                Exchanges), ved odds {dec(SHARP_MIN_ODDS)}–{dec(SHARP_MAX_ODDS)}. Vi henter odds hver 5.–6. time, så tjek prisen hos bookmakeren, før du spiller. Øverst er den største
-                forskel.
+                For hver kamp de næste 24 timer ser vi på hvem vinder, dobbeltchance, over/under 1,5 og 2,5 mål og begge hold scorer, og vælger det bet, vores model giver størst chance,
+                blandt dem med odds på mindst {dec(BEDSTE_MIN_ODDS)}. Ét bet pr. kamp, sorteret efter chance. Høj chance giver lav odds, så et bet her er ikke det samme som værdi.
               </p>
             )}
-            {tab === "bedste" && <SharpBacktestNote />}
             <p className="text-sm leading-relaxed text-ink-2">Procenterne bliver mere præcise, når holdopstillingen er meldt, typisk en time før kampstart.</p>
           </div>
         </details>
@@ -172,31 +171,6 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
           {tab === "bedste" && <LiveNow type={tab} initial={live} source={liveSource} />}
 
           {tab === "bedste" && (
-            <CouponCard
-              coupons={coupons(couponPool)}
-              lead={
-                noSharp ? (
-                  <Notice className="mt-3">
-                    <details className="group">
-                      <summary className="cursor-pointer list-none">
-                        <span className="font-semibold text-ink">{scope.matches ? "Ingen prisforskelle lige nu." : "Ingen kampe de næste 24 timer."}</span>{" "}
-                        {scope.matches ? "Her er dagens mest sandsynlige kuponer. " : ""}
-                        <span className="whitespace-nowrap font-semibold text-accent underline-offset-2 group-hover:underline">
-                          <span className="group-open:hidden">Hvorfor?</span>
-                          <span className="hidden group-open:inline">Skjul</span>
-                        </span>
-                      </summary>
-                      <p className="mt-2 text-ink-2">{sharpEmptyReason()}</p>
-                    </details>
-                  </Notice>
-                ) : null
-              }
-            />
-          )}
-
-          {tab === "bedste" && overview("lg:hidden")}
-
-          {tab === "bedste" && (
             <GoodSingles
               rows={picks.slice(0, 5).map((p) => ({
                 key: p.row.selectionId,
@@ -209,9 +183,24 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
                 odds: p.row.bestOdds,
                 value: p.value,
               }))}
-              subtitle="Største prisforskel først"
+              subtitle="Højest chance først"
             />
           )}
+
+          {tab === "bedste" && (
+            <CouponCard
+              coupons={coupons(couponPool)}
+              lead={
+                noBets ? (
+                  <Notice className="mt-3">
+                    <span className="font-semibold text-ink">{scope.matches ? `Ingen bets med odds på mindst ${dec(BEDSTE_MIN_ODDS)} lige nu.` : "Ingen kampe de næste 24 timer."}</span>
+                  </Notice>
+                ) : null
+              }
+            />
+          )}
+
+          {tab === "bedste" && overview("lg:hidden")}
 
           <div className="lg:hidden">
             <HitRates learning={allLearning} labels={stripTabs} current={tab} period={stripPeriod} source={t.dataLabel} versions={RECORD_VERSIONS} returns={new Map(TABS.map((x) => [x.id, summarise(history.filter((h) => h.category === x.id))]))} />
@@ -242,8 +231,7 @@ export default async function PicksPage({ searchParams }: { searchParams: Search
 
           <MyCoupon canPlay={ACCOUNTS_ENABLED && !!user} />
 
-          {/* Bedste bets' chance is the reference price without margin and is never adjusted. */}
-          {learned && tab !== "straffe" && tab !== "bedste" && <LearningNote l={learned} />}
+          {learned && tab !== "straffe" && <LearningNote l={learned} />}
 
           <section aria-labelledby="metode" className="rounded-sheet border border-line bg-surface p-6 sm:p-8">
             <h2 id="metode" className="eyebrow mb-6">

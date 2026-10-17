@@ -1,5 +1,3 @@
-import { SHARP_VERSION } from "@/lib/sharp";
-
 /** Danish names of the bet types, keyed by the category each recorded pick counts under (shownCategory). */
 export const CATEGORY_LABEL: Record<string, string> = {
   bedste: "Bedste bets",
@@ -19,15 +17,18 @@ export const CATEGORY_LABEL: Record<string, string> = {
 export const TAB_EXTRA_LABEL = { skud: "Skud på mål", straffe: "Straffespark" };
 
 /**
- * Dagens bedste bets has followed three rules: the most probable bet, then the prediction engine's value bets
- * (2026-10-06), then the Pinnacle price comparison (sharp.ts). Its picks are recorded under an id that names the
- * rule, so the results board, the learning and the live scores for "bedste" only count the current rule's bets.
+ * Dagens bedste bets has followed four rules: the most probable bet, then the prediction engine's value bets
+ * (2026-10-06), then the Pinnacle price comparison (sharp.ts, 2026-10-07), and now the highest chance at odds of at
+ * least 1,25 (2026-10-17). Its picks are recorded under an id that names the rule, so the results board, the learning
+ * and the live scores for "bedste" only count the current rule's bets.
  */
-export const BEDSTE_RECORD = `bedste-${SHARP_VERSION}`;
+/** The rule behind Dagens bedste bets now (bestChancePicks in picks.ts). */
+export const BEDSTE_VERSION = "hoejeste-chance-v1";
+export const BEDSTE_RECORD = `bedste-${BEDSTE_VERSION}`;
 /** Earlier rules' "bedste" picks: kept in the database, shown nowhere. */
 const BEDSTE_EARLIER = "bedste-tidligere";
 
 /** The category a pick is recorded under. */
 export const recordedCategory = (category: string) => (category === "bedste" ? BEDSTE_RECORD : category);
 /** The category a recorded pick counts under. */
-export const shownCategory = (recorded: string) => (recorded === BEDSTE_RECORD ? "bedste" : recorded === "bedste" ? BEDSTE_EARLIER : recorded);
+export const shownCategory = (recorded: string) => (recorded === BEDSTE_RECORD ? "bedste" : recorded === "bedste" || recorded.startsWith("bedste-") ? BEDSTE_EARLIER : recorded);
