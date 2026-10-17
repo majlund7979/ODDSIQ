@@ -112,7 +112,7 @@ describe("morning e-mail", () => {
   });
   it("tells no matches apart from no bets", () => {
     expect(morningHtml([], 0, "https://x", "src", 0)).toContain("ingen kampe de næste 24 timer");
-    expect(morningHtml([], 0, "https://x", "src", 4)).toContain("har odds på mindst 1,25");
+    expect(morningHtml([], 0, "https://x", "src", 4)).toContain("har odds på mindst 1,40");
   });
   it("keeps the mail's wording and markup", () => {
     // 07.00 in Copenhagen; the second match is tomorrow.
@@ -126,12 +126,12 @@ describe("morning e-mail", () => {
     ];
     expect(morningSubject(picks, now)).toMatchInlineSnapshot(`"Dagens top 3, torsdag 8. oktober"`);
     expect(morningText([], now, "https://oddsanalyse.dk", "DEMO DATA", 4)).toMatchInlineSnapshot(`
-      "Ingen bets i dag: intet bet i kampene de næste 24 timer har odds på mindst 1,25.
+      "Ingen bets i dag: intet bet i kampene de næste 24 timer har odds på mindst 1,40.
 
       https://oddsanalyse.dk/picks"
     `);
     expect(morningText(picks, now, "https://oddsanalyse.dk", "DEMO DATA")).toMatchInlineSnapshot(`
-      "De bets med størst chance for at gå hjem i kampene de næste 24 timer, ét pr. kamp, ved odds på mindst 1,25.
+      "De bets med størst chance for at gå hjem i kampene de næste 24 timer, ét pr. kamp, ved odds på mindst 1,40.
 
       1. Arsenal vinder (72 %, lav risiko)
          Arsenal – Chelsea · Premier League · kl. 20.45
@@ -156,7 +156,7 @@ describe("morning e-mail", () => {
       <div style="max-width:560px;margin:0 auto;padding:24px 20px">
       <div style="font-size:13px;font-weight:700;letter-spacing:1px">Oddsanalyse</div>
       <h1 style="font-size:22px;margin:8px 0 4px">Dagens top 3</h1>
-      <p style="margin:0 0 12px;color:#3d3c38;font-size:14px">De bets med størst chance for at gå hjem i kampene de næste 24 timer, ét pr. kamp, ved odds på mindst 1,25.</p>
+      <p style="margin:0 0 12px;color:#3d3c38;font-size:14px">De bets med størst chance for at gå hjem i kampene de næste 24 timer, ét pr. kamp, ved odds på mindst 1,40.</p>
       <table style="width:100%;border-collapse:collapse"><tr><td style="padding:14px 0;border-top:1px solid #e5e5e0">
       <div style="font-size:12px;color:#77756f">1 · Premier League · kl. 20.45</div>
       <div style="font-size:16px;font-weight:600;margin:4px 0">Arsenal – Chelsea</div>
@@ -195,7 +195,7 @@ describe("morning e-mail", () => {
       <div style="max-width:560px;margin:0 auto;padding:24px 20px">
       <div style="font-size:13px;font-weight:700;letter-spacing:1px">Oddsanalyse</div>
       <h1 style="font-size:22px;margin:8px 0 4px">Dagens top </h1>
-      <p style="margin:0 0 12px;color:#3d3c38;font-size:14px">De bets med størst chance for at gå hjem i kampene de næste 24 timer, ét pr. kamp, ved odds på mindst 1,25.</p>
+      <p style="margin:0 0 12px;color:#3d3c38;font-size:14px">De bets med størst chance for at gå hjem i kampene de næste 24 timer, ét pr. kamp, ved odds på mindst 1,40.</p>
       <p>Ingen bets i dag: der er ingen kampe de næste 24 timer.</p>
       <p style="margin:20px 0"><a href="https://oddsanalyse.dk/picks" style="background:#1f6fd1;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">Se hele analysen</a></p>
       <p style="font-size:12px;color:#77756f;line-height:1.5">Procenterne er skøn, ikke garantier. Spil kun for penge, du har råd til at tabe. 18+. Kilde: DEMO DATA.<br>
