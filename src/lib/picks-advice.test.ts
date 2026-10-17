@@ -52,7 +52,7 @@ describe("odds movement", () => {
   it("states the fact and keeps possible reasons separate", () => {
     const m = oddsMove(-0.1, 2, 1.8)!;
     expect(m.direction).toBe("down");
-    expect(m.fact).toContain("faldet 10 %");
+    expect(m.fact).toContain("faldet 10\u00a0%");
     expect(m.maybe).toContain("Vi ved ikke");
   });
 });

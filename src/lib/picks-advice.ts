@@ -51,7 +51,7 @@ export const kelly = (p: number, odds: number) => (p * odds - 1) / (odds - 1);
  * Without bookmaker odds, falls back to 3 / 2 / 1 % by risk level.
  */
 export function stakeAdvice(p: number, odds: number | null): StakeAdvice {
-  const pct = (x: number) => `${String(Math.round(x * 1000) / 10).replace(".", ",")} %`;
+  const pct = (x: number) => `${String(Math.round(x * 1000) / 10).replace(".", ",")}\u00a0%`;
   if (!odds || odds <= 1) {
     const risk = riskOf(p);
     const base = STAKE_SHARE[risk.level];
@@ -100,7 +100,7 @@ export interface OddsMove {
 export function oddsMove(movement: number, from: number, to: number): OddsMove | null {
   if (!Number.isFinite(movement) || Math.abs(movement) < MOVE_MIN) return null;
   const size = Math.abs(movement);
-  const pct = `${Math.round(size * 100)} %`;
+  const pct = `${Math.round(size * 100)}\u00a0%`;
   const dec = (x: number) => x.toFixed(2).replace(".", ",");
   if (movement < 0)
     return {

@@ -8,17 +8,19 @@ import type { Leg } from "./coupon-store";
 import { SaveBet } from "./SaveBet";
 import { StakeHint } from "./StakeHint";
 
-const RISK_TONE: Record<RiskLevel, { pill: string; dot: string }> = {
-  green: { pill: "border-good/40 bg-good/10 text-good", dot: "bg-good" },
-  yellow: { pill: "border-warning/40 bg-warning/10 text-warning", dot: "bg-warning" },
-  red: { pill: "border-critical/40 bg-critical/10 text-critical", dot: "bg-critical" },
-};
+// Neutral on purpose: green and red mean won and lost on this site, so the risk level is told by the number of dots.
+const RISK_DOTS: Record<RiskLevel, number> = { green: 1, yellow: 2, red: 3 };
 
 export function RiskBadge({ p, className = "" }: { p: number; className?: string }) {
   const r = riskOf(p);
+  const dots = RISK_DOTS[r.level];
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold leading-4 ${RISK_TONE[r.level].pill} ${className}`}>
-      <span className={`h-2 w-2 rounded-full ${RISK_TONE[r.level].dot}`} aria-hidden />
+    <span className={`inline-flex items-center gap-1.5 rounded-full border border-line-strong px-2 py-0.5 text-xs font-semibold leading-4 text-ink-2 ${className}`}>
+      <span className="flex gap-0.5" aria-hidden>
+        {[1, 2, 3].map((k) => (
+          <span key={k} className={`h-1.5 w-1.5 rounded-full ${k <= dots ? "bg-ink-2" : "bg-surface-3"}`} />
+        ))}
+      </span>
       {r.label}
     </span>
   );
@@ -33,7 +35,7 @@ export function OddsMoveTag({ row }: { row: MarketRow }) {
       title={`${m.fact} ${m.maybe}`}
       className={`num inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold leading-4 ${m.direction === "down" ? "border-accent/40 text-accent" : "border-line-strong text-ink-2"}`}
     >
-      {m.direction === "down" ? "↓" : "↑"} odds {Math.round(m.size * 100)} %
+      {m.direction === "down" ? "↓" : "↑"} odds {Math.round(m.size * 100)}&nbsp;%
     </span>
   );
 }
@@ -48,11 +50,25 @@ export interface SaveTarget {
 }
 
 /** Stake suggestion, "+ Kupon" and the "Gem bet" button. */
-export function AdviceRow({ p, odds, eventId, save, leg }: { p: number; odds: number | null; eventId: string; save: SaveTarget | null; leg?: Omit<Leg, "probability" | "odds" | "eventId"> }) {
+export function AdviceRow({
+  p,
+  odds,
+  eventId,
+  save,
+  leg,
+  showNote = true,
+}: {
+  p: number;
+  odds: number | null;
+  eventId: string;
+  save: SaveTarget | null;
+  leg?: Omit<Leg, "probability" | "odds" | "eventId">;
+  showNote?: boolean;
+}) {
   const s = stakeAdvice(p, odds);
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line px-5 py-3">
-      <StakeHint share={s.share} note={s.note} reason={s.reason} />
+      <StakeHint share={s.share} note={showNote ? s.note : null} reason={s.reason} />
       {leg && (
         <span className="ml-auto">
           <AddLeg leg={{ ...leg, eventId, probability: p, odds, category: save?.category }} />

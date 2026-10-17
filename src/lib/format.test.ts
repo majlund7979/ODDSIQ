@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capitalize, clock, dateDa, dayKey, dec, krFromUnits, pct, pctOrDash, pctTight, shortDate, signedPct, TZ } from "./format";
+import { capitalize, clock, dateDa, dayKey, dec, krFromUnits, pct, pctOrDash, shortDate, signedPct, TZ } from "./format";
 
 describe("Danish numbers", () => {
   it("uses a decimal comma", () => {
@@ -9,18 +9,17 @@ describe("Danish numbers", () => {
   });
 
   it("rounds percentages and keeps the space before %", () => {
-    expect(pct(0.567)).toBe("57 %");
-    expect(pct(0)).toBe("0 %");
-    expect(pctOrDash(0.567)).toBe("57 %");
+    expect(pct(0.567)).toBe("57\u00a0%");
+    expect(pct(0)).toBe("0\u00a0%");
+    expect(pctOrDash(0.567)).toBe("57\u00a0%");
     expect(pctOrDash(NaN)).toBe("—");
     expect(pctOrDash(Infinity)).toBe("—");
-    expect(pctTight(0.567)).toBe("57%");
   });
 
   it("signs percentages with a real minus", () => {
-    expect(signedPct(-0.034)).toBe("−3,4 %");
-    expect(signedPct(0)).toBe("+0,0 %");
-    expect(signedPct(0.1234, 2)).toBe("+12,34 %");
+    expect(signedPct(-0.034)).toBe("−3,4\u00a0%");
+    expect(signedPct(0)).toBe("+0,0\u00a0%");
+    expect(signedPct(0.1234, 2)).toBe("+12,34\u00a0%");
   });
 
   it("turns units staked at 100 kr into kroner", () => {

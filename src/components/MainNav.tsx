@@ -88,7 +88,7 @@ export function TopNav({ items }: { items: NavItem[] }) {
 export function BottomNav({ items }: { items: NavItem[] }) {
   const active = activeHref(usePathname(), items);
   return (
-    <nav aria-label="Menu" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-page/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl backdrop-saturate-150 xl:hidden">
+    <nav aria-label="Menu" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-page pb-[env(safe-area-inset-bottom)] xl:hidden">
       <div className="mx-auto flex max-w-md">
         {items
           .filter((i) => i.mobile !== false)

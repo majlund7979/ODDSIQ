@@ -14,18 +14,18 @@ const COUPON_TITLE: Record<Coupon["kind"], (n: number) => string> = {
 const COUPON_NOTE: Record<Coupon["kind"], string> = {
   odds: `De mest sandsynlige bets med samlet odds mindst ${dec(COUPON_MIN_ODDS, 1)}`,
   chance: "Det mest sandsynlige bet i hver af dagens mest sandsynlige kampe",
-  rocket: `Det mest sandsynlige bet i hver kamp, alle med mindst ${Math.round(ROCKET_MIN_CHANCE * 100)} % chance`,
+  rocket: `Det mest sandsynlige bet i hver kamp, alle med mindst ${Math.round(ROCKET_MIN_CHANCE * 100)}\u00a0% chance`,
   goals: "Dagens mest sandsynlige over 1,5 mål",
 };
 
-const KIND_LABEL: Record<Coupon["kind"], string> = { odds: "Odds", chance: "Chance", rocket: "Raketten", goals: "Mål" };
+const KIND_LABEL: Record<Coupon["kind"], string> = { odds: "Odds", chance: "Chance", rocket: "Flere kampe", goals: "Mål" };
 
 /** The chance that every bet goes in, as a ring: a figure you can read at a glance without a second big number. */
 function ChanceRing({ p }: { p: number }) {
   const r = 22;
   const c = 2 * Math.PI * r;
   return (
-    <div className="relative h-[60px] w-[60px] shrink-0" role="img" aria-label={`${Math.round(p * 100)} % chance for at alle går hjem`}>
+    <div className="relative h-[60px] w-[60px] shrink-0" role="img" aria-label={`${Math.round(p * 100)}\u00a0% chance for at alle går hjem`}>
       <svg viewBox="0 0 52 52" className="h-full w-full -rotate-90" aria-hidden>
         <circle cx="26" cy="26" r={r} fill="none" stroke="var(--surface-3)" strokeWidth="4" />
         <circle cx="26" cy="26" r={r} fill="none" stroke="var(--text)" strokeWidth="4" strokeLinecap="round" strokeDasharray={`${c * p} ${c}`} className="coupon-ring" />
@@ -51,13 +51,13 @@ export function CouponCard({ coupons, lead }: { coupons: Coupon[]; lead?: React.
       {coupons.length === 0 ? (
         <EmptyState title="Ingen kupon i dag" text="Der er ikke nok kampe i dag til en kupon. Kig forbi igen senere." />
       ) : (
-        <div className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className={`grid items-stretch gap-4 md:grid-cols-2 ${coupons.length === 3 ? "xl:grid-cols-3" : ""}`}>
           {coupons.map((c, i) => (
             <article
               key={c.kind}
               style={{ ["--i" as string]: i }}
               className={`rise group relative flex flex-col rounded-card border border-line-strong bg-surface transition-[border-color,translate,box-shadow] duration-300 hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-[var(--shadow-pop)] ${
-                coupons.length % 2 === 1 && i === coupons.length - 1 ? "md:col-span-2 xl:col-span-1" : ""
+                coupons.length % 2 === 1 && i === coupons.length - 1 ? `md:col-span-2 ${coupons.length === 3 ? "xl:col-span-1" : ""}` : ""
               }`}
             >
               <header className="px-5 pt-5">
