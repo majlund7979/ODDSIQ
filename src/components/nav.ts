@@ -12,11 +12,11 @@ export interface NavItem {
 export const SIMPLE_NAV: NavItem[] = [
   { href: "/picks", label: "Bets", short: "Bets", icon: "bets" },
   { href: "/picks/spillere", label: "Søg hold", short: "Hold", icon: "search" },
-  { href: "/tips", label: "Tips", short: "Tips", icon: "tips" },
+  // Vennerligaen holds the tipping game (1, X, 2) as well as the friends' bets; /tips redirects there.
+  { href: "/picks/liga", label: "Vennerligaen", short: "Liga", icon: "league" },
   { href: "/picks/resultater", label: "Resultater", short: "Resultater", icon: "results" },
   // Five is the most a phone's tab bar holds comfortably; on phones the news sit behind an icon in the header.
   { href: "/nyheder", label: "Nyheder", short: "Nyheder", icon: "news", mobile: false },
-  { href: "/picks/liga", label: "Liga", short: "Liga", icon: "league" },
 ];
 
 export const FRIENDS_NAV: NavItem = { href: "/venner", label: "Venner", short: "Venner", icon: "friends", mobile: false };

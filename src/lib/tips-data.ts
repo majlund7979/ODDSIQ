@@ -1,5 +1,5 @@
 // Loads the tipping game for a page: the matches the page shows and every stored tip
-// (plus the demo friends' tips in demo mode). Shared by /tips and Vennerligaen.
+// (plus the demo friends' tips in demo mode). Used by Vennerligaen.
 
 import { ACCOUNTS_ENABLED } from "@/lib/auth/session";
 import { DEMO_MODE } from "@/lib/data";
@@ -9,7 +9,7 @@ import { readTips } from "@/lib/real/tips";
 import type { Terminal } from "@/lib/terminal";
 import { MODEL_ID, MODEL_NAME, modelTips, weekMatches, type Tip, type TipMatch } from "@/lib/tips";
 
-/** `settle: false` skips settling older tips, for a page that shows no standings (/tips). */
+/** `settle: false` skips settling older tips, for a page that shows no standings. */
 export async function loadTips(t: Terminal, { settle = true }: { settle?: boolean } = {}): Promise<{ all: TipMatch[]; tips: Tip[]; source: string }> {
   const all = weekMatches(t.marketRows(), { start: -Infinity, end: Infinity });
   const known = new Map(all.map((m) => [m.eventId, m.result]));

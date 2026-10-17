@@ -13,7 +13,7 @@ import { isSide, weekMatches } from "@/lib/tips";
 /** Saves the signed-in friend's 1, X or 2 on a match that has not kicked off; the error says why it was not saved. */
 export async function setTip(formData: FormData): Promise<{ error?: string }> {
   const user = ACCOUNTS_ENABLED ? await currentUser() : null;
-  if (!user || !(await isInvited(user.email))) redirect("/login?next=/tips");
+  if (!user || !(await isInvited(user.email))) redirect("/login?next=/picks/liga");
   const pick = formData.get("pick");
   const eventId = String(formData.get("eventId") ?? "");
   if (!isSide(pick)) return {};
@@ -21,7 +21,7 @@ export async function setTip(formData: FormData): Promise<{ error?: string }> {
     const t = await terminal();
     const match = weekMatches(t.marketRows(), { start: t.now, end: Infinity }).find((m) => m.eventId === eventId);
     if (match) await saveTip(db(), user.id, match, pick, Date.now());
-    revalidatePath("/tips");
+    revalidatePath("/picks/liga");
     return match ? {} : { error: "Kampen er gået i gang." };
   } catch (e) {
     unstable_rethrow(e);

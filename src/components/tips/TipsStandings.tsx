@@ -1,5 +1,5 @@
 // The tipping game's standings: the week's winner, this week's table, fun stats
-// and the all-time table. Shown in Vennerligaen; the tips themselves are on /tips.
+// and the all-time table. Shown on the "Stilling" tab of Vennerligaen.
 
 import { shortDate } from "@/lib/format";
 import { funStats, MODEL_ID, standings, weekById, weekWinners, type Standing, type Tip, type Week } from "@/lib/tips";
@@ -97,12 +97,12 @@ export function TipsStandings({ tips, modelWeek, week, previous, now, me, source
                 </li>
               ))}
             </ul>
-            <p className="border-t border-line px-4 py-2.5 text-xs text-muted">Historisk, alle afgjorte tips siden spillet startede · {source}.</p>
+            <p className="border-t border-line px-4 py-2.5 text-xs text-muted">Historisk, alle afgjorte tips i sæsonen · {source}.</p>
           </section>
         )}
 
         <section className="overflow-hidden rounded-card border border-line bg-surface">
-          <h3 className="border-b border-line px-4 py-3.5 text-md font-semibold">Tipsspillet, hele tiden</h3>
+          <h3 className="border-b border-line px-4 py-3.5 text-md font-semibold">Tipsspillet, hele sæsonen</h3>
           <Table rows={allTime} me={me} empty="Ingen tips endnu." />
           {winners.length > 0 && (
             <p className="border-t border-line px-4 py-2.5 text-xs text-muted">
